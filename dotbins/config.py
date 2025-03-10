@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -11,6 +12,7 @@ import yaml
 from rich.console import Console
 
 console = Console()
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -28,6 +30,38 @@ class DotbinsConfig:
     tools: dict[str, Any] = field(default_factory=dict)
     arch_maps: dict[str, dict[str, str]] = field(default_factory=dict)
     platform_maps: dict[str, str] = field(default_factory=dict)
+
+    def validate(self) -> None:
+        """Validate the configuration."""
+        # Validate tool configurations
+        for tool_name, tool_config in self.tools.items():
+            self._validate_tool_config(tool_name, tool_config)
+
+    def _validate_tool_config(
+        self,
+        tool_name: str,
+        tool_config: dict[str, Any],
+    ) -> None:
+        """Validate a single tool configuration."""
+        required_fields = ["repo", "binary_name"]
+        for _field in required_fields:
+            if _field not in tool_config:
+                logger.warning(f"Tool {tool_name} is missing required field '{_field}'")
+
+        # Check that either asset_pattern or asset_patterns is defined
+        if "asset_pattern" not in tool_config and "asset_patterns" not in tool_config:
+            logger.warning(
+                f"Tool {tool_name} has neither 'asset_pattern' nor 'asset_patterns' defined",
+            )
+
+        # Validate asset_patterns if present
+        if "asset_patterns" in tool_config:
+            patterns = tool_config["asset_patterns"]
+            for platform in self.platforms:
+                if platform not in patterns:
+                    logger.warning(
+                        f"Tool {tool_name} is missing asset pattern for platform '{platform}'",
+                    )
 
     @classmethod
     def load_from_file(cls, config_path: str | None = None) -> DotbinsConfig:
@@ -49,10 +83,21 @@ class DotbinsConfig:
                     os.path.expanduser(config_data["tools_dir"]),
                 )
 
-            return cls(**config_data)
+            config = cls(**config_data)
+            config.validate()
+            return config
 
-        except Exception:  # noqa: BLE001
+        except FileNotFoundError:
+            logger.warning(f"Configuration file not found: {config_path}")
+            return cls()
+        except yaml.YAMLError:
+            logger.exception(f"Invalid YAML in configuration file: {config_path}")
+            console.print(
+                "❌ [bold red]Error loading configuration - invalid YAML[/bold red]",
+            )
+            return cls()
+        except Exception as e:
+            logger.error(f"Error loading configuration: {e}", exc_info=True)
             console.print("❌ [bold red]Error loading configuration[/bold red]")
             console.print_exception()
-            # Return default configuration
             return cls()

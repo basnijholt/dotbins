@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,7 @@ from .utils import print_shell_setup, setup_logging
 
 # Initialize rich console
 console = Console()
+logger = logging.getLogger(__name__)
 
 
 def list_tools(_args: Any, config: DotbinsConfig) -> None:
@@ -81,8 +83,8 @@ def initialize(_args: Any = None, config: DotbinsConfig | None = None) -> None:
     print_shell_setup()
 
 
-def main() -> None:
-    """Main function to parse arguments and execute commands."""
+def create_parser() -> argparse.ArgumentParser:
+    """Create command-line argument parser."""
     parser = argparse.ArgumentParser(
         description="dotbins - Manage CLI tool binaries in your dotfiles repository",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -158,27 +160,39 @@ def main() -> None:
     analyze_parser.add_argument("--name", help="Name to use for the tool")
     analyze_parser.set_defaults(func=analyze_tool)
 
+    return parser
+
+
+def main() -> None:
+    """Main function to parse arguments and execute commands."""
+    parser = create_parser()
     args = parser.parse_args()
 
     # Setup logging
     setup_logging(args.verbose)
 
-    # Create config
-    config = DotbinsConfig.load_from_file(args.config_file)
+    try:
+        # Create config
+        config = DotbinsConfig.load_from_file(args.config_file)
 
-    # Override tools directory if specified
-    if args.tools_dir:
-        config.tools_dir = Path(args.tools_dir)
+        # Override tools directory if specified
+        if args.tools_dir:
+            config.tools_dir = Path(args.tools_dir)
 
-    # Execute command or show help
-    if hasattr(args, "func"):
-        if args.func == analyze_tool:
-            # analyze_tool doesn't need the config
-            args.func(args)
+        # Execute command or show help
+        if hasattr(args, "func"):
+            if args.func == analyze_tool:
+                # analyze_tool doesn't need the config
+                args.func(args)
+            else:
+                args.func(args, config)
         else:
-            args.func(args, config)
-    else:
-        parser.print_help()
+            parser.print_help()
+
+    except Exception as e:  # noqa: BLE001
+        console.print(f"❌ [bold red]Error: {e!s}[/bold red]")
+        console.print_exception()
+        sys.exit(1)
 
 
 if __name__ == "__main__":

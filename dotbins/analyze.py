@@ -7,6 +7,7 @@ import os.path
 import re
 import shutil
 import tempfile
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import yaml
@@ -28,9 +29,6 @@ def generate_tool_configuration(
     release: dict | None = None,
 ) -> dict:
     """Analyze GitHub releases and generate tool configuration.
-
-    This is the core functionality of the analyze_tool command,
-    without the output formatting.
 
     Parameters
     ----------
@@ -86,8 +84,7 @@ def analyze_tool(args: Any) -> None:
         # Extract tool name from repo or use provided name
         tool_name = args.name or repo.split("/")[-1]
 
-        # Generate tool configuration using the refactored function
-        # Pass the already fetched release to avoid duplicate API calls
+        # Generate tool configuration
         tool_config = generate_tool_configuration(repo, tool_name, release)
 
         # Output YAML
@@ -135,49 +132,44 @@ def print_assets_info(assets: list[dict]) -> None:
 
 def get_platform_assets(assets: list[dict], platform: str) -> list[dict]:
     """Filter assets by platform."""
-    if platform == "linux":
-        return [a for a in assets if "linux" in a["name"].lower()]
-    if platform == "macos":
-        return [
-            a
-            for a in assets
-            if "darwin" in a["name"].lower() or "macos" in a["name"].lower()
-        ]
-    return []
+    platform_keywords = {"linux": ["linux"], "macos": ["darwin", "macos"]}
+
+    keywords = platform_keywords.get(platform, [])
+    if not keywords:
+        return []
+
+    return [a for a in assets if any(kw in a["name"].lower() for kw in keywords)]
 
 
 def get_arch_assets(assets: list[dict], arch: str) -> list[dict]:
     """Filter assets by architecture."""
-    if arch == "amd64":
-        return [
-            a
-            for a in assets
-            if "amd64" in a["name"].lower() or "x86_64" in a["name"].lower()
-        ]
-    if arch == "arm64":
-        return [
-            a
-            for a in assets
-            if "arm64" in a["name"].lower() or "aarch64" in a["name"].lower()
-        ]
-    return []
+    arch_keywords = {"amd64": ["amd64", "x86_64"], "arm64": ["arm64", "aarch64"]}
+
+    keywords = arch_keywords.get(arch, [])
+    if not keywords:
+        return []
+
+    return [a for a in assets if any(kw in a["name"].lower() for kw in keywords)]
 
 
 def find_sample_asset(assets: list[dict]) -> dict | None:
     """Find a suitable sample asset for analysis."""
-    # Try to find Linux x86_64 asset first
+    # Priority: Linux x86_64 compressed files, then macOS x86_64 compressed files
+    compressed_extensions = (".tar.gz", ".tgz", ".zip")
+
+    # Try Linux x86_64 first
     linux_assets = get_platform_assets(assets, "linux")
     for asset in linux_assets:
-        if "x86_64" in asset["name"] and asset["name"].endswith(
-            (".tar.gz", ".tgz", ".zip"),
+        if "x86_64" in asset["name"] and any(
+            asset["name"].endswith(ext) for ext in compressed_extensions
         ):
             return asset
 
-    # If no Linux asset, try macOS
+    # Then try macOS
     macos_assets = get_platform_assets(assets, "macos")
     for asset in macos_assets:
-        if "x86_64" in asset["name"] and asset["name"].endswith(
-            (".tar.gz", ".tgz", ".zip"),
+        if "x86_64" in asset["name"] and any(
+            asset["name"].endswith(ext) for ext in compressed_extensions
         ):
             return asset
 
@@ -192,7 +184,6 @@ def download_and_find_binary(asset: dict, tool_name: str) -> str | None:
 
     temp_path = None
     temp_dir = None
-    binary_path = None
 
     try:
         with tempfile.NamedTemporaryFile(
@@ -247,7 +238,7 @@ def determine_binary_path(executables: list[str], tool_name: str) -> str | None:
     if not executables:
         return None
 
-    # First try to find an exact name match
+    # Try to find an exact name match first
     for exe in executables:
         base_name = os.path.basename(exe)
         if base_name.lower() == tool_name.lower():
@@ -319,17 +310,19 @@ def generate_platform_specific_patterns(release: dict) -> dict:
     amd64_assets = get_arch_assets(assets, "amd64")
 
     patterns = {"linux": "?", "macos": "?"}
+    version = release["tag_name"].lstrip("v")
 
     # Find pattern for Linux
     if linux_assets and amd64_assets:
         for asset in linux_assets:
             if "x86_64" in asset["name"] or "amd64" in asset["name"]:
                 pattern = asset["name"]
+                # Replace architecture and version placeholders
                 if "x86_64" in pattern:
                     pattern = pattern.replace("x86_64", "{arch}")
                 elif "amd64" in pattern:
                     pattern = pattern.replace("amd64", "{arch}")
-                version = release["tag_name"].lstrip("v")
+
                 if version in pattern:
                     pattern = pattern.replace(version, "{version}")
                 patterns["linux"] = pattern
@@ -340,11 +333,12 @@ def generate_platform_specific_patterns(release: dict) -> dict:
         for asset in macos_assets:
             if "x86_64" in asset["name"] or "amd64" in asset["name"]:
                 pattern = asset["name"]
+                # Replace architecture and version placeholders
                 if "x86_64" in pattern:
                     pattern = pattern.replace("x86_64", "{arch}")
                 elif "amd64" in pattern:
                     pattern = pattern.replace("amd64", "{arch}")
-                version = release["tag_name"].lstrip("v")
+
                 if version in pattern:
                     pattern = pattern.replace(version, "{version}")
                 patterns["macos"] = pattern
@@ -360,14 +354,17 @@ def generate_single_pattern(release: dict) -> str:
 
     asset_name = release["assets"][0]["name"]
     pattern = asset_name
+    version = release["tag_name"].lstrip("v")
 
     # Replace version if present
-    version = release["tag_name"].lstrip("v")
     if version in pattern:
         pattern = pattern.replace(version, "{version}")
 
+    # Replace platform if present
     if "darwin" in pattern.lower():
         pattern = re.sub(r"(?i)darwin", "{platform}", pattern)
+    elif "linux" in pattern.lower():
+        pattern = re.sub(r"(?i)linux", "{platform}", pattern)
 
     # Replace architecture if present
     if "x86_64" in pattern:
