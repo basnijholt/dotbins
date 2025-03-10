@@ -101,7 +101,124 @@ You'll also need to create or update your `tools.yaml` configuration file either
 
 ## :gear: Configuration
 
-dotbins uses a YAML configuration file (`tools.yaml`) to define the tools and settings:
+dotbins uses a YAML configuration file (`tools.yaml`) to define the tools and settings.
+
+### Basic Configuration
+
+```yaml
+# Basic settings
+dotfiles_dir: ~/.dotfiles
+tools_dir: ~/.dotfiles/tools
+
+# Target platforms and architectures
+platforms:
+  - linux
+  - macos
+architectures:
+  - amd64
+  - arm64
+
+# Tool definitions
+tools:
+  # Tool configuration entries
+```
+
+### Tool Configuration
+
+Each tool must be configured with these fields:
+
+```yaml
+tool-name:
+  repo: owner/repo                 # Required: GitHub repository
+  extract_binary: true             # Whether to extract from archive (true) or direct download (false)
+  binary_name: executable-name     # Name of the resulting binary(ies)
+  binary_path: path/to/binary      # Path to the binary within the archive
+  asset_patterns:                  # Required: Asset patterns for each platform
+    linux: pattern-for-linux.tar.gz
+    macos: pattern-for-macos.tar.gz
+```
+
+### Platform and Architecture Mapping
+
+If the tool uses different naming for platforms or architectures:
+
+```yaml
+tool-name:
+  # Basic fields...
+  platform_map:                    # Optional: Platform name mapping
+    macos: darwin                  # Converts "macos" to "darwin" in patterns
+  arch_map:                        # Optional: Architecture name mapping
+    amd64: x86_64                  # Converts "amd64" to "x86_64" in patterns
+    arm64: aarch64                 # Converts "arm64" to "aarch64" in patterns
+```
+
+### Pattern Variables
+
+In asset patterns, you can use these variables:
+- `{version}` - Release version (without 'v' prefix)
+- `{platform}` - Platform name (after applying platform_map)
+- `{arch}` - Architecture name (after applying arch_map)
+
+### Multiple Binaries
+
+For tools that provide multiple binaries:
+
+```yaml
+tool-name:
+  # Other fields...
+  binary_name: [main-binary, additional-binary]
+  binary_path: [path/to/main, path/to/additional]
+```
+
+### Configuration Examples
+
+#### Standard Tool
+
+```yaml
+ripgrep:
+  repo: BurntSushi/ripgrep
+  extract_binary: true
+  binary_name: rg
+  binary_path: rg
+  asset_patterns:
+    linux: ripgrep-{version}-x86_64-unknown-linux-musl.tar.gz
+    macos: ripgrep-{version}-x86_64-apple-darwin.tar.gz
+  arch_map:
+    amd64: x86_64
+    arm64: aarch64
+```
+
+#### Tool with Multiple Binaries
+
+```yaml
+uv:
+  repo: astral-sh/uv
+  extract_binary: true
+  binary_name: [uv, uvx]
+  binary_path: [uv-*/uv, uv-*/uvx]
+  asset_patterns:
+    linux: uv-{arch}-unknown-linux-gnu.tar.gz
+    macos: uv-{arch}-apple-darwin.tar.gz
+  arch_map:
+    amd64: x86_64
+    arm64: aarch64
+```
+
+#### Platform-Specific Tool
+
+```yaml
+linux-only-tool:
+  repo: owner/linux-tool
+  extract_binary: true
+  binary_name: linux-tool
+  binary_path: bin/linux-tool
+  asset_patterns:
+    linux: linux-tool-{version}-{arch}.tar.gz
+    macos: null  # No macOS version available
+```
+
+
+### Full Configuration Example
 
 <!-- CODE:BASH:START -->
 <!-- echo '```yaml' -->
@@ -194,14 +311,6 @@ tools:
 ```
 
 <!-- OUTPUT:END -->
-
-Each tool definition includes:
-- **repo**: GitHub repository in the format owner/repo
-- **extract_binary**: Whether to extract from an archive (true) or download directly (false)
-- **binary_name**: Name of the resulting binary
-- **binary_path**: Path to the binary within the archive
-- **asset_pattern**: Pattern to match the GitHub release asset
-- **platform_map**: Optional mapping between dotbins platform names and the tool's naming
 
 ## :bulb: Examples
 
