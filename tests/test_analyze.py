@@ -202,7 +202,7 @@ def test_generate_single_pattern(mock_release: dict[str, Any]) -> None:
     """Test generating a single asset pattern."""
     pattern = analyze.generate_single_pattern(mock_release)
     # The function should not replace "linux" with "{platform}" for our test
-    assert pattern == "tool-{version}-linux_{arch}.tar.gz"
+    assert pattern == "tool-{version}-{platform}_{arch}.tar.gz"
 
     # Test with empty assets
     empty_release = {"tag_name": "v1.0.0", "assets": []}

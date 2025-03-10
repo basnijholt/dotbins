@@ -330,7 +330,7 @@ def test_extract_from_archive_unknown_type(temp_dir: Path) -> None:
     dest_dir.mkdir()
 
     # Call the function and check for exception
-    with pytest.raises(ValueError, match="Cannot extract archive"):
+    with pytest.raises(ValueError, match="Unsupported archive format"):
         dotbins.download.extract_from_archive(
             archive_path,
             dest_dir,
