@@ -17,9 +17,7 @@ tools:
     extract_binary: true
     binary_name: fzf
     binary_path: fzf
-    asset_patterns:
-      linux: fzf-{version}-linux_{arch}.tar.gz
-      macos: fzf-{version}-darwin_{arch}.tar.gz
+    asset_patterns: fzf-{version}-{platform}_{arch}.tar.gz
     platform_map:
       macos: darwin
 
