@@ -340,7 +340,7 @@ def find_matching_asset(
     asset_pattern = get_asset_pattern(tool_config, tool_platform)
     if not asset_pattern:
         console.print(
-            "⚠️ [yellow]No asset pattern found for this platform[/yellow]",
+            f"⚠️ [yellow]No asset pattern found for platform {tool_platform}[/yellow]",
         )
         return None
 

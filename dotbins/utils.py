@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import logging
 import os
 import sys
@@ -23,6 +24,7 @@ def setup_logging(verbose: bool = False) -> None:  # noqa: FBT001, FBT002
     )
 
 
+@functools.cache
 def get_latest_release(repo: str) -> dict:
     """Get the latest release information from GitHub."""
     url = f"https://api.github.com/repos/{repo}/releases/latest"
