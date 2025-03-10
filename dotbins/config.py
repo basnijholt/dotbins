@@ -48,6 +48,20 @@ class DotbinsConfig:
                     f"⚠️ [yellow]Tool {tool_name} is missing required field '{_field}'[/yellow]",
                 )
 
+        # Check for unknown fields
+        known_fields = {
+            *required_fields,
+            "extract_binary",
+            "asset_patterns",
+            "platform_map",
+            "arch_map",
+        }
+        unknown_fields = set(tool_config.keys()) - known_fields
+        for _field in unknown_fields:
+            console.print(
+                f"⚠️ [yellow]Tool {tool_name} has unknown field '{_field}' that will be ignored[/yellow]",
+            )
+
         # Check for asset_patterns
         if "asset_patterns" not in tool_config:
             console.print(
@@ -88,12 +102,6 @@ class DotbinsConfig:
         ):
             console.print(
                 f"⚠️ [yellow]Tool {tool_name}: 'asset_patterns' must be a string or dictionary[/yellow]",
-            )
-
-        # Warn about legacy format
-        if "asset_pattern" in tool_config:
-            console.print(
-                f"⚠️ [yellow]Tool {tool_name}: 'asset_pattern' is deprecated, use 'asset_patterns' instead[/yellow]",
             )
 
     @classmethod
