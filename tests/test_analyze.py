@@ -281,7 +281,7 @@ def test_analyze_tool(
         "extract_binary": True,
         "binary_name": "tool",
         "binary_path": "bin/tool",
-        "asset_pattern": "test-{version}.tar.gz",
+        "asset_patterns": "test-{version}.tar.gz",
     }
     mock_gen_config.return_value = tool_config
 

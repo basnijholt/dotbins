@@ -90,26 +90,30 @@ def find_matching_asset(
     asset = None
     version = release["tag_name"].lstrip("v")
 
-    # Try asset_patterns first
-    if "asset_patterns" in tool_config and "linux" in tool_config["asset_patterns"]:
-        pattern = tool_config["asset_patterns"]["linux"]
-        if pattern:
+    # Try asset_patterns
+    if "asset_patterns" in tool_config:
+        # If asset_patterns is a dictionary
+        if (
+            isinstance(tool_config["asset_patterns"], dict)
+            and "linux" in tool_config["asset_patterns"]
+        ):
+            pattern = tool_config["asset_patterns"]["linux"]
+            if pattern:
+                search_pattern = pattern.format(
+                    version=version,
+                    platform="linux",
+                    arch="x86_64",
+                )
+                asset = find_asset(release["assets"], search_pattern)
+        # If asset_patterns is a string (global pattern)
+        elif isinstance(tool_config["asset_patterns"], str):
+            pattern = tool_config["asset_patterns"]
             search_pattern = pattern.format(
                 version=version,
                 platform="linux",
                 arch="x86_64",
             )
             asset = find_asset(release["assets"], search_pattern)
-
-    # Try asset_pattern if patterns didn't work
-    if not asset and "asset_pattern" in tool_config:
-        pattern = tool_config["asset_pattern"]
-        search_pattern = pattern.format(
-            version=version,
-            platform="linux",
-            arch="x86_64",
-        )
-        asset = find_asset(release["assets"], search_pattern)
 
     # Fallback to generic Linux asset
     if not asset:
@@ -157,28 +161,34 @@ def compare_configs(existing: dict, suggested: dict) -> list[str]:
                 f"binary_path: existing='{existing_path}', suggested='{suggested_path}'",
             )
 
-    # Compare asset patterns (this is more complex due to different formats)
+    # Compare asset patterns
     if "asset_patterns" in existing and "asset_patterns" in suggested:
-        for platform in ["linux", "macos"]:
-            existing_pattern = existing["asset_patterns"].get(platform)
-            suggested_pattern = suggested["asset_patterns"].get(platform)
-            if existing_pattern != suggested_pattern:
+        # If both are dictionaries
+        if isinstance(existing["asset_patterns"], dict) and isinstance(
+            suggested["asset_patterns"],
+            dict,
+        ):
+            for platform in ["linux", "macos"]:
+                existing_pattern = existing["asset_patterns"].get(platform)
+                suggested_pattern = suggested["asset_patterns"].get(platform)
+                if existing_pattern != suggested_pattern:
+                    differences.append(
+                        f"asset_patterns[{platform}]: existing='{existing_pattern}', suggested='{suggested_pattern}'",
+                    )
+        # If both are strings
+        elif isinstance(existing["asset_patterns"], str) and isinstance(
+            suggested["asset_patterns"],
+            str,
+        ):
+            if existing["asset_patterns"] != suggested["asset_patterns"]:
                 differences.append(
-                    f"asset_patterns[{platform}]: existing='{existing_pattern}', suggested='{suggested_pattern}'",
+                    f"asset_patterns: existing='{existing['asset_patterns']}', suggested='{suggested['asset_patterns']}'",
                 )
-    elif "asset_pattern" in existing and "asset_pattern" in suggested:
-        if existing["asset_pattern"] != suggested["asset_pattern"]:
+        # If formats are different
+        else:
             differences.append(
-                f"asset_pattern: existing='{existing['asset_pattern']}', suggested='{suggested['asset_pattern']}'",
+                "Config format different: existing and suggested asset_patterns have different formats (string vs dict)",
             )
-    elif "asset_pattern" in existing and "asset_patterns" in suggested:
-        differences.append(
-            "Config format different: existing uses asset_pattern, suggested uses asset_patterns",
-        )
-    elif "asset_patterns" in existing and "asset_pattern" in suggested:
-        differences.append(
-            "Config format different: existing uses asset_patterns, suggested uses asset_pattern",
-        )
 
     return differences
 
@@ -266,18 +276,19 @@ def test_tool_config_has_required_fields(
 
 @pytest.mark.parametrize("tool_name", TOOLS)
 def test_tool_config_has_asset_pattern(tools_config: dict, tool_name: str) -> None:
-    """Test that each tool configuration has either asset_pattern or asset_patterns."""
+    """Test that each tool configuration has asset_patterns."""
     tool_config = tools_config[tool_name]
 
-    has_pattern = "asset_pattern" in tool_config
-    has_patterns = "asset_patterns" in tool_config
-
     assert (
-        has_pattern or has_patterns
-    ), f"Tool {tool_name} must have either 'asset_pattern' or 'asset_patterns'"
+        "asset_patterns" in tool_config
+    ), f"Tool {tool_name} is missing 'asset_patterns'"
 
-    if has_patterns:
-        # Check that at least one platform has a pattern
+    # Make sure asset_patterns is not empty
+    if isinstance(tool_config["asset_patterns"], dict):
         assert any(
             tool_config["asset_patterns"].values(),
-        ), f"Tool {tool_name} has empty asset_patterns"
+        ), f"Tool {tool_name} has empty asset_patterns dictionary"
+    elif isinstance(tool_config["asset_patterns"], str):
+        assert tool_config[
+            "asset_patterns"
+        ], f"Tool {tool_name} has empty asset_patterns string"
