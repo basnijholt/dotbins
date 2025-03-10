@@ -67,7 +67,7 @@ def test_list_tools(
             "extract_binary": True,
             "binary_name": "test-tool",
             "binary_path": "test-tool",
-            "asset_pattern": "test-tool-{version}-{platform}_{arch}.tar.gz",
+            "asset_patterns": "test-tool-{version}-{platform}_{arch}.tar.gz",
         },
     }
 

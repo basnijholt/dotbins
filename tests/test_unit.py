@@ -33,7 +33,7 @@ def test_load_config(temp_dir: Path) -> None:
             extract_binary: true
             binary_name: sample
             binary_path: bin/sample
-            asset_pattern: sample-{version}-{platform}_{arch}.tar.gz
+            asset_patterns: sample-{version}-{platform}_{arch}.tar.gz
     """
 
     config_path = temp_dir / "tools.yaml"
@@ -249,7 +249,7 @@ def test_download_tool_already_exists(temp_dir: Path) -> None:
         "extract_binary": True,
         "binary_name": "test-tool",
         "binary_path": "test-tool",
-        "asset_pattern": "test-tool-{version}-{platform}_{arch}.tar.gz",
+        "asset_patterns": "test-tool-{version}-{platform}_{arch}.tar.gz",
     }
 
     config = DotbinsConfig(
@@ -303,7 +303,7 @@ def test_download_tool_asset_not_found(
             "test-tool": {
                 "repo": "test/tool",
                 "binary_name": "test-tool",
-                "asset_pattern": "tool-{version}-linux_{arch}.tar.gz",
+                "asset_patterns": "tool-{version}-linux_{arch}.tar.gz",
             },
         },
     )

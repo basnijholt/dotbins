@@ -81,19 +81,19 @@ class DotbinsConfig:
                     f"⚠️ [yellow]Tool {tool_name}: '{_field}' must be a dictionary[/yellow]",
                 )
 
-        # Validate asset_patterns is a dictionary
+        # Validate asset_patterns is a string or dictionary
         if "asset_patterns" in tool_config and not isinstance(
             tool_config["asset_patterns"],
-            dict,
+            (str, dict),
         ):
             console.print(
-                f"⚠️ [yellow]Tool {tool_name}: 'asset_patterns' must be a dictionary[/yellow]",
+                f"⚠️ [yellow]Tool {tool_name}: 'asset_patterns' must be a string or dictionary[/yellow]",
             )
 
-        # Validate legacy formats aren't used
+        # Warn about legacy format
         if "asset_pattern" in tool_config:
             console.print(
-                f"⚠️ [yellow]Tool {tool_name}: 'asset_pattern' is not supported, use 'asset_patterns' instead[/yellow]",
+                f"⚠️ [yellow]Tool {tool_name}: 'asset_pattern' is deprecated, use 'asset_patterns' instead[/yellow]",
             )
 
     @classmethod

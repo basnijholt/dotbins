@@ -143,9 +143,12 @@ tool-name:
   extract_binary: true             # Whether to extract from archive (true) or direct download (false)
   binary_name: executable-name     # Name of the resulting binary(ies)
   binary_path: path/to/binary      # Path to the binary within the archive
+  # Option 1: Platform-specific patterns
   asset_patterns:                  # Required: Asset patterns for each platform
     linux: pattern-for-linux.tar.gz
     macos: pattern-for-macos.tar.gz
+  # Option 2: Single pattern for all platforms
+  asset_patterns: pattern-for-all-platforms.tar.gz  # Global pattern for all platforms
 ```
 
 ### Platform and Architecture Mapping

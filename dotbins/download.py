@@ -364,21 +364,18 @@ def find_matching_asset(
 
 def get_asset_pattern(tool_config: dict, platform: str) -> str | None:
     """Get the asset pattern for a tool and platform."""
-    # Use asset_patterns (only supported format)
-    if "asset_patterns" not in tool_config:
-        console.print(
-            "⚠️ [yellow]Tool configuration is missing 'asset_patterns'[/yellow]",
-        )
-        return None
+    # Check if asset_patterns is a string (global pattern)
+    if "asset_patterns" in tool_config:
+        if isinstance(tool_config["asset_patterns"], str):
+            return tool_config["asset_patterns"]
+        if isinstance(tool_config["asset_patterns"], dict):
+            return tool_config["asset_patterns"].get(platform)
 
-    asset_pattern = tool_config["asset_patterns"].get(platform)
-    if asset_pattern is None:
-        console.print(
-            f"⚠️ [yellow]No asset pattern defined for platform {platform}[/yellow]",
-        )
-        return None
-
-    return asset_pattern
+    # No pattern found
+    console.print(
+        f"⚠️ [yellow]No asset pattern defined for platform {platform}[/yellow]",
+    )
+    return None
 
 
 def download_and_install_asset(
