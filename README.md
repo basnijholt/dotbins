@@ -251,37 +251,30 @@ architectures:
   - amd64
   - arm64
 
-# Architecture mappings (our naming -> tool release naming)
-arch_maps:
-  bat:
-    amd64: x86_64
-    arm64: aarch64
-  eza:
-    amd64: x86_64
-    arm64: aarch64
-  zoxide:
-    amd64: x86_64
-    arm64: aarch64
-
-# Platform naming conversions
-platform_maps:
-  macos: darwin
-
 # Tool definitions
 tools:
   fzf:
     repo: junegunn/fzf
     extract_binary: true
     binary_name: fzf
-    binary_path: fzf  # The binary is directly in the root of the archive
-    asset_pattern: fzf-{version}-{platform}_{arch}.tar.gz
-    platform_map: macos:darwin
+    binary_path: fzf
+    asset_patterns:
+      linux: fzf-{version}-linux_{arch}.tar.gz
+      macos: fzf-{version}-darwin_{arch}.tar.gz
+    arch_map:
+      amd64: x86_64
+      arm64: aarch64
+    platform_map:
+      macos: darwin
 
   bat:
     repo: sharkdp/bat
     extract_binary: true
     binary_name: bat
-    binary_path: bat-v{version}-{arch}-*/bat  # The actual path in the archive
+    binary_path: bat-v{version}-{arch}-*/bat
+    arch_map:
+      amd64: x86_64
+      arm64: aarch64
     asset_patterns:
       linux: bat-v{version}-{arch}-unknown-linux-gnu.tar.gz
       macos: bat-v{version}-{arch}-apple-darwin.tar.gz
@@ -290,7 +283,10 @@ tools:
     repo: eza-community/eza
     extract_binary: true
     binary_name: eza
-    binary_path: eza  # The binary is directly in the root of the archive
+    binary_path: eza
+    arch_map:
+      amd64: x86_64
+      arm64: aarch64
     asset_patterns:
       linux: eza_{arch}-unknown-linux-gnu.tar.gz
       macos: null  # No macOS binaries available as of now
@@ -299,7 +295,7 @@ tools:
     repo: ajeetdsouza/zoxide
     extract_binary: true
     binary_name: zoxide
-    binary_path: zoxide  # The binary is directly in the root of the archive
+    binary_path: zoxide
     arch_map:
       amd64: x86_64
       arm64: aarch64
