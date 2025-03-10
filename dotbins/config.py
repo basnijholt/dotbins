@@ -28,8 +28,6 @@ class DotbinsConfig:
     platforms: list[str] = field(default_factory=lambda: ["linux", "macos"])
     architectures: list[str] = field(default_factory=lambda: ["amd64", "arm64"])
     tools: dict[str, Any] = field(default_factory=dict)
-    arch_maps: dict[str, dict[str, str]] = field(default_factory=dict)
-    platform_maps: dict[str, str] = field(default_factory=dict)
 
     def validate(self) -> None:
         """Validate the configuration."""
@@ -43,12 +41,18 @@ class DotbinsConfig:
         tool_config: dict[str, Any],
     ) -> None:
         """Validate a single tool configuration."""
-        required_fields = ["repo", "binary_name"]
+        required_fields = ["repo", "binary_name", "binary_path"]
         for _field in required_fields:
             if _field not in tool_config:
                 console.print(
                     f"⚠️ [yellow]Tool {tool_name} is missing required field '{_field}'[/yellow]",
                 )
+
+        # Check for asset_patterns
+        if "asset_patterns" not in tool_config:
+            console.print(
+                f"⚠️ [yellow]Tool {tool_name} is missing required field 'asset_patterns'[/yellow]",
+            )
 
         # Validate binary_name and binary_path are either strings or lists
         for _field in ["binary_name", "binary_path"]:
@@ -70,10 +74,26 @@ class DotbinsConfig:
                 f"⚠️ [yellow]Tool {tool_name}: 'binary_name' and 'binary_path' lists must have the same length[/yellow]",
             )
 
-        # Check that either asset_pattern or asset_patterns is defined
-        if "asset_pattern" not in tool_config and "asset_patterns" not in tool_config:
+        # Validate platform_map and arch_map are dictionaries if present
+        for _field in ["platform_map", "arch_map"]:
+            if _field in tool_config and not isinstance(tool_config[_field], dict):
+                console.print(
+                    f"⚠️ [yellow]Tool {tool_name}: '{_field}' must be a dictionary[/yellow]",
+                )
+
+        # Validate asset_patterns is a dictionary
+        if "asset_patterns" in tool_config and not isinstance(
+            tool_config["asset_patterns"],
+            dict,
+        ):
             console.print(
-                f"⚠️ [yellow]Tool {tool_name} has neither 'asset_pattern' nor 'asset_patterns' defined[/yellow]",
+                f"⚠️ [yellow]Tool {tool_name}: 'asset_patterns' must be a dictionary[/yellow]",
+            )
+
+        # Validate legacy formats aren't used
+        if "asset_pattern" in tool_config:
+            console.print(
+                f"⚠️ [yellow]Tool {tool_name}: 'asset_pattern' is not supported, use 'asset_patterns' instead[/yellow]",
             )
 
     @classmethod
