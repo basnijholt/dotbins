@@ -46,12 +46,14 @@ class DotbinsConfig:
         required_fields = ["repo", "binary_name"]
         for _field in required_fields:
             if _field not in tool_config:
-                logger.warning(f"Tool {tool_name} is missing required field '{_field}'")
+                console.print(
+                    f"⚠️ [yellow]Tool {tool_name} is missing required field '{_field}'[/yellow]",
+                )
 
         # Check that either asset_pattern or asset_patterns is defined
         if "asset_pattern" not in tool_config and "asset_patterns" not in tool_config:
-            logger.warning(
-                f"Tool {tool_name} has neither 'asset_pattern' nor 'asset_patterns' defined",
+            console.print(
+                f"⚠️ [yellow]Tool {tool_name} has neither 'asset_pattern' nor 'asset_patterns' defined[/yellow]",
             )
 
         # Validate asset_patterns if present
@@ -59,8 +61,8 @@ class DotbinsConfig:
             patterns = tool_config["asset_patterns"]
             for platform in self.platforms:
                 if platform not in patterns:
-                    logger.warning(
-                        f"Tool {tool_name} is missing asset pattern for platform '{platform}'",
+                    console.print(
+                        f"⚠️ [yellow]Tool {tool_name} is missing asset pattern for platform '{platform}'[/yellow]",
                     )
 
     @classmethod
@@ -85,19 +87,20 @@ class DotbinsConfig:
 
             config = cls(**config_data)
             config.validate()
-            return config
+            return config  # noqa: TRY300
 
         except FileNotFoundError:
-            logger.warning(f"Configuration file not found: {config_path}")
-            return cls()
-        except yaml.YAMLError:
-            logger.exception(f"Invalid YAML in configuration file: {config_path}")
             console.print(
-                "❌ [bold red]Error loading configuration - invalid YAML[/bold red]",
+                f"⚠️ [yellow]Configuration file not found: {config_path}[/yellow]",
             )
             return cls()
-        except Exception as e:
-            logger.error(f"Error loading configuration: {e}", exc_info=True)
-            console.print("❌ [bold red]Error loading configuration[/bold red]")
+        except yaml.YAMLError:
+            console.print(
+                f"❌ [bold red]Invalid YAML in configuration file: {config_path}[/bold red]",
+            )
+            console.print_exception()
+            return cls()
+        except Exception as e:  # noqa: BLE001
+            console.print(f"❌ [bold red]Error loading configuration: {e}[/bold red]")
             console.print_exception()
             return cls()

@@ -30,7 +30,6 @@ def tmp_dir() -> Generator[Path, None, None]:
 
 def test_initialization(
     tmp_dir: Path,
-    monkeypatch: MonkeyPatch,
     capsys: CaptureFixture[str],
 ) -> None:
     """Test the 'init' command."""
@@ -57,7 +56,7 @@ def test_initialization(
 
 
 def test_list_tools(
-    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
     capsys: CaptureFixture[str],
 ) -> None:
     """Test the 'list' command."""
@@ -75,8 +74,8 @@ def test_list_tools(
     # Create config with our test tools
     config = DotbinsConfig(
         tools=test_tool_config,
-        dotfiles_dir=Path("/tmp"),
-        tools_dir=Path("/tmp/tools"),
+        dotfiles_dir=tmp_path,
+        tools_dir=tmp_path / "tools",
     )
 
     # Directly call the list_tools function
@@ -225,7 +224,10 @@ def test_cli_tools_dir_override(tmp_dir: Path) -> None:
     custom_dir = tmp_dir / "custom_tools"
 
     # Mock config loading to return a predictable config
-    def mock_load_config(*args, **kwargs):  # noqa: ANN003, ANN002, ARG001
+    def mock_load_config(
+        *args: Any,  # noqa: ARG001
+        **kwargs: Any,  # noqa: ARG001
+    ) -> DotbinsConfig:
         return DotbinsConfig(
             dotfiles_dir=tmp_dir,
             tools_dir=tmp_dir / "default_tools",  # Default dir

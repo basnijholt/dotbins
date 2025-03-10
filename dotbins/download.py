@@ -52,9 +52,10 @@ def download_file(url: str, destination: str) -> str:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
 
-        return destination
+        return destination  # noqa: TRY300
     except requests.RequestException as e:
-        logger.exception(f"Download failed: {e}")
+        console.print(f"❌ [bold red]Download failed: {e}[/bold red]")
+        console.print_exception()  # Replaces logger.exception
         msg = f"Failed to download {url}: {e}"
         raise RuntimeError(msg) from e
 
@@ -76,9 +77,10 @@ def extract_archive(archive_path: str, dest_dir: str) -> None:
                 zip_file.extractall(path=dest_dir)
         else:
             msg = f"Unsupported archive format: {archive_path}"
-            raise ValueError(msg)
+            raise ValueError(msg)  # noqa: TRY301
     except Exception as e:
-        logger.error(f"Extraction failed: {e}", exc_info=True)
+        console.print(f"❌ [bold red]Extraction failed: {e}[/bold red]")
+        console.print_exception()  # Replaces logger.error with exc_info=True
         raise
 
 
@@ -89,7 +91,7 @@ def extract_from_archive(
     platform: str,
 ) -> None:
     """Extract a binary from an archive using explicit paths."""
-    console.print(f"📦 [blue]Extracting from {archive_path}[/blue]")
+    console.print(f"📦 [blue]Extracting from {archive_path} for {platform}[/blue]")
     temp_dir = Path(tempfile.mkdtemp())
 
     try:
@@ -125,7 +127,7 @@ def _log_extracted_files(temp_dir: Path) -> None:
         for item in temp_dir.glob("**/*"):
             console.print(f"  - {item.relative_to(temp_dir)}")
     except Exception as e:  # noqa: BLE001
-        logger.warning(f"Could not list extracted files: {e}")
+        console.print(f"❌ Could not list extracted files: {e}")
 
 
 def find_binary_in_extracted_files(temp_dir: Path, tool_config: dict) -> Path:
@@ -208,7 +210,6 @@ def download_tool(
         tool_platform, tool_arch = map_platform_and_arch(
             platform,
             arch,
-            config,
             tool_config,
         )
 
@@ -284,14 +285,13 @@ def get_release_info(tool_config: dict) -> tuple[dict, str]:
 def map_platform_and_arch(
     platform: str,
     arch: str,
-    config: DotbinsConfig,
     tool_config: dict,
 ) -> tuple[str, str]:
     """Map platform and architecture names."""
     # Map architecture if needed
     tool_arch = arch
     # First check global arch_maps
-    arch_maps = config.arch_maps.get(tool_name, {})
+    arch_maps: dict[str, str] = {}
     if arch in arch_maps:
         tool_arch = arch_maps[arch]
     # Then check tool-specific arch_map (this has priority)
