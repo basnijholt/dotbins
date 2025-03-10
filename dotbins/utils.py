@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import logging
 import os
 import sys
@@ -23,6 +24,7 @@ def setup_logging(verbose: bool = False) -> None:  # noqa: FBT001, FBT002
     )
 
 
+@functools.cache
 def get_latest_release(repo: str) -> dict:
     """Get the latest release information from GitHub."""
     url = f"https://api.github.com/repos/{repo}/releases/latest"
@@ -62,26 +64,21 @@ def current_platform() -> tuple[str, str]:
     return platform, arch
 
 
-def get_platform_map(platform: str, platform_map: str) -> str:
+def get_platform_map(platform: str, platform_map: dict) -> str:
     """Map dotbins platform names to tool-specific platform names.
 
     Args:
         platform: Platform name used by dotbins (e.g., 'macos')
-        platform_map: Mapping string in format 'src:dst,src:dst' (e.g., 'macos:darwin')
+        platform_map: Dictionary mapping platform names
 
     Returns:
         Mapped platform name
 
     """
-    if not platform_map:
+    if not platform_map or not isinstance(platform_map, dict):
         return platform
 
-    for mapping in platform_map.split(","):
-        parts = mapping.strip().split(":")
-        if len(parts) == 2 and parts[0] == platform:  # noqa: PLR2004
-            return parts[1]
-
-    return platform
+    return platform_map.get(platform, platform)
 
 
 def print_shell_setup() -> None:

@@ -329,7 +329,8 @@ def generate_tool_config(
         # Single pattern for all platforms
         pattern = generate_single_pattern(release)
         if pattern != "?":
-            tool_config["asset_pattern"] = pattern
+            # Use asset_patterns as a string instead of asset_pattern
+            tool_config["asset_patterns"] = pattern
 
     return tool_config
 

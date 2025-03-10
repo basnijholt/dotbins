@@ -231,6 +231,7 @@ def download_tool(
             tool_config,
             release,
             version,
+            platform,
             tool_platform,
             tool_arch,
         )
@@ -314,25 +315,16 @@ def map_platform_and_arch(
     """Map platform and architecture names."""
     # Map architecture if needed
     tool_arch = arch
-    # First check global arch_maps
-    arch_maps: dict[str, str] = {}
-    if arch in arch_maps:
-        tool_arch = arch_maps[arch]
-    # Then check tool-specific arch_map (this has priority)
-    tool_arch_map = tool_config.get("arch_map", {})
-    if arch in tool_arch_map:
-        tool_arch = tool_arch_map[arch]
+    arch_map = tool_config.get("arch_map", {})
+    if arch in arch_map:
+        tool_arch = arch_map[arch]
     tool_config["arch"] = tool_arch  # Store for later use
 
     # Map platform if needed
     tool_platform = platform
-    platform_map = tool_config.get("platform_map", "")
-    if platform_map:
-        for platform_pair in platform_map.split(","):
-            src, dst = platform_pair.split(":")
-            if platform == src:
-                tool_platform = dst
-                break
+    platform_map = tool_config.get("platform_map", {})
+    if isinstance(platform_map, dict) and platform in platform_map:
+        tool_platform = platform_map[platform]
 
     return tool_platform, tool_arch
 
@@ -341,15 +333,16 @@ def find_matching_asset(
     tool_config: dict,
     release: dict,
     version: str,
+    platform: str,
     tool_platform: str,
     tool_arch: str,
 ) -> dict | None:
     """Find a matching asset for the tool."""
     # Determine asset pattern
-    asset_pattern = get_asset_pattern(tool_config, tool_platform)
+    asset_pattern = get_asset_pattern(tool_config, platform)
     if not asset_pattern:
         console.print(
-            "⚠️ [yellow]No asset pattern found for this platform[/yellow]",
+            f"⚠️ [yellow]No asset pattern found for platform {tool_platform}[/yellow]",
         )
         return None
 
@@ -373,12 +366,18 @@ def find_matching_asset(
 
 def get_asset_pattern(tool_config: dict, platform: str) -> str | None:
     """Get the asset pattern for a tool and platform."""
+    # Check if asset_patterns is a string (global pattern)
     if "asset_patterns" in tool_config:
-        asset_pattern = tool_config["asset_patterns"].get(platform)
-        if asset_pattern is None:
-            return None
-        return asset_pattern
-    return tool_config.get("asset_pattern")
+        if isinstance(tool_config["asset_patterns"], str):
+            return tool_config["asset_patterns"]
+        if isinstance(tool_config["asset_patterns"], dict):
+            return tool_config["asset_patterns"].get(platform)
+
+    # No pattern found
+    console.print(
+        f"⚠️ [yellow]No asset pattern defined for platform {platform}[/yellow]",
+    )
+    return None
 
 
 def download_and_install_asset(
