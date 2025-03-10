@@ -263,9 +263,6 @@ tools:
     asset_patterns:
       linux: fzf-{version}-linux_{arch}.tar.gz
       macos: fzf-{version}-darwin_{arch}.tar.gz
-    arch_map:
-      amd64: x86_64
-      arm64: aarch64
     platform_map:
       macos: darwin
 
@@ -304,6 +301,18 @@ tools:
     asset_patterns:
       linux: zoxide-{version}-{arch}-unknown-linux-musl.tar.gz
       macos: zoxide-{version}-{arch}-apple-darwin.tar.gz
+
+  delta:
+    repo: dandavison/delta
+    extract_binary: true
+    binary_name: delta
+    binary_path: delta-{version}-{arch}-*/delta
+    arch_map:
+      amd64: x86_64
+      arm64: aarch64
+    asset_patterns:
+      linux: delta-{version}-{arch}-unknown-linux-gnu.tar.gz
+      macos: delta-{version}-{arch}-apple-darwin.tar.gz
 
   uv:
     repo: astral-sh/uv
