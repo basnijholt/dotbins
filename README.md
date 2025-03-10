@@ -227,7 +227,6 @@ linux-only-tool:
     macos: null  # No macOS version available
 ```
 
-
 ### Full Configuration Example
 
 <!-- CODE:BASH:START -->
