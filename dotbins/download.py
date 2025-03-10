@@ -314,20 +314,16 @@ def map_platform_and_arch(
     """Map platform and architecture names."""
     # Map architecture if needed
     tool_arch = arch
-    tool_arch_map = tool_config.get("arch_map", {})
-    if arch in tool_arch_map:
-        tool_arch = tool_arch_map[arch]
+    arch_map = tool_config.get("arch_map", {})
+    if arch in arch_map:
+        tool_arch = arch_map[arch]
     tool_config["arch"] = tool_arch  # Store for later use
 
     # Map platform if needed
     tool_platform = platform
-    platform_map = tool_config.get("platform_map", "")
-    if platform_map:
-        for platform_pair in platform_map.split(","):
-            src, dst = platform_pair.split(":")
-            if platform == src:
-                tool_platform = dst
-                break
+    platform_map = tool_config.get("platform_map", {})
+    if isinstance(platform_map, dict) and platform in platform_map:
+        tool_platform = platform_map[platform]
 
     return tool_platform, tool_arch
 

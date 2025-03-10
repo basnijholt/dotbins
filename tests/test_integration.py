@@ -99,8 +99,11 @@ def test_update_tool(
         "extract_binary": True,
         "binary_name": "test-tool",
         "binary_path": "test-tool",
-        "asset_pattern": "test-tool-{version}-{platform}_{arch}.tar.gz",
-        "platform_map": "macos:darwin",
+        "asset_patterns": {
+            "linux": "test-tool-{version}-{platform}_{arch}.tar.gz",
+            "macos": "test-tool-{version}-{platform}_{arch}.tar.gz",
+        },
+        "platform_map": {"macos": "darwin"},
     }
 
     # Create config with our test tool

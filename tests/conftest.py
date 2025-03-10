@@ -33,7 +33,10 @@ def mock_config_file(temp_dir: Path) -> Path:
                 "extract_binary": True,
                 "binary_name": "test-tool",
                 "binary_path": "test-tool",
-                "asset_pattern": "test-tool-{version}-{platform}_{arch}.tar.gz",
+                "asset_patterns": {
+                    "linux": "test-tool-{version}-{platform}_{arch}.tar.gz",
+                    "macos": "test-tool-{version}-{platform}_{arch}.tar.gz",
+                },
             },
         },
     }
