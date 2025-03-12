@@ -429,6 +429,15 @@ tools:
     arch_map:
       amd64: x86_64
       arm64: aarch64
+
+  eget:
+    repo: zyedidia/eget
+    extract_binary: true
+    binary_name: eget
+    binary_path: "*/eget"
+    asset_patterns:
+      linux: eget-{version}-{platform}_{arch}.tar.gz
+      macos: eget-{version}-darwin_{arch}.tar.gz
 ```
 
 <!-- OUTPUT:END -->
