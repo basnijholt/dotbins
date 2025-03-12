@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import concurrent.futures
 import os
-import re
 import shutil
 import tarfile
 import tempfile
@@ -14,6 +13,7 @@ from typing import TYPE_CHECKING, NamedTuple
 
 import requests
 
+from .detect import SingleAssetDetector, SystemDetector
 from .utils import calculate_sha256, get_latest_release, log
 
 if TYPE_CHECKING:
@@ -21,19 +21,78 @@ if TYPE_CHECKING:
     from .versions import VersionStore
 
 
-def _find_asset(assets: list[dict], pattern: str) -> dict | None:
-    """Find an asset that matches the given pattern."""
-    regex_pattern = (
-        pattern.replace("{version}", ".*")
-        .replace("{arch}", ".*")
-        .replace("{platform}", ".*")
-    )
-    log(f"Looking for asset with pattern: {regex_pattern}", "info", "🔍")
+def _find_asset(
+    assets: list[dict],
+    pattern: str | None,
+    platform: str,
+    arch: str,
+) -> dict | None:
+    """Find an asset that matches the given pattern using the detector system.
 
-    for asset in assets:
-        if re.search(regex_pattern, asset["name"]):
-            log(f"Found matching asset: {asset['name']}", "success")
-            return asset
+    Args:
+        assets: List of asset dictionaries from GitHub
+        pattern: Pattern to match or None to use automatic detection
+        platform: Target platform (e.g., "linux", "darwin")
+        arch: Target architecture (e.g., "amd64", "arm64")
+
+    Returns:
+        Matching asset or None if no match found
+
+    """
+    # Extract asset names for detection
+    asset_names = [asset["name"] for asset in assets]
+
+    # Create appropriate detector
+    detector = None
+    err = None
+
+    if pattern:
+        log(f"Looking for asset with pattern: {pattern}", "info", "🔍")
+        # If pattern is just a string without variables, use simple detector
+        if "{" not in pattern:
+            detector = SingleAssetDetector(pattern)
+        else:
+            # Create system detector based on platform and arch
+            detector, err = SystemDetector.new_system_detector(platform, arch)
+            if err is not None:
+                log(f"Error creating detector: {err}", "error")
+                return None
+    else:
+        # No pattern specified, use pure system detector
+        log(
+            f"No pattern specified, using automatic detection for {platform}/{arch}",
+            "info",
+            "🔍",
+        )
+        detector, err = SystemDetector.new_system_detector(platform, arch)
+        if err is not None:
+            log(f"Error creating detector: {err}", "error")
+            return None
+
+    # Detect asset
+    choice, candidates, err = detector.detect(asset_names)
+    if err:
+        log(f"Asset detection error: {err}", "warning")
+
+    if choice:
+        # Find the matching asset dictionary
+        for asset in assets:
+            if asset["name"] == choice:
+                log(f"Found matching asset: {asset['name']}", "success")
+                return asset
+
+    # If no direct match but candidates available, use first candidate
+    if candidates and len(candidates) > 0:
+        # Select only with supported extensions
+        candidates = [
+            c for c in candidates if c.endswith((".tar.gz", ".zip", ".tar.bz2"))
+        ]
+        log(f"Candidates: {candidates}", "info")
+        log(f"Using first candidate from {len(candidates)} options", "info")
+        for asset in assets:
+            if asset["name"] == candidates[0]:
+                log(f"Selected candidate: {asset['name']}", "success")
+                return asset
 
     return None
 
@@ -345,30 +404,32 @@ def _find_matching_asset(
     tool_arch: str,
 ) -> dict | None:
     """Find a matching asset for the tool."""
-    asset_pattern = get_asset_pattern(tool_config, platform, arch)
-    if not asset_pattern:
-        log(f"No asset pattern found for {platform}/{arch}", "warning")
-        return None
+    # Check if we have specific asset patterns to use
+    asset_pattern = None
+    if "asset_patterns" in tool_config:
+        asset_pattern = get_asset_pattern(tool_config, platform, arch)
 
-    search_pattern = asset_pattern.format(
-        version=version,
-        platform=tool_platform,
-        arch=tool_arch,
-    )
+        # Format the pattern if found
+        if asset_pattern:
+            asset_pattern = asset_pattern.format(
+                version=version,
+                platform=tool_platform,
+                arch=tool_arch,
+            )
 
-    asset = _find_asset(release["assets"], search_pattern)
+    # Use detector system (with or without pattern)
+    asset = _find_asset(release["assets"], asset_pattern, platform, arch)
     if not asset:
-        log(f"No asset matching '{search_pattern}' found", "warning")
+        if asset_pattern:
+            log(f"No asset matching '{asset_pattern}' found", "warning")
+        else:
+            log(f"No suitable asset found for {platform}/{arch}", "warning")
         return None
 
     return asset
 
 
-def get_asset_pattern(  # noqa: PLR0911
-    tool_config: dict,
-    platform: str,
-    arch: str,
-) -> str | None:
+def get_asset_pattern(tool_config: dict, platform: str, arch: str) -> str | None:
     """Get the asset pattern for a tool, platform, and architecture."""
     # No asset patterns defined
     if "asset_patterns" not in tool_config:
