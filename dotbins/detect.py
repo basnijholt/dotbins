@@ -1,0 +1,231 @@
+from __future__ import annotations
+
+import os.path
+import re
+from dataclasses import dataclass
+from re import Pattern
+
+
+# A Detector selects an asset from a list of possibilities.
+class Detector:
+    def detect(self, assets: list[str]) -> tuple[str, list[str] | None, str | None]:
+        """Takes a list of possible assets and returns a direct match.
+        If a single direct match is not found, it returns a list of candidates
+        and an error message explaining what happened.
+
+        Returns:
+            tuple: (match, candidates, error)
+
+        """
+        msg = "Subclasses must implement detect()"
+        raise NotImplementedError(msg)
+
+
+@dataclass
+class DetectorChain(Detector):
+    detectors: list[Detector]
+    system: Detector
+
+    def detect(self, assets: list[str]) -> tuple[str, list[str] | None, str | None]:
+        for d in self.detectors:
+            choice, candidates, err = d.detect(assets)
+            if len(candidates or []) == 0 and err is not None:
+                return "", None, err
+            if len(candidates or []) == 0:
+                return choice, None, None
+            assets = candidates
+
+        choice, candidates, err = self.system.detect(assets)
+        if len(candidates or []) == 0 and err is not None:
+            return "", None, err
+        if len(candidates or []) == 0:
+            return choice, None, None
+        if len(candidates or []) >= 1:
+            assets = candidates
+
+        return "", assets, f"{len(assets)} candidates found for asset chain"
+
+
+# An OS represents a target operating system.
+@dataclass
+class OS:
+    name: str
+    regex: Pattern
+    anti: Pattern | None = None
+    priority: Pattern | None = None
+
+    def match(self, s: str) -> tuple[bool, bool]:
+        """Returns (is_match, is_priority_match)."""
+        if self.anti and self.anti.search(s):
+            return False, False
+        if self.priority:
+            return bool(self.regex.search(s)), bool(self.priority.search(s))
+        return bool(self.regex.search(s)), False
+
+
+# An Arch represents a system architecture, such as amd64, i386, arm or others.
+@dataclass
+class Arch:
+    name: str
+    regex: Pattern
+
+    def match(self, s: str) -> bool:
+        return bool(self.regex.search(s))
+
+
+# Define OS constants
+OSDarwin = OS(name="darwin", regex=re.compile(r"(?i)(darwin|mac.?(os)?|osx)"))
+
+OSWindows = OS(name="windows", regex=re.compile(r"(?i)([^r]win|windows)"))
+
+OSLinux = OS(
+    name="linux",
+    regex=re.compile(r"(?i)(linux|ubuntu)"),
+    anti=re.compile(r"(?i)(android)"),
+    priority=re.compile(r"\.appimage$"),
+)
+
+OSNetBSD = OS(name="netbsd", regex=re.compile(r"(?i)(netbsd)"))
+
+OSFreeBSD = OS(name="freebsd", regex=re.compile(r"(?i)(freebsd)"))
+
+OSOpenBSD = OS(name="openbsd", regex=re.compile(r"(?i)(openbsd)"))
+
+OSAndroid = OS(name="android", regex=re.compile(r"(?i)(android)"))
+
+OSIllumos = OS(name="illumos", regex=re.compile(r"(?i)(illumos)"))
+
+OSSolaris = OS(name="solaris", regex=re.compile(r"(?i)(solaris)"))
+
+OSPlan9 = OS(name="plan9", regex=re.compile(r"(?i)(plan9)"))
+
+# a map of GOOS values to internal OS matchers
+goosmap: dict[str, OS] = {
+    "darwin": OSDarwin,
+    "windows": OSWindows,
+    "linux": OSLinux,
+    "netbsd": OSNetBSD,
+    "openbsd": OSOpenBSD,
+    "freebsd": OSFreeBSD,
+    "android": OSAndroid,
+    "illumos": OSIllumos,
+    "solaris": OSSolaris,
+    "plan9": OSPlan9,
+}
+
+# Define Arch constants
+ArchAMD64 = Arch(name="amd64", regex=re.compile(r"(?i)(x64|amd64|x86(-|_)?64)"))
+
+ArchI386 = Arch(name="386", regex=re.compile(r"(?i)(x32|amd32|x86(-|_)?32|i?386)"))
+
+ArchArm = Arch(name="arm", regex=re.compile(r"(?i)(arm32|armv6|arm\b)"))
+
+ArchArm64 = Arch(name="arm64", regex=re.compile(r"(?i)(arm64|armv8|aarch64)"))
+
+ArchRiscv64 = Arch(name="riscv64", regex=re.compile(r"(?i)(riscv64)"))
+
+# a map from GOARCH values to internal architecture matchers
+goarchmap: dict[str, Arch] = {
+    "amd64": ArchAMD64,
+    "386": ArchI386,
+    "arm": ArchArm,
+    "arm64": ArchArm64,
+    "riscv64": ArchRiscv64,
+}
+
+
+@dataclass
+class AllDetector(Detector):
+    def detect(self, assets: list[str]) -> tuple[str, list[str] | None, str | None]:
+        if len(assets) == 1:
+            return assets[0], None, None
+        return "", assets, f"{len(assets)} matches found"
+
+
+@dataclass
+class SingleAssetDetector(Detector):
+    asset: str
+    anti: bool = False
+
+    def detect(self, assets: list[str]) -> tuple[str, list[str] | None, str | None]:
+        candidates = []
+        for a in assets:
+            if not self.anti and os.path.basename(a) == self.asset:
+                return a, None, None
+            if not self.anti and self.asset in os.path.basename(a):
+                candidates.append(a)
+            if self.anti and self.asset not in os.path.basename(a):
+                candidates.append(a)
+
+        if len(candidates) == 1:
+            return candidates[0], None, None
+        if len(candidates) > 1:
+            return (
+                "",
+                candidates,
+                f"{len(candidates)} candidates found for asset `{self.asset}`",
+            )
+        return "", None, f"asset `{self.asset}` not found"
+
+
+@dataclass
+class SystemDetector(Detector):
+    os: OS
+    arch: Arch
+
+    @classmethod
+    def new_system_detector(
+        cls,
+        sos: str,
+        sarch: str,
+    ) -> tuple[SystemDetector | None, str | None]:
+        if sos not in goosmap:
+            return None, f"unsupported target OS: {sos}"
+        if sarch not in goarchmap:
+            return None, f"unsupported target arch: {sarch}"
+        return cls(goosmap[sos], goarchmap[sarch]), None
+
+    def detect(self, assets: list[str]) -> tuple[str, list[str] | None, str | None]:
+        priority = []
+        matches = []
+        candidates = []
+        all_assets = []
+
+        for a in assets:
+            if a.endswith((".sha256", ".sha256sum")):
+                # skip checksums (they will be checked later by the verifier)
+                continue
+
+            os_match, extra = self.os.match(a)
+            if extra:
+                priority.append(a)
+
+            arch_match = self.arch.match(a)
+            if os_match and arch_match:
+                matches.append(a)
+
+            if os_match:
+                candidates.append(a)
+
+            all_assets.append(a)
+
+        if len(priority) == 1:
+            return priority[0], None, None
+        if len(priority) > 1:
+            return "", priority, f"{len(priority)} priority matches found"
+        if len(matches) == 1:
+            return matches[0], None, None
+        if len(matches) > 1:
+            return "", matches, f"{len(matches)} matches found"
+        if len(candidates) == 1:
+            return candidates[0], None, None
+        if len(candidates) > 1:
+            return (
+                "",
+                candidates,
+                f"{len(candidates)} candidates found (unsure architecture)",
+            )
+        if len(all_assets) == 1:
+            return all_assets[0], None, None
+
+        return "", all_assets, "no candidates found"
