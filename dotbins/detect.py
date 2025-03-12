@@ -90,28 +90,19 @@ class Arch:
 
 # Define OS constants
 OSDarwin = OS(name="darwin", regex=re.compile(r"(?i)(darwin|mac.?(os)?|osx)"))
-
 OSWindows = OS(name="windows", regex=re.compile(r"(?i)([^r]win|windows)"))
-
 OSLinux = OS(
     name="linux",
     regex=re.compile(r"(?i)(linux|ubuntu)"),
     anti=re.compile(r"(?i)(android)"),
     priority=re.compile(r"\.appimage$"),
 )
-
 OSNetBSD = OS(name="netbsd", regex=re.compile(r"(?i)(netbsd)"))
-
 OSFreeBSD = OS(name="freebsd", regex=re.compile(r"(?i)(freebsd)"))
-
 OSOpenBSD = OS(name="openbsd", regex=re.compile(r"(?i)(openbsd)"))
-
 OSAndroid = OS(name="android", regex=re.compile(r"(?i)(android)"))
-
 OSIllumos = OS(name="illumos", regex=re.compile(r"(?i)(illumos)"))
-
 OSSolaris = OS(name="solaris", regex=re.compile(r"(?i)(solaris)"))
-
 OSPlan9 = OS(name="plan9", regex=re.compile(r"(?i)(plan9)"))
 
 mapping: dict[str, OS] = {
@@ -129,17 +120,13 @@ mapping: dict[str, OS] = {
 
 # Define Arch constants
 ArchAMD64 = Arch(name="amd64", regex=re.compile(r"(?i)(x64|amd64|x86(-|_)?64)"))
-
 ArchI386 = Arch(name="386", regex=re.compile(r"(?i)(x32|amd32|x86(-|_)?32|i?386)"))
-
 ArchArm = Arch(name="arm", regex=re.compile(r"(?i)(arm32|armv6|arm\b)"))
-
 ArchArm64 = Arch(name="arm64", regex=re.compile(r"(?i)(arm64|armv8|aarch64)"))
-
 ArchRiscv64 = Arch(name="riscv64", regex=re.compile(r"(?i)(riscv64)"))
 
 # a map from GOARCH values to internal architecture matchers
-goarchmap: dict[str, Arch] = {
+archmapping: dict[str, Arch] = {
     "amd64": ArchAMD64,
     "386": ArchI386,
     "arm": ArchArm,
@@ -204,9 +191,9 @@ class SystemDetector(Detector):
         """Create a new system detector for a given OS and architecture."""
         if sos not in mapping:
             return None, f"unsupported target OS: {sos}"
-        if sarch not in goarchmap:
+        if sarch not in archmapping:
             return None, f"unsupported target arch: {sarch}"
-        return cls(mapping[sos], goarchmap[sarch]), None
+        return cls(mapping[sos], archmapping[sarch]), None
 
     def detect(  # noqa: PLR0911
         self,
