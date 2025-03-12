@@ -39,14 +39,15 @@ class DetectorChain(Detector):
                 return "", None, err
             if len(candidates or []) == 0:
                 return choice, None, None
-            assets = candidates
+            if candidates is not None:
+                assets = candidates
 
         choice, candidates, err = self.system.detect(assets)
         if len(candidates or []) == 0 and err is not None:
             return "", None, err
         if len(candidates or []) == 0:
             return choice, None, None
-        if len(candidates or []) >= 1:
+        if candidates is not None and len(candidates) >= 1:
             assets = candidates
 
         return "", assets, f"{len(assets)} candidates found for asset chain"
@@ -62,12 +63,17 @@ class OS:
     priority: Pattern | None = None
 
     def match(self, s: str) -> tuple[bool, bool]:
-        """Returns (is_match, is_priority_match)."""
-        if self.anti and self.anti.search(s):
+        """Match returns true if the given archive name is likely to store a binary for
+        this OS. Also returns if this is a priority match.
+        """  # noqa: D205
+        if self.anti is not None and self.anti.search(s):
             return False, False
-        if self.priority:
-            return bool(self.regex.search(s)), bool(self.priority.search(s))
-        return bool(self.regex.search(s)), False
+        if self.priority is not None:
+            # The first value should be True for the priority to apply
+            main_match = self.regex.search(s) is not None
+            priority_match = self.priority.search(s) is not None
+            return main_match, main_match and priority_match
+        return self.regex.search(s) is not None, False
 
 
 @dataclass
@@ -147,6 +153,7 @@ class AllDetector(Detector):
     """A detector that matches any asset."""
 
     def detect(self, assets: list[str]) -> tuple[str, list[str] | None, str | None]:
+        """Detect any asset from a list of assets."""
         if len(assets) == 1:
             return assets[0], None, None
         return "", assets, f"{len(assets)} matches found"
@@ -201,7 +208,11 @@ class SystemDetector(Detector):
             return None, f"unsupported target arch: {sarch}"
         return cls(mapping[sos], goarchmap[sarch]), None
 
-    def detect(self, assets: list[str]) -> tuple[str, list[str] | None, str | None]:
+    def detect(  # noqa: PLR0911
+        self,
+        assets: list[str],
+    ) -> tuple[str, list[str] | None, str | None]:
+        """Detect an asset from a list of assets."""
         priority = []
         matches = []
         candidates = []
