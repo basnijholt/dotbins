@@ -1,3 +1,5 @@
+"""Detectors are used to select an asset from a list of possibilities."""
+
 from __future__ import annotations
 
 import os.path
@@ -6,8 +8,9 @@ from dataclasses import dataclass
 from re import Pattern
 
 
-# A Detector selects an asset from a list of possibilities.
 class Detector:
+    """A Detector selects an asset from a list of possibilities."""
+
     def detect(self, assets: list[str]) -> tuple[str, list[str] | None, str | None]:
         """Takes a list of possible assets and returns a direct match.
         If a single direct match is not found, it returns a list of candidates
@@ -16,17 +19,20 @@ class Detector:
         Returns:
             tuple: (match, candidates, error)
 
-        """
+        """  # noqa: D205
         msg = "Subclasses must implement detect()"
         raise NotImplementedError(msg)
 
 
 @dataclass
 class DetectorChain(Detector):
+    """A DetectorChain is a list of detectors that are used to select an asset from a list of possibilities."""
+
     detectors: list[Detector]
     system: Detector
 
     def detect(self, assets: list[str]) -> tuple[str, list[str] | None, str | None]:
+        """Detect an asset from a list of assets."""
         for d in self.detectors:
             choice, candidates, err = d.detect(assets)
             if len(candidates or []) == 0 and err is not None:
@@ -46,9 +52,10 @@ class DetectorChain(Detector):
         return "", assets, f"{len(assets)} candidates found for asset chain"
 
 
-# An OS represents a target operating system.
 @dataclass
 class OS:
+    """An OS represents a target operating system."""
+
     name: str
     regex: Pattern
     anti: Pattern | None = None
@@ -63,13 +70,15 @@ class OS:
         return bool(self.regex.search(s)), False
 
 
-# An Arch represents a system architecture, such as amd64, i386, arm or others.
 @dataclass
 class Arch:
+    """An Arch represents a system architecture, such as amd64, i386, arm or others."""
+
     name: str
     regex: Pattern
 
     def match(self, s: str) -> bool:
+        """Returns True if the architecture matches the given string."""
         return bool(self.regex.search(s))
 
 
@@ -99,8 +108,7 @@ OSSolaris = OS(name="solaris", regex=re.compile(r"(?i)(solaris)"))
 
 OSPlan9 = OS(name="plan9", regex=re.compile(r"(?i)(plan9)"))
 
-# a map of GOOS values to internal OS matchers
-goosmap: dict[str, OS] = {
+mapping: dict[str, OS] = {
     "darwin": OSDarwin,
     "windows": OSWindows,
     "linux": OSLinux,
@@ -136,6 +144,8 @@ goarchmap: dict[str, Arch] = {
 
 @dataclass
 class AllDetector(Detector):
+    """A detector that matches any asset."""
+
     def detect(self, assets: list[str]) -> tuple[str, list[str] | None, str | None]:
         if len(assets) == 1:
             return assets[0], None, None
@@ -144,10 +154,13 @@ class AllDetector(Detector):
 
 @dataclass
 class SingleAssetDetector(Detector):
+    """A detector that matches a single asset."""
+
     asset: str
     anti: bool = False
 
     def detect(self, assets: list[str]) -> tuple[str, list[str] | None, str | None]:
+        """Detect a single asset from a list of assets."""
         candidates = []
         for a in assets:
             if not self.anti and os.path.basename(a) == self.asset:
@@ -170,6 +183,8 @@ class SingleAssetDetector(Detector):
 
 @dataclass
 class SystemDetector(Detector):
+    """A detector that matches an OS and architecture."""
+
     os: OS
     arch: Arch
 
@@ -179,11 +194,12 @@ class SystemDetector(Detector):
         sos: str,
         sarch: str,
     ) -> tuple[SystemDetector | None, str | None]:
-        if sos not in goosmap:
+        """Create a new system detector for a given OS and architecture."""
+        if sos not in mapping:
             return None, f"unsupported target OS: {sos}"
         if sarch not in goarchmap:
             return None, f"unsupported target arch: {sarch}"
-        return cls(goosmap[sos], goarchmap[sarch]), None
+        return cls(mapping[sos], goarchmap[sarch]), None
 
     def detect(self, assets: list[str]) -> tuple[str, list[str] | None, str | None]:
         priority = []
