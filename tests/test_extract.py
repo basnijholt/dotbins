@@ -1,3 +1,5 @@
+"""Tests for dotbins.extract."""
+
 import bz2
 import gzip
 import io
@@ -161,7 +163,7 @@ def test_glob_chooser() -> None:
     assert possible is True
 
     # Match all
-    direct, possible = glob_chooser("path/to/file.txt", False, 0o644, "*")
+    direct, possible = glob_chooser("path/to/file.sh", False, 0o644, "*")
     assert direct is True
     assert possible is True
 
@@ -521,7 +523,7 @@ def test_extract_regular_file(temp_dir: Path) -> None:
 def test_invalid_chooser_type() -> None:
     """Test that an error is raised for an invalid chooser type."""
     with pytest.raises(ValueError, match="Unknown chooser type: invalid") as excinfo:
-        extract_file("archive.tar", b"data", chooser_type="invalid")
+        extract_file("archive.tar", b"data", chooser_type="invalid")  # type: ignore[arg-type]
 
     assert "Unknown chooser type" in str(excinfo.value)
 
