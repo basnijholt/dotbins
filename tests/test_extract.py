@@ -6,6 +6,7 @@ import shutil
 import tarfile
 import tempfile
 import zipfile
+from collections.abc import Generator
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -79,7 +80,7 @@ def compress_data(data: bytes, compressor: str) -> bytes:
 
 
 @pytest.fixture
-def temp_dir():
+def temp_dir() -> Generator[Path, None, None]:
     """Create a temporary directory for tests."""
     temp_dir = tempfile.mkdtemp()
     yield Path(temp_dir)
@@ -88,6 +89,7 @@ def temp_dir():
 
 # Test utility functions
 def test_is_exec() -> None:
+    """Test the is_exec function."""
     assert is_exec("file.exe", 0o644) is True
     assert is_exec("file.appimage", 0o644) is True
     assert is_exec("file", 0o644) is True  # No extension
@@ -98,6 +100,7 @@ def test_is_exec() -> None:
 
 
 def test_rename() -> None:
+    """Test the rename function."""
     assert rename("file.exe", "tool") == "file.exe"
     assert rename("file.appimage", "tool") == "file"
     assert rename("file.txt", "tool") == "file.txt"
@@ -105,6 +108,7 @@ def test_rename() -> None:
 
 
 def test_binary_chooser() -> None:
+    """Test the binary_chooser function."""
     # Direct match for binary
     direct, possible = binary_chooser("tool", False, 0o755, "tool")
     assert direct is True
@@ -127,6 +131,7 @@ def test_binary_chooser() -> None:
 
 
 def test_literal_file_chooser() -> None:
+    """Test the literal_file_chooser function."""
     # Matches with literal file
     direct, possible = literal_file_chooser(
         "path/to/file.txt",
@@ -149,6 +154,7 @@ def test_literal_file_chooser() -> None:
 
 
 def test_glob_chooser() -> None:
+    """Test the glob_chooser function."""
     # Matches with glob
     direct, possible = glob_chooser("path/to/file.txt", False, 0o644, "*.txt")
     assert direct is False
@@ -166,7 +172,8 @@ def test_glob_chooser() -> None:
 
 
 # Test tar extraction
-def test_extract_tar_binary(temp_dir) -> None:
+def test_extract_tar_binary(temp_dir: Path) -> None:
+    """Test the extract_file function with a tar archive."""
     # Create test data
     files = {
         "tool": b"#!/bin/sh\necho 'Hello, World!'\n",
@@ -188,7 +195,8 @@ def test_extract_tar_binary(temp_dir) -> None:
     assert output_path.stat().st_mode & 0o777 & 0o111 != 0  # Should be executable
 
 
-def test_extract_tar_directory(temp_dir) -> None:
+def test_extract_tar_directory(temp_dir: Path) -> None:
+    """Test the extract_file function with a tar archive and a directory."""
     # Create test data with a directory structure
     files = {
         "dir/": {"mode": 0o755},
@@ -200,7 +208,7 @@ def test_extract_tar_directory(temp_dir) -> None:
 
     # Extract the directory
     extracted = extract_file("archive.tar", tar_data, "", "glob", "dir/")
-    assert extracted.name == "dir"
+    assert extracted.name == "dir/"
     assert extracted.archive_name == "dir"
     assert extracted.is_dir is True
 
@@ -219,6 +227,7 @@ def test_extract_tar_directory(temp_dir) -> None:
 
 
 def test_extract_tar_multiple_candidates() -> None:
+    """Test the extract_file function with a tar archive and multiple candidates."""
     # Create test data with multiple executables
     files = {
         "tool1": b"#!/bin/sh\necho 'Tool 1'\n",
@@ -235,6 +244,7 @@ def test_extract_tar_multiple_candidates() -> None:
 
 
 def test_extract_tar_no_candidates() -> None:
+    """Test the extract_file function with a tar archive and no matching files."""
     # Create test data with no matching files
     files = {
         "file1.txt": b"Text file 1",
@@ -249,7 +259,8 @@ def test_extract_tar_no_candidates() -> None:
     assert "Target not found" in str(excinfo.value)
 
 
-def test_extract_tar_with_multiple_flag(temp_dir) -> None:
+def test_extract_tar_with_multiple_flag(temp_dir: Path) -> None:
+    """Test the extract_file function with a tar archive and multiple=True."""
     # Create test data with multiple executables
     files = {
         "tool1": b"#!/bin/sh\necho 'Tool 1'\n",
@@ -270,7 +281,8 @@ def test_extract_tar_with_multiple_flag(temp_dir) -> None:
 
 
 # Test zip extraction
-def test_extract_zip_binary(temp_dir) -> None:
+def test_extract_zip_binary(temp_dir: Path) -> None:
+    """Test the extract_file function with a zip archive."""
     # Create test data
     files = {
         "tool.exe": b"Windows executable content",
@@ -291,7 +303,8 @@ def test_extract_zip_binary(temp_dir) -> None:
     assert output_path.stat().st_mode & 0o777 & 0o111 != 0  # Should be executable
 
 
-def test_extract_zip_directory(temp_dir) -> None:
+def test_extract_zip_directory(temp_dir: Path) -> None:
+    """Test the extract_file function with a zip archive and a directory."""
     # Create test data with a directory structure
     files = {
         "dir/": {},
@@ -322,6 +335,7 @@ def test_extract_zip_directory(temp_dir) -> None:
 
 
 def test_extract_zip_multiple_candidates() -> None:
+    """Test the extract_file function with a zip archive and multiple candidates."""
     # Create test data with multiple executables
     files = {
         "tool1.exe": b"Windows executable 1",
@@ -338,6 +352,7 @@ def test_extract_zip_multiple_candidates() -> None:
 
 
 def test_extract_zip_no_candidates() -> None:
+    """Test the extract_file function with a zip archive and no matching files."""
     # Create test data with no matching files
     files = {
         "file1.txt": b"Text file 1",
@@ -353,6 +368,7 @@ def test_extract_zip_no_candidates() -> None:
 
 
 def test_extract_zip_bad_zip() -> None:
+    """Test the extract_file function with invalid zip data."""
     # Create invalid zip data
     bad_zip_data = b"This is not a valid ZIP file"
 
@@ -364,7 +380,8 @@ def test_extract_zip_bad_zip() -> None:
 
 
 # Test compressed archives
-def test_extract_tar_gz(temp_dir) -> None:
+def test_extract_tar_gz(temp_dir: Path) -> None:
+    """Test the extract_file function with a tar.gz archive."""
     # Create test data
     files = {
         "tool": b"#!/bin/sh\necho 'Hello, World!'\n",
@@ -384,7 +401,8 @@ def test_extract_tar_gz(temp_dir) -> None:
     assert output_path.read_bytes() == b"#!/bin/sh\necho 'Hello, World!'\n"
 
 
-def test_extract_tar_bz2(temp_dir) -> None:
+def test_extract_tar_bz2(temp_dir: Path) -> None:
+    """Test the extract_file function with a tar.bz2 archive."""
     # Create test data
     files = {
         "tool": b"#!/bin/sh\necho 'Hello, World!'\n",
@@ -404,7 +422,8 @@ def test_extract_tar_bz2(temp_dir) -> None:
     assert output_path.read_bytes() == b"#!/bin/sh\necho 'Hello, World!'\n"
 
 
-def test_extract_tar_xz(temp_dir) -> None:
+def test_extract_tar_xz(temp_dir: Path) -> None:
+    """Test the extract_file function with a tar.xz archive."""
     # Create test data
     files = {
         "tool": b"#!/bin/sh\necho 'Hello, World!'\n",
@@ -425,7 +444,8 @@ def test_extract_tar_xz(temp_dir) -> None:
 
 
 # Test single compressed files
-def test_extract_single_file_gz(temp_dir) -> None:
+def test_extract_single_file_gz(temp_dir: Path) -> None:
+    """Test the extract_file function with a gz archive."""
     # Create compressed data
     content = b"#!/bin/sh\necho 'Hello, World!'\n"
     compressed = compress_data(content, "gzip")
@@ -443,7 +463,8 @@ def test_extract_single_file_gz(temp_dir) -> None:
     assert output_path.stat().st_mode & 0o777 & 0o111 != 0  # Should be executable
 
 
-def test_extract_single_file_bz2(temp_dir) -> None:
+def test_extract_single_file_bz2(temp_dir: Path) -> None:
+    """Test the extract_file function with a bz2 archive."""
     # Create compressed data
     content = b"#!/bin/sh\necho 'Hello, World!'\n"
     compressed = compress_data(content, "bzip2")
@@ -460,7 +481,8 @@ def test_extract_single_file_bz2(temp_dir) -> None:
     assert output_path.read_bytes() == content
 
 
-def test_extract_single_file_xz(temp_dir) -> None:
+def test_extract_single_file_xz(temp_dir: Path) -> None:
+    """Test the extract_file function with a xz archive."""
     # Create compressed data
     content = b"#!/bin/sh\necho 'Hello, World!'\n"
     compressed = compress_data(content, "xz")
@@ -477,7 +499,8 @@ def test_extract_single_file_xz(temp_dir) -> None:
     assert output_path.read_bytes() == content
 
 
-def test_extract_regular_file(temp_dir) -> None:
+def test_extract_regular_file(temp_dir: Path) -> None:
+    """Test the extract_file function with a regular file."""
     # Create regular file data
     content = b"#!/bin/sh\necho 'Hello, World!'\n"
 
@@ -496,13 +519,15 @@ def test_extract_regular_file(temp_dir) -> None:
 
 # Test error cases
 def test_invalid_chooser_type() -> None:
-    with pytest.raises(ValueError) as excinfo:
+    """Test that an error is raised for an invalid chooser type."""
+    with pytest.raises(ValueError, match="Unknown chooser type: invalid") as excinfo:
         extract_file("archive.tar", b"data", chooser_type="invalid")
 
     assert "Unknown chooser type" in str(excinfo.value)
 
 
 def test_extract_tar_error() -> None:
+    """Test that an error is raised for an invalid tar file."""
     # Create invalid tar data
     bad_tar_data = b"This is not a valid TAR file"
 
@@ -515,30 +540,41 @@ def test_extract_tar_error() -> None:
 
 # Test with mocks and specific edge cases
 @patch("dotbins.extract._decompress_data")
-def test_decompression_error(mock_decompress) -> None:
+def test_decompression_error(mock_decompress: MagicMock) -> None:
+    """Test that an error is raised for a decompression error."""
     mock_decompress.side_effect = Exception("Decompression failed")
 
-    with pytest.raises(ExtractionError):
+    with pytest.raises(ExtractionError, match="Decompression failed"):
         extract_file("archive.tar.gz", b"data", "tool")
 
 
-def test_symlink_handling(temp_dir) -> None:
+def test_symlink_handling() -> None:
     """Test handling of symlinks in tar archives."""
     # This is a bit tricky to test directly due to the need for a real tar archive with symlinks.
     # In a real test, we'd create an archive with symlinks, but for simplicity we'll patch the tarfile.
 
     # Mock the tar extraction
     with patch("tarfile.open") as mock_tar_open:
-        # Create a mock tar file and member
+        # Create a mock tar file and members
         mock_tar = MagicMock()
-        mock_member = MagicMock()
-        mock_member.name = "dir/link"
-        mock_member.linkname = "target"
-        mock_member.isdir.return_value = False
-        mock_member.issym.return_value = True
-        mock_member.islnk.return_value = False
 
-        mock_tar.getmembers.return_value = [mock_member]
+        # Create a directory member first
+        mock_dir = MagicMock()
+        mock_dir.name = "dir"
+        mock_dir.isdir.return_value = True
+        mock_dir.issym.return_value = False
+        mock_dir.islnk.return_value = False
+
+        # Create a symlink member
+        mock_link = MagicMock()
+        mock_link.name = "dir/link"
+        mock_link.linkname = "target"
+        mock_link.isdir.return_value = False
+        mock_link.issym.return_value = True
+        mock_link.islnk.return_value = False
+
+        # Return both members
+        mock_tar.getmembers.return_value = [mock_dir, mock_link]
         mock_tar_open.return_value.__enter__.return_value = mock_tar
 
         # Test directory extraction with a symlink
@@ -547,10 +583,11 @@ def test_symlink_handling(temp_dir) -> None:
         # We can't actually test the symlink creation without a real tar file,
         # but we can verify that the extraction logic is reached.
         assert extracted is not None
+        assert extracted.is_dir is True
 
 
-# Test with real archives (if available)
 def test_with_real_tar_gz() -> None:
+    """Test extracting a real tar.gz archive."""
     try:
         # Get a real archive from a test data directory
         test_file = Path(__file__).parent / "testdata" / "sample.tar.gz"

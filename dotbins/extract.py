@@ -59,14 +59,16 @@ def _is_definitely_not_exec(filename: str) -> bool:
 
 
 def is_exec(filename: str, mode: int) -> bool:
+    """Determine if a file is executable based on name and permissions."""
+    # First check mode bits
+    if mode & 0o111 != 0 and not _is_definitely_not_exec(filename):
+        return True
+
+    # Then check filename
     if _is_definitely_not_exec(filename):
         return False
 
-    return (
-        filename.endswith((".exe", ".appimage"))
-        or "." not in Path(filename).name
-        or mode & 0o111 != 0
-    )
+    return filename.endswith((".exe", ".appimage")) or "." not in Path(filename).name
 
 
 def rename(filename: str, nameguess: str) -> str:
@@ -129,15 +131,19 @@ def _decompress_data(data: bytes, decompressor: str | None = None) -> bytes:
     if not decompressor:
         return data
 
-    if decompressor == "gzip":
-        buffer = io.BytesIO(data)
-        with gzip.GzipFile(fileobj=buffer) as gz:
-            return gz.read()
-    elif decompressor == "bzip2":
-        return bz2.decompress(data)
-    elif decompressor == "xz":
-        return lzma.decompress(data)
-    return data
+    try:
+        if decompressor == "gzip":
+            buffer = io.BytesIO(data)
+            with gzip.GzipFile(fileobj=buffer) as gz:
+                return gz.read()
+        elif decompressor == "bzip2":
+            return bz2.decompress(data)
+        elif decompressor == "xz":
+            return lzma.decompress(data)
+        return data
+    except Exception as e:
+        msg = f"Failed to decompress with {decompressor}: {e}"
+        raise ExtractionError(msg) from e
 
 
 def _extract_regular_file(
@@ -181,8 +187,8 @@ def _extract_tar_directory(
                     target_path.symlink_to(sub_member.linkname)
                 else:
                     try:
-                        target_path.hardlink_to(sub_member.linkname)
-                    except:
+                        target_path.link_to(sub_member.linkname)
+                    except Exception:
                         pass  # Ignore hardlink errors
             else:
                 # Regular file
@@ -311,9 +317,9 @@ def _process_archive_candidates(
         ExtractionError: If no candidates or too many candidates found
 
     """
-    candidates = []
-    direct_candidates = []
-    dirs = []
+    candidates: list[ExtractedFile] = []
+    direct_candidates: list[ExtractedFile] = []
+    dirs: list[str] = []
 
     for file_info in file_infos:
         # Skip files in already selected directories
@@ -329,7 +335,12 @@ def _process_archive_candidates(
         )
 
         if direct or possible:
-            name = rename(file_info.name, file_info.name)
+            # Preserve trailing slash for directory names
+            name = file_info.name
+            if file_info.is_dir and not name.endswith("/"):
+                name += "/"
+
+            name = rename(name, name)
 
             # Get extraction function
             extract_func = extract_func_creator(
@@ -364,8 +375,13 @@ def _process_archive_candidates(
         msg = "Target not found in archive"
         raise ExtractionError(msg)
 
-    # Only raise if we're not allowing multiple candidates
-    if not multiple:
+    # When pattern is "*", we have multiple candidates but want to treat them specially
+    if chooser_args.get("pattern") == "*" and candidates and not multiple:
+        msg = f"{len(candidates)} candidates found"
+        raise ExtractionError(msg, candidates)
+
+    # For all other cases with multiple candidates
+    if len(candidates) > 1 and not multiple:
         msg = f"{len(candidates)} candidates found"
         raise ExtractionError(msg, candidates)
 
@@ -499,7 +515,7 @@ def extract_single_file(
     )
 
 
-def extract_file(
+def extract_file(  # noqa: PLR0911, PLR0912
     filename: str,
     data: bytes,
     tool: str = "",
@@ -532,6 +548,9 @@ def extract_file(
         chooser_arg = tool
 
     # Select the chooser function
+    chooser_fn: Callable
+    chooser_args: dict[str, Any]
+
     if chooser_type == "binary":
         chooser_fn = binary_chooser
         chooser_args = {"tool": chooser_arg}
@@ -545,27 +564,34 @@ def extract_file(
         msg = f"Unknown chooser type: {chooser_type}"
         raise ValueError(msg)
 
-    # Determine the file type and extract accordingly
-    if filename.endswith((".tar.gz", ".tgz")):
-        decompressed = _decompress_data(data, "gzip")
-        return _extract_tar(decompressed, chooser_fn, chooser_args, multiple)
-    if filename.endswith((".tar.bz2", ".tbz")):
-        decompressed = _decompress_data(data, "bzip2")
-        return _extract_tar(decompressed, chooser_fn, chooser_args, multiple)
-    if filename.endswith((".tar.xz", ".txz")):
-        decompressed = _decompress_data(data, "xz")
-        return _extract_tar(decompressed, chooser_fn, chooser_args, multiple)
-    if filename.endswith(".tar"):
-        return _extract_tar(data, chooser_fn, chooser_args, multiple)
-    if filename.endswith(".zip"):
-        return _extract_zip(data, chooser_fn, chooser_args, multiple)
-    if filename.endswith(".gz"):
-        return extract_single_file(data, filename, tool, "gzip")
-    if filename.endswith(".bz2"):
-        return extract_single_file(data, filename, tool, "bzip2")
-    if filename.endswith(".xz"):
-        return extract_single_file(data, filename, tool, "xz")
-    if filename.endswith(".zst"):
-        return extract_single_file(data, filename, tool, "zstd")
+    try:
+        # Determine the file type and extract accordingly
+        if filename.endswith((".tar.gz", ".tgz")):
+            decompressed = _decompress_data(data, "gzip")
+            return _extract_tar(decompressed, chooser_fn, chooser_args, multiple)
+        if filename.endswith((".tar.bz2", ".tbz")):
+            decompressed = _decompress_data(data, "bzip2")
+            return _extract_tar(decompressed, chooser_fn, chooser_args, multiple)
+        if filename.endswith((".tar.xz", ".txz")):
+            decompressed = _decompress_data(data, "xz")
+            return _extract_tar(decompressed, chooser_fn, chooser_args, multiple)
+        if filename.endswith(".tar"):
+            return _extract_tar(data, chooser_fn, chooser_args, multiple)
+        if filename.endswith(".zip"):
+            return _extract_zip(data, chooser_fn, chooser_args, multiple)
+        if filename.endswith(".gz"):
+            return extract_single_file(data, filename, tool, "gzip")
+        if filename.endswith(".bz2"):
+            return extract_single_file(data, filename, tool, "bzip2")
+        if filename.endswith(".xz"):
+            return extract_single_file(data, filename, tool, "xz")
+        if filename.endswith(".zst"):
+            return extract_single_file(data, filename, tool, "zstd")
 
-    return extract_single_file(data, filename, tool)
+        return extract_single_file(data, filename, tool)
+    except Exception as e:
+        # Catch any other exceptions that weren't already converted to ExtractionError
+        if not isinstance(e, ExtractionError):
+            msg = f"Failed to extract {filename}: {e}"
+            raise ExtractionError(msg) from e
+        raise
