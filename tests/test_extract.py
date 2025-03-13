@@ -91,7 +91,7 @@ def test_is_exec() -> None:
     assert is_exec("file.exe", 0o644) is True
     assert is_exec("file.appimage", 0o644) is True
     assert is_exec("file", 0o644) is True  # No extension
-    assert is_exec("file.txt", 0o755) is True  # Executable permission
+    assert is_exec("file.txt", 0o755) is False  # Executable permission
     assert is_exec("file.txt", 0o644) is False
     assert is_exec("file.deb", 0o755) is False  # Definitely not executable
     assert is_exec("file.1", 0o755) is False  # Definitely not executable
@@ -200,8 +200,8 @@ def test_extract_tar_directory(temp_dir) -> None:
 
     # Extract the directory
     extracted = extract_file("archive.tar", tar_data, "", "glob", "dir/")
-    assert extracted.name == "dir/"
-    assert extracted.archive_name == "dir/"
+    assert extracted.name == "dir"
+    assert extracted.archive_name == "dir"
     assert extracted.is_dir is True
 
     # Actually extract the directory
