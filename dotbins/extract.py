@@ -590,8 +590,6 @@ def extract_file(  # noqa: PLR0911, PLR0912
             return extract_single_file(data, filename, tool, "bzip2")
         if filename.endswith(".xz"):
             return extract_single_file(data, filename, tool, "xz")
-        if filename.endswith(".zst"):
-            return extract_single_file(data, filename, tool, "zstd")
 
         return extract_single_file(data, filename, tool)
     except Exception as e:
