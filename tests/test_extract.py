@@ -179,7 +179,7 @@ def test_extract_tar_binary(temp_dir: Path) -> None:
     # Create test data
     files = {
         "tool": b"#!/bin/sh\necho 'Hello, World!'\n",
-        "other": b"This is not an executable",
+        "other.txt": b"This is not an executable",
         "lib/data.txt": b"Some data",
     }
     tar_data = create_tar_archive(files)

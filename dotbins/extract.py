@@ -367,8 +367,6 @@ def _process_archive_candidates(
 
             if direct:
                 direct_candidates.append(ef)
-                if not multiple:
-                    return ef
             candidates.append(ef)
 
     # Handle candidate selection
