@@ -1,6 +1,9 @@
+"""Extract files from archives."""
+
 from __future__ import annotations
 
 import bz2
+import contextlib
 import fnmatch
 import gzip
 import io
@@ -48,6 +51,7 @@ class ExtractionError(Exception):
         message: str,
         candidates: list[ExtractedFile] | None = None,
     ) -> None:
+        """Initialize the ExtractionError."""
         self.message = message
         self.candidates = candidates or []
         super().__init__(message)
@@ -104,8 +108,8 @@ def binary_chooser(name: str, is_dir: bool, mode: int, tool: str) -> tuple[bool,
 
 def literal_file_chooser(
     name: str,
-    is_dir: bool,
-    mode: int,
+    is_dir: bool,  # noqa: ARG001
+    mode: int,  # noqa: ARG001
     filename: str,
 ) -> tuple[bool, bool]:
     """Choose files with exact name match."""
@@ -113,7 +117,12 @@ def literal_file_chooser(
     return False, basename == Path(filename).name and name.endswith(filename)
 
 
-def glob_chooser(name: str, is_dir: bool, mode: int, pattern: str) -> tuple[bool, bool]:
+def glob_chooser(
+    name: str,
+    is_dir: bool,  # noqa: ARG001
+    mode: int,  # noqa: ARG001
+    pattern: str,
+) -> tuple[bool, bool]:
     """Choose files matching a glob pattern."""
     if pattern in ("*", "/"):
         return True, True
@@ -186,10 +195,8 @@ def _extract_tar_directory(
                 if sub_member.issym():
                     target_path.symlink_to(sub_member.linkname)
                 else:
-                    try:
+                    with contextlib.suppress(Exception):
                         target_path.link_to(sub_member.linkname)
-                    except Exception:
-                        pass  # Ignore hardlink errors
             else:
                 # Regular file
                 file_data = extract_tar.extractfile(sub_member)
@@ -391,7 +398,7 @@ def _process_archive_candidates(
 
 def _extract_tar(
     data: bytes,
-    chooser_fn: Callable,
+    chooser_fn: Callable[[str, bool, int, Any], tuple[bool, bool]],
     chooser_args: dict[str, Any],
     multiple: bool = False,
 ) -> ExtractedFile:
@@ -436,12 +443,12 @@ def _extract_tar(
 
     except tarfile.TarError as e:
         msg = f"Failed to extract tar: {e}"
-        raise ExtractionError(msg)
+        raise ExtractionError(msg)  # noqa: B904
 
 
 def _extract_zip(
     data: bytes,
-    chooser_fn: Callable,
+    chooser_fn: Callable[[str, bool, int, Any], tuple[bool, bool]],
     chooser_args: dict[str, Any],
     multiple: bool = False,
 ) -> ExtractedFile:
@@ -482,7 +489,7 @@ def _extract_zip(
 
     except zipfile.BadZipFile as e:
         msg = f"Failed to extract zip: {e}"
-        raise ExtractionError(msg)
+        raise ExtractionError(msg)  # noqa: B904
 
 
 def _extract_single_file(
@@ -548,7 +555,7 @@ def extract_file(  # noqa: PLR0911, PLR0912
         chooser_arg = tool
 
     # Select the chooser function
-    chooser_fn: Callable
+    chooser_fn: Callable[[str, bool, int, Any], tuple[bool, bool]]
     chooser_args: dict[str, Any]
 
     if chooser_type == "binary":
