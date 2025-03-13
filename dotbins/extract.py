@@ -59,14 +59,13 @@ def _is_definitely_not_exec(filename: str) -> bool:
 
 
 def is_exec(filename: str, mode: int) -> bool:
-    """Check if a file should be considered executable."""
     if _is_definitely_not_exec(filename):
         return False
 
     return (
         filename.endswith((".exe", ".appimage"))
         or "." not in Path(filename).name
-        or mode & 73 != 0
+        or mode & 0o111 != 0
     )
 
 
@@ -118,9 +117,11 @@ def glob_chooser(name: str, is_dir: bool, mode: int, pattern: str) -> tuple[bool
         return True, True
 
     name = name.removesuffix("/")
+    pattern = pattern.removesuffix("/")  # Handle pattern without trailing slash
 
     basename = Path(name).name
-    return False, fnmatch.fnmatch(basename, pattern) or fnmatch.fnmatch(name, pattern)
+    is_match = fnmatch.fnmatch(basename, pattern) or fnmatch.fnmatch(name, pattern)
+    return False, is_match
 
 
 def _decompress_data(data: bytes, decompressor: str | None = None) -> bytes:
@@ -311,6 +312,7 @@ def _process_archive_candidates(
 
     """
     candidates = []
+    direct_candidates = []
     dirs = []
 
     for file_info in file_infos:
@@ -345,18 +347,30 @@ def _process_archive_candidates(
                 is_dir=file_info.is_dir,
             )
 
-            if direct and not multiple:
-                return ef
+            if direct:
+                direct_candidates.append(ef)
+                if not multiple:
+                    return ef
             candidates.append(ef)
 
     # Handle candidate selection
+    if direct_candidates and multiple:
+        return direct_candidates[0]
+
     if len(candidates) == 1:
         return candidates[0]
+
     if len(candidates) == 0:
         msg = "Target not found in archive"
         raise ExtractionError(msg)
-    msg = f"{len(candidates)} candidates found"
-    raise ExtractionError(msg, candidates)
+
+    # Only raise if we're not allowing multiple candidates
+    if not multiple:
+        msg = f"{len(candidates)} candidates found"
+        raise ExtractionError(msg, candidates)
+
+    # If we get here with multiple=True, just return the first candidate
+    return candidates[0]
 
 
 def _extract_tar(

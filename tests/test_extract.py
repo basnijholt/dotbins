@@ -75,11 +75,6 @@ def compress_data(data: bytes, compressor: str) -> bytes:
         return bz2.compress(data)
     if compressor == "xz":
         return lzma.compress(data)
-    if compressor == "zstd":
-        import zstandard as zstd
-
-        cctx = zstd.ZstdCompressor()
-        return cctx.compress(data)
     return data
 
 
@@ -429,26 +424,6 @@ def test_extract_tar_xz(temp_dir) -> None:
     assert output_path.read_bytes() == b"#!/bin/sh\necho 'Hello, World!'\n"
 
 
-def test_extract_tar_zst(temp_dir) -> None:
-    # Create test data
-    files = {
-        "tool": b"#!/bin/sh\necho 'Hello, World!'\n",
-    }
-    tar_data = create_tar_archive(files)
-    tar_zst_data = compress_data(tar_data, "zstd")
-
-    # Extract the binary
-    extracted = extract_file("archive.tar.zst", tar_zst_data, "tool")
-    assert extracted.name == "tool"
-    assert extracted.archive_name == "tool"
-
-    # Actually extract the file
-    output_path = temp_dir / "output_zst"
-    extracted.extract(output_path)
-    assert output_path.exists()
-    assert output_path.read_bytes() == b"#!/bin/sh\necho 'Hello, World!'\n"
-
-
 # Test single compressed files
 def test_extract_single_file_gz(temp_dir) -> None:
     # Create compressed data
@@ -502,23 +477,6 @@ def test_extract_single_file_xz(temp_dir) -> None:
     assert output_path.read_bytes() == content
 
 
-def test_extract_single_file_zst(temp_dir) -> None:
-    # Create compressed data
-    content = b"#!/bin/sh\necho 'Hello, World!'\n"
-    compressed = compress_data(content, "zstd")
-
-    # Extract the file
-    extracted = extract_file("tool.zst", compressed, "tool")
-    assert extracted.name == "tool"
-    assert extracted.archive_name == "tool.zst"
-
-    # Actually extract the file
-    output_path = temp_dir / "output_single_zst"
-    extracted.extract(output_path)
-    assert output_path.exists()
-    assert output_path.read_bytes() == content
-
-
 def test_extract_regular_file(temp_dir) -> None:
     # Create regular file data
     content = b"#!/bin/sh\necho 'Hello, World!'\n"
@@ -556,7 +514,7 @@ def test_extract_tar_error() -> None:
 
 
 # Test with mocks and specific edge cases
-@patch("archive_extractor._decompress_data")
+@patch("dotbins.extract._decompress_data")
 def test_decompression_error(mock_decompress) -> None:
     mock_decompress.side_effect = Exception("Decompression failed")
 
