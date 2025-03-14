@@ -6,10 +6,7 @@ from collections.abc import Generator
 from pathlib import Path
 
 import pytest
-import yaml
 from requests_mock import Mocker
-
-from dotbins.config import DotbinsConfig
 
 
 @pytest.fixture
@@ -17,42 +14,6 @@ def temp_dir() -> Generator[Path, None, None]:
     """Create a temporary directory for tests."""
     with tempfile.TemporaryDirectory() as tmpdirname:
         yield Path(tmpdirname)
-
-
-@pytest.fixture
-def mock_config_file(temp_dir: Path) -> Path:
-    """Create a mock dotbins.yaml configuration file."""
-    config = {
-        "tools_dir": str(temp_dir / "tools"),
-        "platforms": {
-            "linux": ["amd64", "arm64"],
-            "macos": ["arm64"],
-        },
-        "tools": {
-            "test-tool": {
-                "repo": "test/tool",
-                "extract_binary": True,
-                "binary_name": "test-tool",
-                "binary_path": "test-tool",
-                "asset_patterns": {
-                    "linux": "test-tool-{version}-{platform}_{arch}.tar.gz",
-                    "macos": "test-tool-{version}-{platform}_{arch}.tar.gz",
-                },
-            },
-        },
-    }
-
-    config_path = temp_dir / "dotbins.yaml"
-    with open(config_path, "w") as f:
-        yaml.dump(config, f)
-
-    return config_path
-
-
-@pytest.fixture
-def mock_config(mock_config_file: Path) -> DotbinsConfig:
-    """Create a mock DotbinsConfig object."""
-    return DotbinsConfig.load_from_file(str(mock_config_file))
 
 
 @pytest.fixture

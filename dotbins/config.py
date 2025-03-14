@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +32,11 @@ class ToolConfig:
     # Runtime fields - not required for initialization
     version: str | None = None
     arch: str | None = None
+
+    def copy(self, **updates: Any) -> ToolConfig:
+        """Copy the tool config and update with new values."""
+        kwargs = asdict(self) | updates
+        return ToolConfig(**kwargs)
 
 
 @dataclass

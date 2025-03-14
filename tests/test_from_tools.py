@@ -19,14 +19,6 @@ TOOLS = ["fzf", "bat", "eza", "zoxide", "uv"]
 
 
 @pytest.fixture
-def ensure_bin_dir() -> Path:
-    """Ensure the tests/bin directory exists."""
-    bin_dir = Path(__file__).parent / "bin"
-    bin_dir.mkdir(exist_ok=True)
-    return bin_dir
-
-
-@pytest.fixture
 def tools_config() -> dict[str, ToolConfig]:
     """Load tools configuration from dotbins.yaml."""
     script_dir = Path(__file__).parent.parent

@@ -180,11 +180,7 @@ def test_analyze_tool(
     yaml_text = captured.out.split("Suggested configuration for YAML tools file:")[
         1
     ].strip()
-    try:
-        # This should not raise an exception if the YAML is valid
-        yaml.safe_load(yaml_text)
-    except Exception as e:
-        pytest.fail(f"Generated YAML is invalid: {e}")
+    yaml.safe_load(yaml_text)
 
 
 def test_cli_no_command(capsys: CaptureFixture[str]) -> None:

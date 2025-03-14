@@ -12,11 +12,10 @@ from typing import TYPE_CHECKING, NamedTuple
 
 import requests
 
-from .config import ToolConfig
 from .utils import calculate_sha256, extract_archive, get_latest_release, log
 
 if TYPE_CHECKING:
-    from .config import DotbinsConfig
+    from .config import DotbinsConfig, ToolConfig
     from .versions import VersionStore
 
 
@@ -496,16 +495,9 @@ def _prepare_download_task(
             asset_url=asset["browser_download_url"],
             asset_name=asset["name"],
             # Make a copy of tool_config because we'll modify it
-            tool_config=ToolConfig(
-                tool_config.repo,
-                tool_config.binary_name,
-                tool_config.binary_path,
-                tool_config.extract_binary,
-                tool_config.asset_patterns,
-                tool_config.platform_map,
-                tool_config.arch_map,
-                version,
-                tool_arch,
+            tool_config=tool_config.copy(
+                version=version,
+                arch=tool_arch,
             ),
             destination_dir=destination_dir,
             temp_path=temp_path,
