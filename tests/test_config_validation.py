@@ -10,6 +10,7 @@ def test_validate_unknown_architecture() -> None:
         platforms={"linux": ["amd64", "arm64"]},
         tools={
             "test-tool": ToolConfig(
+                tool_name="test-tool",
                 repo="test/repo",
                 binary_name="test-tool",
                 binary_path="test-tool",

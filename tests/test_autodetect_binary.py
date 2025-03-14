@@ -209,6 +209,7 @@ def test_extract_from_archive_with_auto_detection(
 
     # Mock config without binary_path
     tool_config = ToolConfig(
+        tool_name="fzf",
         binary_name="fzf",
         # No binary_path!
         repo="junegunn/fzf",
@@ -250,6 +251,7 @@ def test_extract_from_archive_auto_detection_failure(
 
     # Mock config without binary_path
     tool_config = ToolConfig(
+        tool_name="git-lfs",
         binary_name="git-lfs",
         # No binary_path!
         repo="git-lfs/git-lfs",

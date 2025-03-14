@@ -160,6 +160,7 @@ def test_extract_from_archive_tar(temp_dir: Path) -> None:
 
     # Setup tool config
     tool_config = ToolConfig(
+        tool_name="test-tool",
         binary_name="test-tool",
         binary_path="test-bin",
         repo="test/repo",
@@ -198,6 +199,7 @@ def test_extract_from_archive_zip(temp_dir: Path) -> None:
 
     # Setup tool config
     tool_config = ToolConfig(
+        tool_name="test-tool",
         binary_name="test-tool",
         binary_path="test-bin",
         repo="test/repo",
@@ -255,6 +257,7 @@ def test_download_tool_already_exists(temp_dir: Path) -> None:
     """Test prepare_download_task when binary already exists."""
     # Setup environment with complete tool config
     test_tool_config = ToolConfig(
+        tool_name="test-tool",
         repo="test/tool",
         extract_binary=True,
         binary_name="test-tool",
@@ -313,6 +316,7 @@ def test_download_tool_asset_not_found(
         json=response_data,
     )
     test_tool_config = ToolConfig(
+        tool_name="test-tool",
         repo="test/tool",
         binary_name="test-tool",
         asset_patterns="tool-{version}-linux_{arch}.tar.gz",
@@ -352,6 +356,7 @@ def test_extract_from_archive_unknown_type(temp_dir: Path) -> None:
 
     # Setup tool config
     test_tool_config = ToolConfig(
+        tool_name="test-tool",
         repo="test/tool",
         binary_name="test-tool",
         binary_path="test-bin",
@@ -387,6 +392,7 @@ def test_extract_from_archive_missing_binary(temp_dir: Path) -> None:
 
     # Setup tool config
     test_tool_config = ToolConfig(
+        tool_name="test-tool",
         repo="test/tool",
         binary_name="test-tool",
         binary_path="test-bin",  # This path doesn't exist in archive
@@ -434,6 +440,7 @@ def test_extract_from_archive_multiple_binaries(temp_dir: Path) -> None:
 
     # Setup tool config with multiple binaries
     test_tool_config = ToolConfig(
+        tool_name="test-tool",
         repo="test/tool",
         binary_name=["primary-tool", "secondary-tool"],
         binary_path=["test-1.0.0/primary-bin", "test-1.0.0/secondary-bin"],

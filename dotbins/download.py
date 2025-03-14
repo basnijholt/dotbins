@@ -429,10 +429,9 @@ def _prepare_download_task(
         return None
 
     destination_dir = config.tools_dir / platform / arch / "bin"
-    binary_names = tool_config.binary_name or [tool_name]
 
     all_exist = True
-    for binary_name in binary_names:
+    for binary_name in tool_config.binary_name:
         binary_path = destination_dir / binary_name
         if not binary_path.exists():
             all_exist = False
@@ -514,7 +513,7 @@ def _process_downloaded_task(
                 task.platform,
             )
         else:
-            binary_names = task.tool_config.binary_name or [task.tool_name]
+            binary_names = task.tool_config.binary_name
             if len(binary_names) != 1:
                 log(
                     f"Expected exactly one binary name for {task.tool_name}, got {len(binary_names)}",

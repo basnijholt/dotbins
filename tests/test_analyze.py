@@ -280,6 +280,7 @@ def test_analyze_tool(
     mock_download_find.return_value = "bin/tool"
 
     tool_config = ToolConfig(
+        tool_name="tool",
         repo="test/repo",
         extract_binary=True,
         binary_name="tool",
@@ -308,7 +309,7 @@ def test_analyze_tool(
     ].strip()
     parsed = yaml.safe_load(yaml_section)
     assert "tool" in parsed
-    assert ToolConfig(**parsed["tool"]) == tool_config
+    assert ToolConfig("tool", **parsed["tool"]) == tool_config
 
 
 def test_extract_archive(temp_dir: Path) -> None:

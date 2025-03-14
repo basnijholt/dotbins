@@ -59,6 +59,7 @@ def test_list_tools(
     """Test the 'list' command."""
     # Create a test tool configuration
     test_tool_config = ToolConfig(
+        tool_name="test-tool",
         repo="test/tool",
         extract_binary=True,
         binary_name="test-tool",
@@ -89,6 +90,7 @@ def test_update_tool(
     """Test updating a specific tool."""
     # Set up mock environment
     test_tool_config = ToolConfig(
+        tool_name="test-tool",
         repo="test/tool",
         extract_binary=True,
         binary_name="test-tool",

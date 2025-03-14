@@ -86,7 +86,7 @@ def analyze_tool(args: Any, _config: Any = None) -> None:
         tool_config_dict = {
             k: v
             for k, v in tool_config.__dict__.items()
-            if v is not None and k not in ["version", "arch"]
+            if v is not None and k not in ["version", "arch", "tool_name"]
         }
         yaml_config = {tool_name: tool_config_dict}
         print(yaml.dump(yaml_config, sort_keys=False, default_flow_style=False))
@@ -297,6 +297,7 @@ def generate_tool_config(
     asset_patterns = _get_asset_patterns(release, linux_assets, macos_assets)
 
     return ToolConfig(
+        tool_name=tool_name,
         repo=repo,
         binary_name=tool_name,
         binary_path=processed_binary_path,

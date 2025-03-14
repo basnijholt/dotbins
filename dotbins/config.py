@@ -24,6 +24,7 @@ class ToolConfig:
 
     def __init__(
         self,
+        tool_name: str,
         repo: str,
         binary_name: str | list[str] | None = None,
         binary_path: str | list[str] | None = None,
@@ -33,8 +34,9 @@ class ToolConfig:
         arch_map: dict[str, str] | None = None,
     ) -> None:
         """Initialize the tool config."""
+        self.tool_name: str = tool_name
         self.repo: str = repo
-        self.binary_name: list[str] = _ensure_list(binary_name)
+        self.binary_name: list[str] = _ensure_list(binary_name) or [tool_name]
         self.binary_path: list[str] = _ensure_list(binary_path)
         self.extract_binary: bool = extract_binary
         self.asset_patterns: str | dict[str, Any] | None = asset_patterns
@@ -47,6 +49,7 @@ class ToolConfig:
     def copy(self, **updates: Any) -> ToolConfig:
         """Copy the tool config and update with new values."""
         cfg = ToolConfig(
+            tool_name=self.tool_name,
             repo=self.repo,
             binary_name=self.binary_name,
             binary_path=self.binary_path,
@@ -258,7 +261,7 @@ class DotbinsConfig:
             # Convert tools dictionaries to ToolConfig objects
             if "tools" in config_data:
                 config_data["tools"] = {
-                    tool_name: ToolConfig(**tool_data)
+                    tool_name: ToolConfig(tool_name, **tool_data)
                     for tool_name, tool_data in config_data["tools"].items()
                 }
 
