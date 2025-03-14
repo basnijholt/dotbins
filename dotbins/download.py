@@ -69,14 +69,15 @@ def _extract_from_archive(
         log(f"Archive extracted to {temp_dir}", "success", "📦")
         # Debug: List the extracted files
         _log_extracted_files(temp_dir)
-        binary_names, binary_paths = _get_binary_config(tool_config)
-        if not binary_paths:
-            binary_paths = _detect_binary_paths(temp_dir, binary_names)
+        binary_paths = tool_config.binary_path or _detect_binary_paths(
+            temp_dir,
+            tool_config.binary_name,
+        )
         destination_dir.mkdir(parents=True, exist_ok=True)
         _process_binaries(
             temp_dir,
             destination_dir,
-            binary_names,
+            tool_config.binary_name,
             binary_paths,
             tool_config,
         )
@@ -86,21 +87,6 @@ def _extract_from_archive(
         raise
     finally:
         shutil.rmtree(temp_dir)
-
-
-def _get_binary_config(tool_config: ToolConfig) -> tuple[list[str], list[str]]:
-    """Get binary names and paths from the tool configuration."""
-    binary_names = tool_config.binary_name
-    binary_paths = tool_config.binary_path
-
-    if isinstance(binary_names, str):
-        binary_names = [binary_names]
-    if isinstance(binary_paths, str):
-        binary_paths = [binary_paths]
-    elif binary_paths is None:
-        binary_paths = []
-
-    return binary_names, binary_paths
 
 
 def _detect_binary_paths(temp_dir: Path, binary_names: list[str]) -> list[str]:
@@ -257,13 +243,8 @@ def should_skip_download(
     """Check if download should be skipped (binary already exists)."""
     destination_dir = config.tools_dir / platform / arch / "bin"
     tool_config = config.tools[tool_name]
-    binary_names = tool_config.binary_name
-
-    if isinstance(binary_names, str):
-        binary_names = [binary_names]
-
     all_exist = True
-    for binary_name in binary_names:
+    for binary_name in tool_config.binary_name:
         binary_path = destination_dir / binary_name
         if not binary_path.exists():
             all_exist = False
@@ -448,9 +429,7 @@ def _prepare_download_task(
         return None
 
     destination_dir = config.tools_dir / platform / arch / "bin"
-    binary_names = tool_config.binary_name or tool_name
-    if isinstance(binary_names, str):
-        binary_names = [binary_names]
+    binary_names = tool_config.binary_name or [tool_name]
 
     all_exist = True
     for binary_name in binary_names:
@@ -535,9 +514,13 @@ def _process_downloaded_task(
                 task.platform,
             )
         else:
-            binary_names = task.tool_config.binary_name or task.tool_name
-            if isinstance(binary_names, str):
-                binary_names = [binary_names]
+            binary_names = task.tool_config.binary_name or [task.tool_name]
+            if len(binary_names) != 1:
+                log(
+                    f"Expected exactly one binary name for {task.tool_name}, got {len(binary_names)}",
+                    "error",
+                )
+                return False
             binary_name = binary_names[0]
 
             shutil.copy2(task.temp_path, task.destination_dir / binary_name)

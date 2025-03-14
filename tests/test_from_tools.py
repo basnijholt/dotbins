@@ -77,18 +77,14 @@ def test_config_generation_with_mocked_release(
     mock_get_latest_release.return_value = mock_release
 
     # Generate the suggested config
-    suggested_config = generate_tool_configuration(
-        repo,
-        tool_name,
-        mock_release,
-    )
+    suggested_config = generate_tool_configuration(repo, tool_name, mock_release)
 
     # Verify basic structure (not comparing to existing since we're using mock data)
     assert suggested_config, f"No configuration generated for {tool_name}"
     assert suggested_config.repo == repo
     assert suggested_config.extract_binary
     assert suggested_config.binary_name
-    assert suggested_config.binary_name == tool_name
+    assert suggested_config.binary_name == [tool_name]
 
 
 @pytest.mark.parametrize(
