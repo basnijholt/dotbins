@@ -11,6 +11,7 @@ import yaml
 from _pytest.capture import CaptureFixture
 
 from dotbins import analyze
+from dotbins.config import ToolConfig
 from dotbins.download import extract_archive
 
 
@@ -161,14 +162,16 @@ def test_generate_tool_config(mock_release: dict[str, Any]) -> None:
         mock_release,
         "bin/tool",
     )
-    assert config["repo"] == "test/repo"
-    assert config["extract_binary"] is True
-    assert config["binary_name"] == "tool"
-    assert config["binary_path"] == "*/tool"
-    assert "arch_map" in config
-    assert "asset_patterns" in config
-    assert config["asset_patterns"]["linux"] != "?"
-    assert config["asset_patterns"]["macos"] != "?"
+    assert isinstance(config, ToolConfig)
+    assert config.repo == "test/repo"
+    assert config.extract_binary is True
+    assert config.binary_name == "tool"
+    assert config.binary_path == "*/tool"
+    assert config.arch_map
+    assert config.asset_patterns
+    assert isinstance(config.asset_patterns, dict)
+    assert config.asset_patterns["linux"] != "?"
+    assert config.asset_patterns["macos"] != "?"
 
     # Test without binary path
     config = analyze.generate_tool_config(
@@ -177,7 +180,7 @@ def test_generate_tool_config(mock_release: dict[str, Any]) -> None:
         mock_release,
         None,
     )
-    assert "binary_path" not in config
+    assert not config.binary_path
 
     # Test with binary path containing version
     config = analyze.generate_tool_config(
@@ -186,7 +189,7 @@ def test_generate_tool_config(mock_release: dict[str, Any]) -> None:
         mock_release,
         "tool-1.0.0/bin/tool",
     )
-    assert config["binary_path"] == "*/bin/tool"
+    assert config.binary_path == "*/bin/tool"
 
 
 def test_generate_platform_specific_patterns(mock_release: dict[str, Any]) -> None:
@@ -276,13 +279,13 @@ def test_analyze_tool(
     }
     mock_download_find.return_value = "bin/tool"
 
-    tool_config = {
-        "repo": "test/repo",
-        "extract_binary": True,
-        "binary_name": "tool",
-        "binary_path": "bin/tool",
-        "asset_patterns": "test-{version}.tar.gz",
-    }
+    tool_config = ToolConfig(
+        repo="test/repo",
+        extract_binary=True,
+        binary_name="tool",
+        binary_path="bin/tool",
+        asset_patterns="test-{version}.tar.gz",
+    )
     mock_gen_config.return_value = tool_config
 
     # Call the function
@@ -305,7 +308,7 @@ def test_analyze_tool(
     ].strip()
     parsed = yaml.safe_load(yaml_section)
     assert "tool" in parsed
-    assert parsed["tool"] == tool_config
+    assert ToolConfig(**parsed["tool"]) == tool_config
 
 
 def test_extract_archive(temp_dir: Path) -> None:

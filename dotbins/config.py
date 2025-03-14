@@ -19,12 +19,28 @@ DEFAULT_PLATFORMS = {
 
 
 @dataclass
+class ToolConfig:
+    """Configuration for a single tool."""
+
+    repo: str
+    binary_name: str | list[str]
+    binary_path: str | list[str] | None = None
+    extract_binary: bool = True
+    asset_patterns: str | dict[str, Any] | None = None
+    platform_map: dict[str, str] | None = None
+    arch_map: dict[str, str] | None = None
+    # Runtime fields - not required for initialization
+    version: str | None = None
+    arch: str | None = None
+
+
+@dataclass
 class DotbinsConfig:
     """Configuration for dotbins."""
 
     tools_dir: Path = field(default=Path(os.path.expanduser(DEFAULT_TOOLS_DIR)))
     platforms: dict[str, list[str]] = field(default_factory=lambda: DEFAULT_PLATFORMS)
-    tools: dict[str, Any] = field(default_factory=dict)
+    tools: dict[str, ToolConfig] = field(default_factory=dict)
 
     @property
     def platform_names(self) -> list[str]:
@@ -37,75 +53,48 @@ class DotbinsConfig:
 
     def validate(self) -> None:
         """Validate the configuration."""
-        # Validate tool configurations
         for tool_name, tool_config in self.tools.items():
             self._validate_tool_config(tool_name, tool_config)
 
     def _validate_tool_config(
         self,
         tool_name: str,
-        tool_config: dict[str, Any],
+        tool_config: ToolConfig,
     ) -> None:
         """Validate a single tool configuration."""
         self._validate_required_fields(tool_name, tool_config)
-        self._validate_unknown_fields(tool_name, tool_config)
-        self._validate_asset_patterns_presence(tool_name, tool_config)
         self._validate_binary_fields(tool_name, tool_config)
         self._validate_binary_lists_length(tool_name, tool_config)
-        self._validate_map_fields(tool_name, tool_config)
         self._validate_asset_patterns_structure(tool_name, tool_config)
 
     def _validate_required_fields(
         self,
         tool_name: str,
-        tool_config: dict[str, Any],
+        tool_config: ToolConfig,
     ) -> None:
         """Validate required fields are present."""
-        required_fields = ["repo", "binary_name"]  # Remove binary_path from required
-        for _field in required_fields:
-            if _field not in tool_config:
-                log(
-                    f"Tool {tool_name} is missing required field '{_field}'",
-                    "error",
-                    "⚠️",
-                )
+        if not tool_config.repo:
+            log(
+                f"Tool {tool_name} is missing required field 'repo'",
+                "error",
+                "⚠️",
+            )
 
-        if "binary_path" not in tool_config:
+        if not tool_config.binary_name:
+            log(
+                f"Tool {tool_name} is missing required field 'binary_name'",
+                "error",
+                "⚠️",
+            )
+
+        if not tool_config.binary_path:
             log(
                 f"Tool {tool_name} has no binary_path specified - will attempt auto-detection",
                 "info",
                 "ℹ️",  # noqa: RUF001
             )
 
-    def _validate_unknown_fields(
-        self,
-        tool_name: str,
-        tool_config: dict[str, Any],
-    ) -> None:
-        """Validate there are no unknown fields."""
-        known_fields = {
-            "repo",
-            "binary_name",
-            "binary_path",
-            "extract_binary",
-            "asset_patterns",
-            "platform_map",
-            "arch_map",
-        }
-        unknown_fields = set(tool_config.keys()) - known_fields
-        for _field in unknown_fields:
-            log(
-                f"Tool {tool_name} has unknown field '{_field}' that will be ignored",
-                "warning",
-            )
-
-    def _validate_asset_patterns_presence(
-        self,
-        tool_name: str,
-        tool_config: dict[str, Any],
-    ) -> None:
-        """Validate asset_patterns field is present."""
-        if "asset_patterns" not in tool_config:
+        if not tool_config.asset_patterns:
             log(
                 f"Tool {tool_name} is missing required field 'asset_patterns'",
                 "error",
@@ -115,16 +104,19 @@ class DotbinsConfig:
     def _validate_binary_fields(
         self,
         tool_name: str,
-        tool_config: dict[str, Any],
+        tool_config: ToolConfig,
     ) -> None:
         """Validate binary_name and binary_path fields."""
-        for _field in ["binary_name", "binary_path"]:
-            if _field in tool_config and not isinstance(
-                tool_config[_field],
+        for field_name, field_value in [
+            ("binary_name", tool_config.binary_name),
+            ("binary_path", tool_config.binary_path),
+        ]:
+            if field_value is not None and not isinstance(
+                field_value,
                 (str, list),
             ):
                 log(
-                    f"Tool {tool_name}: '{_field}' must be a string or a list of strings",
+                    f"Tool {tool_name}: '{field_name}' must be a string or a list of strings",
                     "error",
                     "⚠️",
                 )
@@ -132,13 +124,13 @@ class DotbinsConfig:
     def _validate_binary_lists_length(
         self,
         tool_name: str,
-        tool_config: dict[str, Any],
+        tool_config: ToolConfig,
     ) -> None:
         """Validate binary_name and binary_path lists have the same length."""
         if (
-            isinstance(tool_config.get("binary_name"), list)
-            and isinstance(tool_config.get("binary_path"), list)
-            and len(tool_config["binary_name"]) != len(tool_config["binary_path"])
+            isinstance(tool_config.binary_name, list)
+            and isinstance(tool_config.binary_path, list)
+            and len(tool_config.binary_name) != len(tool_config.binary_path)
         ):
             log(
                 f"Tool {tool_name}: 'binary_name' and 'binary_path' lists must have the same length",
@@ -146,22 +138,16 @@ class DotbinsConfig:
                 "⚠️",
             )
 
-    def _validate_map_fields(self, tool_name: str, tool_config: dict[str, Any]) -> None:
-        """Validate platform_map and arch_map fields."""
-        for _field in ["platform_map", "arch_map"]:
-            if _field in tool_config and not isinstance(tool_config[_field], dict):
-                log(f"Tool {tool_name}: '{_field}' must be a dictionary", "error", "⚠️")
-
     def _validate_asset_patterns_structure(
         self,
         tool_name: str,
-        tool_config: dict[str, Any],
+        tool_config: ToolConfig,
     ) -> None:
         """Validate asset_patterns structure."""
-        if "asset_patterns" not in tool_config:
+        if not tool_config.asset_patterns:
             return
 
-        patterns = tool_config["asset_patterns"]
+        patterns = tool_config.asset_patterns
         if isinstance(patterns, dict):
             for platform, platform_patterns in patterns.items():
                 if platform not in self.platforms and platform != "default":
@@ -228,6 +214,13 @@ class DotbinsConfig:
                 config_data["tools_dir"] = Path(
                     os.path.expanduser(config_data["tools_dir"]),
                 )
+
+            # Convert tools dictionaries to ToolConfig objects
+            if "tools" in config_data:
+                config_data["tools"] = {
+                    tool_name: ToolConfig(**tool_data)
+                    for tool_name, tool_data in config_data["tools"].items()
+                }
 
             config = cls(**config_data)
             config.validate()

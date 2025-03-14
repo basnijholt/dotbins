@@ -24,7 +24,7 @@ def _list_tools(_args: Any, config: DotbinsConfig) -> None:
     """List available tools."""
     log("Available tools:", "info", "🔧")
     for tool, tool_config in config.tools.items():
-        log(f"  {tool} (from {tool_config['repo']})", "success")
+        log(f"  {tool} (from {tool_config.repo})", "success")
 
 
 def _update_tools(args: argparse.Namespace, config: DotbinsConfig) -> None:

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 import yaml
 
+from .config import ToolConfig
 from .download import download_file, extract_archive
 from .utils import get_latest_release, log
 
@@ -23,7 +24,7 @@ def generate_tool_configuration(
     repo: str,
     tool_name: str | None = None,
     release: dict | None = None,
-) -> dict:
+) -> ToolConfig:
     """Analyze GitHub releases and generate tool configuration.
 
     Args:
@@ -32,7 +33,7 @@ def generate_tool_configuration(
         release: Pre-fetched release data. If None, it will be fetched from GitHub
 
     Returns:
-        Tool configuration dictionary
+        Tool configuration object
 
     """
     if not repo or "/" not in repo:
@@ -81,7 +82,13 @@ def analyze_tool(args: Any, _config: Any = None) -> None:
 
         # Output YAML
         log("Suggested configuration for YAML tools file:", "info", "📋")
-        yaml_config = {tool_name: tool_config}
+        # Convert ToolConfig to dict for YAML serialization
+        tool_config_dict = {
+            k: v
+            for k, v in tool_config.__dict__.items()
+            if v is not None and k not in ["version", "arch"]
+        }
+        yaml_config = {tool_name: tool_config_dict}
         print(yaml.dump(yaml_config, sort_keys=False, default_flow_style=False))
         log("Please review and adjust the configuration as needed!", "warning", "# ⚠️")
     except Exception:
@@ -265,57 +272,54 @@ def generate_tool_config(
     tool_name: str,
     release: dict,
     binary_path: str | list[str] | None,
-) -> dict:
+) -> ToolConfig:
     """Generate tool configuration based on release information."""
     assets = release["assets"]
     linux_assets = get_platform_assets(assets, "linux")
     macos_assets = get_platform_assets(assets, "macos")
-    tool_config = _create_base_tool_config(repo, tool_name)
+
+    # Process binary_path to make it more generic/flexible
+    processed_binary_path: str | list[str] | None = None
     if binary_path:
-        _add_binary_path_to_config(tool_config, binary_path)
-    if _needs_arch_conversion(assets):
-        tool_config["arch_map"] = {"amd64": "x86_64", "arm64": "aarch64"}
-    _add_asset_patterns_to_config(tool_config, release, linux_assets, macos_assets)
+        if isinstance(binary_path, list):
+            processed_binary_path = [
+                _generalize_binary_path(path) for path in binary_path
+            ]
+        else:
+            processed_binary_path = _generalize_binary_path(binary_path)
 
-    return tool_config
+    arch_map = (
+        {"amd64": "x86_64", "arm64": "aarch64"}
+        if _needs_arch_conversion(assets)
+        else {}
+    )
 
+    asset_patterns = _get_asset_patterns(release, linux_assets, macos_assets)
 
-def _create_base_tool_config(repo: str, tool_name: str) -> dict:
-    """Create the basic tool configuration."""
-    return {
-        "repo": repo,
-        "extract_binary": True,
-        "binary_name": tool_name,
-    }
-
-
-def _needs_arch_conversion(assets: list[dict]) -> bool:
-    """Determine if we need architecture conversion."""
-    return any("x86_64" in a["name"] for a in assets) or any(
-        "aarch64" in a["name"] for a in assets
+    return ToolConfig(
+        repo=repo,
+        binary_name=tool_name,
+        binary_path=processed_binary_path,
+        extract_binary=True,
+        asset_patterns=asset_patterns,
+        arch_map=arch_map,
     )
 
 
-def _add_binary_path_to_config(tool_config: dict, binary_path: str | list[str]) -> None:
-    """Add binary path information to the tool configuration."""
-    # Handle both string and list paths
-    if isinstance(binary_path, list):
-        # For lists, replace version in each path
-        binary_paths = []
-        for path in binary_path:
-            generalized_path = _generalize_binary_path(path)
-            binary_paths.append(generalized_path)
-        tool_config["binary_path"] = binary_paths
-
-        # Also make binary_name a list if it's not already
-        if not isinstance(tool_config["binary_name"], list):
-            # Create a list of binary names based on the basename of each path
-            binary_names = [os.path.basename(path) for path in binary_path]
-            tool_config["binary_name"] = binary_names
-    else:
-        # For single string path
-        generalized_path = _generalize_binary_path(binary_path)
-        tool_config["binary_path"] = generalized_path
+def _get_asset_patterns(
+    release: dict,
+    linux_assets: list[dict],
+    macos_assets: list[dict],
+) -> str | dict | None:
+    """Get asset patterns based on release info."""
+    platform_specific = bool(linux_assets and macos_assets)
+    if platform_specific:
+        return generate_platform_specific_patterns(release)
+    # Single pattern for all platforms
+    pattern = generate_single_pattern(release)
+    if pattern != "?":
+        return pattern
+    return None
 
 
 def _generalize_binary_path(path: str) -> str:
@@ -341,23 +345,11 @@ def _generalize_binary_path(path: str) -> str:
     return basename
 
 
-def _add_asset_patterns_to_config(
-    tool_config: dict,
-    release: dict,
-    linux_assets: list[dict],
-    macos_assets: list[dict],
-) -> None:
-    """Add asset pattern information to the tool configuration."""
-    platform_specific = bool(linux_assets and macos_assets)
-    if platform_specific:
-        asset_patterns = generate_platform_specific_patterns(release)
-        tool_config["asset_patterns"] = asset_patterns
-    else:
-        # Single pattern for all platforms
-        pattern = generate_single_pattern(release)
-        if pattern != "?":
-            # Use asset_patterns as a string instead of asset_pattern
-            tool_config["asset_patterns"] = pattern
+def _needs_arch_conversion(assets: list[dict]) -> bool:
+    """Determine if we need architecture conversion."""
+    return any("x86_64" in a["name"] for a in assets) or any(
+        "aarch64" in a["name"] for a in assets
+    )
 
 
 def generate_platform_specific_patterns(release: dict) -> dict:

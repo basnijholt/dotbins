@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from dotbins.config import ToolConfig
 from dotbins.download import (
     _auto_detect_binary_paths,
     _extract_from_archive,
@@ -207,12 +208,12 @@ def test_extract_from_archive_with_auto_detection(
     destination_dir.mkdir()
 
     # Mock config without binary_path
-    tool_config = {
-        "binary_name": "fzf",
+    tool_config = ToolConfig(
+        binary_name="fzf",
         # No binary_path!
-        "repo": "junegunn/fzf",
-        "extract_binary": True,
-    }
+        repo="junegunn/fzf",
+        extract_binary=True,
+    )
 
     # Mock console to capture output
     mock_console = MagicMock()
@@ -248,12 +249,12 @@ def test_extract_from_archive_auto_detection_failure(
     destination_dir.mkdir()
 
     # Mock config without binary_path
-    tool_config = {
-        "binary_name": "git-lfs",
+    tool_config = ToolConfig(
+        binary_name="git-lfs",
         # No binary_path!
-        "repo": "git-lfs/git-lfs",
-        "extract_binary": True,
-    }
+        repo="git-lfs/git-lfs",
+        extract_binary=True,
+    )
 
     # Mock console to capture output
     mock_console = MagicMock()

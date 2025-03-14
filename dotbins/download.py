@@ -6,15 +6,14 @@ import concurrent.futures
 import os
 import re
 import shutil
-import tarfile
 import tempfile
-import zipfile
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
 import requests
 
-from .utils import calculate_sha256, get_latest_release, log
+from .config import ToolConfig
+from .utils import calculate_sha256, extract_archive, get_latest_release, log
 
 if TYPE_CHECKING:
     from .config import DotbinsConfig
@@ -56,37 +55,10 @@ def download_file(url: str, destination: str) -> str:
         raise RuntimeError(msg) from e
 
 
-def extract_archive(archive_path: str, dest_dir: str) -> None:
-    """Extract an archive to a destination directory."""
-    try:
-        # Check file type
-        is_gzip = False
-        with open(archive_path, "rb") as f:
-            header = f.read(3)
-            if header.startswith(b"\x1f\x8b"):
-                is_gzip = True
-
-        if is_gzip or archive_path.endswith((".tar.gz", ".tgz")):
-            with tarfile.open(archive_path, mode="r:gz") as tar:
-                tar.extractall(path=dest_dir)
-        elif archive_path.endswith((".tar.bz2", ".tbz2")):
-            with tarfile.open(archive_path, mode="r:bz2") as tar:
-                tar.extractall(path=dest_dir)
-        elif archive_path.endswith(".zip"):
-            with zipfile.ZipFile(archive_path) as zip_file:
-                zip_file.extractall(path=dest_dir)
-        else:
-            msg = f"Unsupported archive format: {archive_path}"
-            raise ValueError(msg)  # noqa: TRY301
-    except Exception as e:
-        log(f"Extraction failed: {e}", "error", print_exception=True)
-        raise
-
-
 def _extract_from_archive(
     archive_path: str,
     destination_dir: Path,
-    tool_config: dict,
+    tool_config: ToolConfig,
     platform: str,
 ) -> None:
     """Extract binaries from an archive."""
@@ -117,15 +89,17 @@ def _extract_from_archive(
         shutil.rmtree(temp_dir)
 
 
-def _get_binary_config(tool_config: dict) -> tuple[list[str], list[str]]:
+def _get_binary_config(tool_config: ToolConfig) -> tuple[list[str], list[str]]:
     """Get binary names and paths from the tool configuration."""
-    binary_names = tool_config.get("binary_name", [])
-    binary_paths = tool_config.get("binary_path", [])
+    binary_names = tool_config.binary_name
+    binary_paths = tool_config.binary_path
 
     if isinstance(binary_names, str):
         binary_names = [binary_names]
     if isinstance(binary_paths, str):
         binary_paths = [binary_paths]
+    elif binary_paths is None:
+        binary_paths = []
 
     return binary_names, binary_paths
 
@@ -146,7 +120,7 @@ def _process_binaries(
     destination_dir: Path,
     binary_names: list[str],
     binary_paths: list[str],
-    tool_config: dict,
+    tool_config: ToolConfig,
 ) -> None:
     """Process each binary by finding it and copying to destination."""
     for i, binary_path_pattern in enumerate(binary_paths):
@@ -207,7 +181,7 @@ def _auto_detect_binary_paths(temp_dir: Path, binary_names: list[str]) -> list[s
 def _log_extracted_files(temp_dir: Path) -> None:
     """Log the extracted files for debugging."""
     try:
-        log("Extracted files:", "info", "��")
+        log("Extracted files:", "info", "ℹ️")  # noqa: RUF001
         for item in temp_dir.glob("**/*"):
             log(f"  - {item.relative_to(temp_dir)}", "info", "")
     except Exception:
@@ -216,7 +190,7 @@ def _log_extracted_files(temp_dir: Path) -> None:
 
 def _find_binary_in_extracted_files(
     temp_dir: Path,
-    tool_config: dict,
+    tool_config: ToolConfig,
     binary_path: str,
 ) -> Path:
     """Find a specific binary in the extracted files."""
@@ -254,18 +228,18 @@ def _copy_binary_to_destination(
     log(f"Copied binary to {dest_path}", "success")
 
 
-def _replace_variables_in_path(path: str, tool_config: dict) -> str:
+def _replace_variables_in_path(path: str, tool_config: ToolConfig) -> str:
     """Replace variables in a path with their values."""
-    if "{version}" in path and "version" in tool_config:
-        path = path.replace("{version}", tool_config["version"])
+    if "{version}" in path and tool_config.version:
+        path = path.replace("{version}", tool_config.version)
 
-    if "{arch}" in path and "arch" in tool_config:
-        path = path.replace("{arch}", tool_config["arch"])
+    if "{arch}" in path and tool_config.arch:
+        path = path.replace("{arch}", tool_config.arch)
 
     return path
 
 
-def _validate_tool_config(tool_name: str, config: DotbinsConfig) -> dict | None:
+def _validate_tool_config(tool_name: str, config: DotbinsConfig) -> ToolConfig | None:
     """Validate that the tool exists in configuration."""
     tool_config = config.tools.get(tool_name)
     if not tool_config:
@@ -283,7 +257,8 @@ def should_skip_download(
 ) -> bool:
     """Check if download should be skipped (binary already exists)."""
     destination_dir = config.tools_dir / platform / arch / "bin"
-    binary_names = config.tools[tool_name].get("binary_name", tool_name)
+    tool_config = config.tools[tool_name]
+    binary_names = tool_config.binary_name
 
     if isinstance(binary_names, str):
         binary_names = [binary_names]
@@ -304,39 +279,37 @@ def should_skip_download(
     return False
 
 
-def _get_release_info(tool_config: dict) -> tuple[dict, str]:
+def _get_release_info(tool_config: ToolConfig) -> tuple[dict, str]:
     """Get release information for a tool."""
-    repo = tool_config["repo"]
+    repo = tool_config.repo
     release = get_latest_release(repo)
     version = release["tag_name"].lstrip("v")
-    tool_config["version"] = version  # Store for later use
+    tool_config.version = version  # Update the version field
     return release, version
 
 
 def _map_platform_and_arch(
     platform: str,
     arch: str,
-    tool_config: dict,
+    tool_config: ToolConfig,
 ) -> tuple[str, str]:
     """Map platform and architecture names."""
     # Map architecture if needed
     tool_arch = arch
-    arch_map = tool_config.get("arch_map", {})
-    if arch in arch_map:
-        tool_arch = arch_map[arch]
-    tool_config["arch"] = tool_arch  # Store for later use
+    if tool_config.arch_map and arch in tool_config.arch_map:
+        tool_arch = tool_config.arch_map[arch]
+    tool_config.arch = tool_arch  # Update the arch field
 
     # Map platform if needed
     tool_platform = platform
-    platform_map = tool_config.get("platform_map", {})
-    if isinstance(platform_map, dict) and platform in platform_map:
-        tool_platform = platform_map[platform]
+    if tool_config.platform_map and platform in tool_config.platform_map:
+        tool_platform = tool_config.platform_map[platform]
 
     return tool_platform, tool_arch
 
 
 def _find_matching_asset(
-    tool_config: dict,
+    tool_config: ToolConfig,
     release: dict,
     version: str,
     platform: str,
@@ -365,17 +338,17 @@ def _find_matching_asset(
 
 
 def get_asset_pattern(  # noqa: PLR0911
-    tool_config: dict,
+    tool_config: ToolConfig,
     platform: str,
     arch: str,
 ) -> str | None:
     """Get the asset pattern for a tool, platform, and architecture."""
     # No asset patterns defined
-    if "asset_patterns" not in tool_config:
+    if not tool_config.asset_patterns:
         log("No asset patterns defined", "warning")
         return None
 
-    patterns = tool_config["asset_patterns"]
+    patterns = tool_config.asset_patterns
 
     # Case 1: String pattern (global pattern for all platforms/architectures)
     if isinstance(patterns, str):
@@ -424,7 +397,7 @@ class _DownloadTask(NamedTuple):
     arch: str
     asset_url: str
     asset_name: str
-    tool_config: dict
+    tool_config: ToolConfig
     destination_dir: Path
     temp_path: Path
 
@@ -476,7 +449,7 @@ def _prepare_download_task(
         return None
 
     destination_dir = config.tools_dir / platform / arch / "bin"
-    binary_names = tool_config.get("binary_name", tool_name)
+    binary_names = tool_config.binary_name or tool_name
     if isinstance(binary_names, str):
         binary_names = [binary_names]
 
@@ -523,7 +496,17 @@ def _prepare_download_task(
             asset_url=asset["browser_download_url"],
             asset_name=asset["name"],
             # Make a copy of tool_config because we'll modify it
-            tool_config=dict(tool_config, arch=tool_arch, version=version),
+            tool_config=ToolConfig(
+                tool_config.repo,
+                tool_config.binary_name,
+                tool_config.binary_path,
+                tool_config.extract_binary,
+                tool_config.asset_patterns,
+                tool_config.platform_map,
+                tool_config.arch_map,
+                version,
+                tool_arch,
+            ),
             destination_dir=destination_dir,
             temp_path=temp_path,
         )
@@ -552,7 +535,7 @@ def _process_downloaded_task(
         log(f"SHA256: {sha256_hash}", "info", "🔐")
 
         task.destination_dir.mkdir(parents=True, exist_ok=True)
-        if task.tool_config.get("extract_binary", False):
+        if task.tool_config.extract_binary:
             _extract_from_archive(
                 str(task.temp_path),
                 task.destination_dir,
@@ -560,7 +543,7 @@ def _process_downloaded_task(
                 task.platform,
             )
         else:
-            binary_names = task.tool_config.get("binary_name", task.tool_name)
+            binary_names = task.tool_config.binary_name or task.tool_name
             if isinstance(binary_names, str):
                 binary_names = [binary_names]
             binary_name = binary_names[0]
@@ -573,12 +556,12 @@ def _process_downloaded_task(
             task.tool_name,
             task.platform,
             task.arch,
-            task.tool_config.get("version", "unknown"),
+            task.tool_config.version or "unknown",
             sha256=sha256_hash,
         )
 
         log(
-            f"Successfully processed {task.tool_name} v{task.tool_config.get('version')} for {task.platform}/{task.arch}",
+            f"Successfully processed {task.tool_name} v{task.tool_config.version} for {task.platform}/{task.arch}",
             "success",
         )
         return True

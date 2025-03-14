@@ -12,7 +12,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from pytest_mock import MockFixture
 
 import dotbins
-from dotbins.config import DotbinsConfig
+from dotbins.config import DotbinsConfig, ToolConfig
 from dotbins.versions import VersionStore
 
 
@@ -159,7 +159,11 @@ def test_extract_from_archive_tar(temp_dir: Path) -> None:
             tar.add(bin_path, arcname="test-bin")
 
     # Setup tool config
-    tool_config = {"binary_name": "test-tool", "binary_path": "test-bin"}
+    tool_config = ToolConfig(
+        binary_name="test-tool",
+        binary_path="test-bin",
+        repo="test/repo",
+    )
 
     # Create destination directory
     dest_dir = temp_dir / "bin"
@@ -193,7 +197,11 @@ def test_extract_from_archive_zip(temp_dir: Path) -> None:
             zip_file.write(bin_path, arcname="test-bin")
 
     # Setup tool config
-    tool_config = {"binary_name": "test-tool", "binary_path": "test-bin"}
+    tool_config = ToolConfig(
+        binary_name="test-tool",
+        binary_path="test-bin",
+        repo="test/repo",
+    )
 
     # Create destination directory
     dest_dir = temp_dir / "bin"
@@ -246,13 +254,13 @@ def test_print_shell_setup(capsys: CaptureFixture[str]) -> None:
 def test_download_tool_already_exists(temp_dir: Path) -> None:
     """Test prepare_download_task when binary already exists."""
     # Setup environment with complete tool config
-    test_tool_config = {
-        "repo": "test/tool",
-        "extract_binary": True,
-        "binary_name": "test-tool",
-        "binary_path": "test-tool",
-        "asset_patterns": "test-tool-{version}-{platform}_{arch}.tar.gz",
-    }
+    test_tool_config = ToolConfig(
+        repo="test/tool",
+        extract_binary=True,
+        binary_name="test-tool",
+        binary_path="test-tool",
+        asset_patterns="test-tool-{version}-{platform}_{arch}.tar.gz",
+    )
 
     version_store = VersionStore(temp_dir)
 
@@ -304,17 +312,15 @@ def test_download_tool_asset_not_found(
         "https://api.github.com/repos/test/tool/releases/latest",
         json=response_data,
     )
-
+    test_tool_config = ToolConfig(
+        repo="test/tool",
+        binary_name="test-tool",
+        asset_patterns="tool-{version}-linux_{arch}.tar.gz",
+    )
     # Setup environment
     config = DotbinsConfig(
         tools_dir=temp_dir,
-        tools={
-            "test-tool": {
-                "repo": "test/tool",
-                "binary_name": "test-tool",
-                "asset_patterns": "tool-{version}-linux_{arch}.tar.gz",
-            },
-        },
+        tools={"test-tool": test_tool_config},
     )
 
     # Mock find_asset to ensure it returns None for our specific pattern
@@ -345,7 +351,11 @@ def test_extract_from_archive_unknown_type(temp_dir: Path) -> None:
         f.write("dummy content")
 
     # Setup tool config
-    tool_config = {"binary_name": "test-tool", "binary_path": "test-bin"}
+    test_tool_config = ToolConfig(
+        repo="test/tool",
+        binary_name="test-tool",
+        binary_path="test-bin",
+    )
 
     # Create destination directory
     dest_dir = temp_dir / "bin"
@@ -356,7 +366,7 @@ def test_extract_from_archive_unknown_type(temp_dir: Path) -> None:
         dotbins.download._extract_from_archive(
             archive_path,
             dest_dir,
-            tool_config,
+            test_tool_config,
             "linux",
         )
 
@@ -376,10 +386,11 @@ def test_extract_from_archive_missing_binary(temp_dir: Path) -> None:
         os.unlink(tmp_path)
 
     # Setup tool config
-    tool_config = {
-        "binary_name": "test-tool",
-        "binary_path": "test-bin",  # This path doesn't exist in archive
-    }
+    test_tool_config = ToolConfig(
+        repo="test/tool",
+        binary_name="test-tool",
+        binary_path="test-bin",  # This path doesn't exist in archive
+    )
 
     # Create destination directory
     dest_dir = temp_dir / "bin"
@@ -390,7 +401,7 @@ def test_extract_from_archive_missing_binary(temp_dir: Path) -> None:
         dotbins.download._extract_from_archive(
             archive_path,
             dest_dir,
-            tool_config,
+            test_tool_config,
             "linux",
         )
 
@@ -422,17 +433,23 @@ def test_extract_from_archive_multiple_binaries(temp_dir: Path) -> None:
             tar.add(primary_dir, arcname="test-1.0.0")
 
     # Setup tool config with multiple binaries
-    tool_config = {
-        "binary_name": ["primary-tool", "secondary-tool"],
-        "binary_path": ["test-1.0.0/primary-bin", "test-1.0.0/secondary-bin"],
-    }
+    test_tool_config = ToolConfig(
+        repo="test/tool",
+        binary_name=["primary-tool", "secondary-tool"],
+        binary_path=["test-1.0.0/primary-bin", "test-1.0.0/secondary-bin"],
+    )
 
     # Create destination directory
     dest_dir = temp_dir / "bin"
     dest_dir.mkdir()
 
     # Call the function
-    dotbins.download._extract_from_archive(archive_path, dest_dir, tool_config, "linux")
+    dotbins.download._extract_from_archive(
+        archive_path,
+        dest_dir,
+        test_tool_config,
+        "linux",
+    )
 
     # Verify both binaries were extracted and renamed correctly
     for bin_name in ["primary-tool", "secondary-tool"]:

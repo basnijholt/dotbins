@@ -6,6 +6,8 @@ import functools
 import hashlib
 import os
 import sys
+import tarfile
+import zipfile
 from typing import TYPE_CHECKING
 
 import requests
@@ -150,3 +152,30 @@ def calculate_sha256(file_path: str | Path) -> str:
         for byte_block in iter(lambda: f.read(4096), b""):
             sha256_hash.update(byte_block)
     return sha256_hash.hexdigest()
+
+
+def extract_archive(archive_path: str, dest_dir: str) -> None:
+    """Extract an archive to a destination directory."""
+    try:
+        # Check file type
+        is_gzip = False
+        with open(archive_path, "rb") as f:
+            header = f.read(3)
+            if header.startswith(b"\x1f\x8b"):
+                is_gzip = True
+
+        if is_gzip or archive_path.endswith((".tar.gz", ".tgz")):
+            with tarfile.open(archive_path, mode="r:gz") as tar:
+                tar.extractall(path=dest_dir)
+        elif archive_path.endswith((".tar.bz2", ".tbz2")):
+            with tarfile.open(archive_path, mode="r:bz2") as tar:
+                tar.extractall(path=dest_dir)
+        elif archive_path.endswith(".zip"):
+            with zipfile.ZipFile(archive_path) as zip_file:
+                zip_file.extractall(path=dest_dir)
+        else:
+            msg = f"Unsupported archive format: {archive_path}"
+            raise ValueError(msg)  # noqa: TRY301
+    except Exception as e:
+        log(f"Extraction failed: {e}", "error", print_exception=True)
+        raise
