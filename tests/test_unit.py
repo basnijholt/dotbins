@@ -12,7 +12,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from pytest_mock import MockFixture
 
 import dotbins
-from dotbins.config import DotbinsConfig, ToolConfig
+from dotbins.config import Config, ToolConfig
 from dotbins.versions import VersionStore
 
 
@@ -41,7 +41,7 @@ def test_load_config(temp_dir: Path) -> None:
         f.write(config_content)
 
     # Load config and validate
-    config = DotbinsConfig.load_from_file(str(config_path))
+    config = Config.load_from_file(str(config_path))
 
     # Verify config was loaded correctly
     assert config.tools_dir == Path(os.path.expanduser("~/tools"))
@@ -57,7 +57,7 @@ def test_load_config_fallback() -> None:
     """Test config loading fallback when file not found."""
     # Mock open to raise FileNotFoundError
     with patch("builtins.open", side_effect=FileNotFoundError):
-        config = DotbinsConfig.load_from_file("nonexistent.yaml")
+        config = Config.load_from_file("nonexistent.yaml")
 
     # Verify default config is returned
     assert config.tools_dir == Path(os.path.expanduser("~/.dotfiles/tools"))
@@ -221,7 +221,7 @@ def test_extract_from_archive_zip(temp_dir: Path) -> None:
 def test_make_binaries_executable(temp_dir: Path) -> None:
     """Test making binaries executable."""
     # Setup mock environment
-    config = DotbinsConfig(
+    config = Config(
         tools_dir=temp_dir,
         platforms={"linux": ["amd64"]},  # Use new format
     )
@@ -246,7 +246,7 @@ def test_make_binaries_executable(temp_dir: Path) -> None:
 
 def test_print_shell_setup(capsys: CaptureFixture[str]) -> None:
     """Test printing shell setup instructions."""
-    config = DotbinsConfig()
+    config = Config()
     dotbins.utils.print_shell_setup(config)
     captured = capsys.readouterr()
     assert "Add this to your shell configuration file" in captured.out
@@ -267,7 +267,7 @@ def test_download_tool_already_exists(temp_dir: Path) -> None:
 
     version_store = VersionStore(temp_dir)
 
-    config = DotbinsConfig(
+    config = Config(
         tools_dir=temp_dir,
         tools={"test-tool": test_tool_config},
     )
@@ -322,7 +322,7 @@ def test_download_tool_asset_not_found(
         asset_patterns="tool-{version}-linux_{arch}.tar.gz",
     )
     # Setup environment
-    config = DotbinsConfig(
+    config = Config(
         tools_dir=temp_dir,
         tools={"test-tool": test_tool_config},
     )

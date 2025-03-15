@@ -14,7 +14,7 @@ from _pytest.capture import CaptureFixture
 from _pytest.monkeypatch import MonkeyPatch
 
 from dotbins import cli
-from dotbins.config import DotbinsConfig, ToolConfig
+from dotbins.config import Config, ToolConfig
 
 
 class TestIntegration:
@@ -33,7 +33,7 @@ def test_initialization(
 ) -> None:
     """Test the 'init' command."""
     # Create a config with our test directories
-    config = DotbinsConfig(
+    config = Config(
         tools_dir=tmp_dir / "tools",
         platforms={"linux": ["amd64", "arm64"], "macos": ["arm64"]},
         tools={},
@@ -68,7 +68,7 @@ def test_list_tools(
     )
 
     # Create config with our test tools
-    config = DotbinsConfig(
+    config = Config(
         tools={"test-tool": test_tool_config},
         tools_dir=tmp_path / "tools",
     )
@@ -103,7 +103,7 @@ def test_update_tool(
     )
 
     # Create config with our test tool - use new format
-    config = DotbinsConfig(
+    config = Config(
         tools_dir=tmp_dir / "tools",
         platforms={"linux": ["amd64"]},  # Just linux/amd64 for this test
         tools={"test-tool": test_tool_config},
@@ -201,9 +201,9 @@ def test_cli_unknown_tool() -> None:
         pytest.raises(SystemExit),
         patch.object(sys, "argv", ["dotbins", "update", "unknown-tool"]),
         patch.object(
-            DotbinsConfig,
+            Config,
             "load_from_file",
-            return_value=DotbinsConfig(tools={}),
+            return_value=Config(tools={}),
         ),
     ):
         cli.main()
@@ -217,8 +217,8 @@ def test_cli_tools_dir_override(tmp_dir: Path) -> None:
     def mock_load_config(
         *args: Any,  # noqa: ARG001
         **kwargs: Any,  # noqa: ARG001
-    ) -> DotbinsConfig:
-        return DotbinsConfig(
+    ) -> Config:
+        return Config(
             tools_dir=tmp_dir / "default_tools",  # Default dir
             platforms={"linux": ["amd64"]},  # Use new format
             tools={},
@@ -226,7 +226,7 @@ def test_cli_tools_dir_override(tmp_dir: Path) -> None:
 
     # Patch config loading
     with (
-        patch.object(DotbinsConfig, "load_from_file", mock_load_config),
+        patch.object(Config, "load_from_file", mock_load_config),
         patch.object(sys, "argv", ["dotbins", "--tools-dir", str(custom_dir), "init"]),
     ):
         cli.main()

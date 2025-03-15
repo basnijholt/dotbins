@@ -78,7 +78,7 @@ def _ensure_list(value: T | list[T] | None) -> list[T]:
 
 
 @dataclass
-class DotbinsConfig:
+class Config:
     """Configuration for dotbins."""
 
     tools_dir: Path = field(default=Path(os.path.expanduser(DEFAULT_TOOLS_DIR)))
@@ -211,7 +211,7 @@ class DotbinsConfig:
                             )
 
     @classmethod
-    def load_from_file(cls, config_path: str | Path | None = None) -> DotbinsConfig:
+    def load_from_file(cls, config_path: str | Path | None = None) -> Config:
         """Load configuration from YAML file.
 
         Checks the following locations in order:

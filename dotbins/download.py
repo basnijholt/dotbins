@@ -15,7 +15,7 @@ import requests
 from .utils import calculate_sha256, extract_archive, get_latest_release, log
 
 if TYPE_CHECKING:
-    from .config import DotbinsConfig, ToolConfig
+    from .config import Config, ToolConfig
     from .versions import VersionStore
 
 
@@ -224,7 +224,7 @@ def _replace_variables_in_path(path: str, tool_config: ToolConfig) -> str:
     return path
 
 
-def _validate_tool_config(tool_name: str, config: DotbinsConfig) -> ToolConfig | None:
+def _validate_tool_config(tool_name: str, config: Config) -> ToolConfig | None:
     """Validate that the tool exists in configuration."""
     tool_config = config.tools.get(tool_name)
     if not tool_config:
@@ -237,7 +237,7 @@ def should_skip_download(
     tool_name: str,
     platform: str,
     arch: str,
-    config: DotbinsConfig,
+    config: Config,
     force: bool,
 ) -> bool:
     """Check if download should be skipped (binary already exists)."""
@@ -358,7 +358,7 @@ def get_asset_pattern(  # noqa: PLR0911
     return None
 
 
-def make_binaries_executable(config: DotbinsConfig) -> None:
+def make_binaries_executable(config: Config) -> None:
     """Make all binaries executable."""
     for platform, architectures in config.platforms.items():
         for arch in architectures:
@@ -405,7 +405,7 @@ def _prepare_download_task(
     tool_name: str,
     platform: str,
     arch: str,
-    config: DotbinsConfig,
+    config: Config,
     version_store: VersionStore,
     force: bool = False,
 ) -> _DownloadTask | None:
@@ -585,7 +585,7 @@ def prepare_download_tasks(
     tools_to_update: list[str],
     platforms_to_update: list[str],
     architecture: str,
-    config: DotbinsConfig,
+    config: Config,
     version_store: VersionStore,
     force: bool = False,
 ) -> tuple[list[_DownloadTask], int]:
@@ -623,7 +623,7 @@ def prepare_download_tasks(
 def _determine_architectures(
     platform: str,
     architecture: str,
-    config: DotbinsConfig,
+    config: Config,
 ) -> list[str]:
     """Determine which architectures to update for a platform."""
     if architecture:

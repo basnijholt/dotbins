@@ -16,7 +16,7 @@ from rich.console import Console
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from .config import DotbinsConfig
+    from .config import Config
 
 console = Console()
 
@@ -77,7 +77,7 @@ def get_platform_map(platform: str, platform_map: dict) -> str:
     return platform_map.get(platform, platform)
 
 
-def print_shell_setup(config: DotbinsConfig) -> None:
+def print_shell_setup(config: Config) -> None:
     """Print shell setup instructions."""
     tools_path = config.tools_dir.resolve()
     tools_dir = str(tools_path).replace(os.path.expanduser("~"), "$HOME")

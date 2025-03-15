@@ -9,7 +9,7 @@ from typing import Any
 
 from . import __version__
 from .analyze import analyze_tool
-from .config import DotbinsConfig
+from .config import Config
 from .download import (
     download_files_in_parallel,
     make_binaries_executable,
@@ -20,14 +20,14 @@ from .utils import current_platform, log, print_shell_setup
 from .versions import VersionStore
 
 
-def _list_tools(_args: Any, config: DotbinsConfig) -> None:
+def _list_tools(_args: Any, config: Config) -> None:
     """List available tools."""
     log("Available tools:", "info", "🔧")
     for tool, tool_config in config.tools.items():
         log(f"  {tool} (from {tool_config.repo})", "success")
 
 
-def _update_tools(args: argparse.Namespace, config: DotbinsConfig) -> None:
+def _update_tools(args: argparse.Namespace, config: Config) -> None:
     """Update tools based on command line arguments."""
     version_store = VersionStore(config.tools_dir)
     tools_to_update, platforms_to_update = _determine_update_targets(args, config)
@@ -53,7 +53,7 @@ def _update_tools(args: argparse.Namespace, config: DotbinsConfig) -> None:
 
 def _determine_update_targets(
     args: argparse.Namespace,
-    config: DotbinsConfig,
+    config: Config,
 ) -> tuple[list[str], list[str]]:
     """Determine which tools and platforms to update."""
     tools_to_update = args.tools if args.tools else list(config.tools.keys())
@@ -61,7 +61,7 @@ def _determine_update_targets(
     return tools_to_update, platforms_to_update
 
 
-def _validate_tools(tools_to_update: list[str], config: DotbinsConfig) -> None:
+def _validate_tools(tools_to_update: list[str], config: Config) -> None:
     """Validate that all tools exist in the configuration."""
     for tool in tools_to_update:
         if tool not in config.tools:
@@ -70,7 +70,7 @@ def _validate_tools(tools_to_update: list[str], config: DotbinsConfig) -> None:
 
 
 def _print_completion_summary(
-    config: DotbinsConfig,
+    config: Config,
     success_count: int,
     total_count: int,
     shell_setup: bool,
@@ -93,7 +93,7 @@ def _print_completion_summary(
         print_shell_setup(config)
 
 
-def _initialize(_args: Any, config: DotbinsConfig) -> None:
+def _initialize(_args: Any, config: Config) -> None:
     """Initialize the tools directory structure."""
     for platform, architectures in config.platforms.items():
         for arch in architectures:
@@ -106,7 +106,7 @@ def _initialize(_args: Any, config: DotbinsConfig) -> None:
     print_shell_setup(config)
 
 
-def _show_versions(_args: Any, config: DotbinsConfig) -> None:
+def _show_versions(_args: Any, config: Config) -> None:
     """Show versions of installed tools."""
     version_store = VersionStore(config.tools_dir)
     versions = version_store.list_all()
@@ -233,7 +233,7 @@ def main() -> None:
 
     try:
         # Create config
-        config = DotbinsConfig.load_from_file(args.config_file)
+        config = Config.load_from_file(args.config_file)
 
         # Override tools directory if specified
         if args.tools_dir:

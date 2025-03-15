@@ -10,7 +10,7 @@ from unittest.mock import patch
 import pytest
 
 from dotbins.analyze import generate_tool_configuration
-from dotbins.config import DotbinsConfig
+from dotbins.config import Config
 
 if TYPE_CHECKING:
     from dotbins.config import ToolConfig
@@ -24,7 +24,7 @@ def tools_config() -> dict[str, ToolConfig]:
     script_dir = Path(__file__).parent.parent
     tools_yaml_path = script_dir / "dotbins.yaml"
 
-    config = DotbinsConfig.load_from_file(tools_yaml_path)
+    config = Config.load_from_file(tools_yaml_path)
     return config.tools
 
 
