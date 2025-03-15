@@ -14,7 +14,7 @@ from _pytest.capture import CaptureFixture
 from _pytest.monkeypatch import MonkeyPatch
 
 from dotbins import cli
-from dotbins.config import DotbinsConfig
+from dotbins.config import Config, ToolConfig
 
 
 class TestIntegration:
@@ -33,7 +33,7 @@ def test_initialization(
 ) -> None:
     """Test the 'init' command."""
     # Create a config with our test directories
-    config = DotbinsConfig(
+    config = Config(
         tools_dir=tmp_dir / "tools",
         platforms={"linux": ["amd64", "arm64"], "macos": ["arm64"]},
         tools={},
@@ -58,19 +58,18 @@ def test_list_tools(
 ) -> None:
     """Test the 'list' command."""
     # Create a test tool configuration
-    test_tool_config = {
-        "test-tool": {
-            "repo": "test/tool",
-            "extract_binary": True,
-            "binary_name": "test-tool",
-            "binary_path": "test-tool",
-            "asset_patterns": "test-tool-{version}-{platform}_{arch}.tar.gz",
-        },
-    }
+    test_tool_config = ToolConfig(
+        tool_name="test-tool",
+        repo="test/tool",
+        extract_binary=True,
+        binary_name="test-tool",
+        binary_path="test-tool",
+        asset_patterns="test-tool-{version}-{platform}_{arch}.tar.gz",
+    )
 
     # Create config with our test tools
-    config = DotbinsConfig(
-        tools=test_tool_config,
+    config = Config(
+        tools={"test-tool": test_tool_config},
         tools_dir=tmp_path / "tools",
     )
 
@@ -90,20 +89,21 @@ def test_update_tool(
 ) -> None:
     """Test updating a specific tool."""
     # Set up mock environment
-    test_tool_config = {
-        "repo": "test/tool",
-        "extract_binary": True,
-        "binary_name": "test-tool",
-        "binary_path": "*",
-        "asset_patterns": {
+    test_tool_config = ToolConfig(
+        tool_name="test-tool",
+        repo="test/tool",
+        extract_binary=True,
+        binary_name="test-tool",
+        binary_path="*",
+        asset_patterns={
             "linux": "test-tool-{version}-{platform}_{arch}.tar.gz",
             "macos": "test-tool-{version}-{platform}_{arch}.tar.gz",
         },
-        "platform_map": {"macos": "darwin"},
-    }
+        platform_map={"macos": "darwin"},
+    )
 
     # Create config with our test tool - use new format
-    config = DotbinsConfig(
+    config = Config(
         tools_dir=tmp_dir / "tools",
         platforms={"linux": ["amd64"]},  # Just linux/amd64 for this test
         tools={"test-tool": test_tool_config},
@@ -182,11 +182,7 @@ def test_analyze_tool(
     yaml_text = captured.out.split("Suggested configuration for YAML tools file:")[
         1
     ].strip()
-    try:
-        # This should not raise an exception if the YAML is valid
-        yaml.safe_load(yaml_text)
-    except Exception as e:
-        pytest.fail(f"Generated YAML is invalid: {e}")
+    yaml.safe_load(yaml_text)
 
 
 def test_cli_no_command(capsys: CaptureFixture[str]) -> None:
@@ -205,9 +201,9 @@ def test_cli_unknown_tool() -> None:
         pytest.raises(SystemExit),
         patch.object(sys, "argv", ["dotbins", "update", "unknown-tool"]),
         patch.object(
-            DotbinsConfig,
+            Config,
             "load_from_file",
-            return_value=DotbinsConfig(tools={}),
+            return_value=Config(tools={}),
         ),
     ):
         cli.main()
@@ -221,8 +217,8 @@ def test_cli_tools_dir_override(tmp_dir: Path) -> None:
     def mock_load_config(
         *args: Any,  # noqa: ARG001
         **kwargs: Any,  # noqa: ARG001
-    ) -> DotbinsConfig:
-        return DotbinsConfig(
+    ) -> Config:
+        return Config(
             tools_dir=tmp_dir / "default_tools",  # Default dir
             platforms={"linux": ["amd64"]},  # Use new format
             tools={},
@@ -230,7 +226,7 @@ def test_cli_tools_dir_override(tmp_dir: Path) -> None:
 
     # Patch config loading
     with (
-        patch.object(DotbinsConfig, "load_from_file", mock_load_config),
+        patch.object(Config, "load_from_file", mock_load_config),
         patch.object(sys, "argv", ["dotbins", "--tools-dir", str(custom_dir), "init"]),
     ):
         cli.main()
