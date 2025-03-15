@@ -107,19 +107,19 @@ def test_find_asset() -> None:
 
     # Test finding Linux amd64 asset
     pattern = "tool-{version}-linux_{arch}.tar.gz"
-    asset = dotbins.download._find_asset(assets, pattern)
+    asset = dotbins.download._find_asset(assets, pattern, "linux", "amd64")
     assert asset is not None
     assert asset["name"] == "tool-1.0.0-linux_amd64.tar.gz"
 
     # Test finding macOS asset
     pattern = "tool-{version}-darwin_{arch}.tar.gz"
-    asset = dotbins.download._find_asset(assets, pattern)
+    asset = dotbins.download._find_asset(assets, pattern, "darwin", "amd64")
     assert asset is not None
     assert asset["name"] == "tool-1.0.0-darwin_amd64.tar.gz"
 
     # Test pattern with no match
     pattern = "tool-{version}-windows_{arch}.zip"
-    asset = dotbins.download._find_asset(assets, pattern)
+    asset = dotbins.download._find_asset(assets, pattern, "windows", "amd64")
     assert asset is None
 
 
