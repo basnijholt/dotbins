@@ -22,8 +22,6 @@ DEFAULT_PLATFORMS = {
     "macos": ["arm64"],
 }
 
-T = TypeVar("T")
-
 
 @dataclass
 class Config:
@@ -391,6 +389,9 @@ def _find_config_file(config_path: str | Path | None) -> Path | None:
 
     log("No configuration file found, using default settings", "warning")
     return None
+
+
+T = TypeVar("T")
 
 
 def _ensure_list(value: T | list[T] | None) -> list[T]:
