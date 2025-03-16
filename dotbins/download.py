@@ -258,33 +258,6 @@ def _download_task(task: _DownloadTask) -> tuple[_DownloadTask, bool]:
         return task, False
 
 
-def _exists_in_destination_dir(destination_dir: Path, tool_config: ToolConfig) -> bool:
-    return all((destination_dir / binary_name).exists() for binary_name in tool_config.binary_name)
-
-
-def _should_download(
-    config: Config,
-    bin_spec: BinSpec,
-    force: bool,
-) -> bool:
-    """Check if download should be skipped (binary already exists)."""
-    tool_info = config.version_store.get_tool_info(
-        bin_spec.tool_config.tool_name,
-        bin_spec.platform,
-        bin_spec.arch,
-    )
-    destination_dir = config.bin_dir(bin_spec.platform, bin_spec.arch)
-    all_exist = _exists_in_destination_dir(destination_dir, bin_spec.tool_config)
-    if tool_info and tool_info["version"] == bin_spec.version and all_exist and not force:
-        log(
-            f"{bin_spec.tool_config.tool_name} {bin_spec.version} for {bin_spec.platform}/{bin_spec.arch} is already"
-            f" up to date (installed on {tool_info['updated_at']}) use --force to re-download.",
-            "success",
-        )
-        return False
-    return True
-
-
 def _prepare_download_task(
     tool_name: str,
     platform: str,
@@ -295,7 +268,7 @@ def _prepare_download_task(
     """Prepare a download task, checking if update is needed based on version."""
     tool_config = config.tools[tool_name]
     bin_spec = tool_config.bin_spec(arch, platform)
-    if not _should_download(config, bin_spec, force):
+    if bin_spec.skip_download(config, force):
         return None
 
     try:

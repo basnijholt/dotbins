@@ -99,28 +99,40 @@ def test_get_latest_release(requests_mock: MockFixture) -> None:
 
 def test_find_asset() -> None:
     """Test finding an asset matching a pattern."""
-    assets = [
-        {"name": "tool-1.0.0-linux_amd64.tar.gz"},
-        {"name": "tool-1.0.0-linux_arm64.tar.gz"},
-        {"name": "tool-1.0.0-darwin_amd64.tar.gz"},
-    ]
+    with patch("dotbins.utils.get_latest_release") as mock_release:
+        mock_release.return_value = {
+            "tag_name": "v1.0.0",
+            "assets": [
+                {"name": "tool-1.0.0-linux_amd64.tar.gz"},
+                {"name": "tool-1.0.0-linux_arm64.tar.gz"},
+                {"name": "tool-1.0.0-darwin_amd64.tar.gz"},
+            ],
+        }
+        tool_config = build_tool_config(
+            tool_name="tool",
+            raw_data={
+                "repo": "test/repo",
+                "binary_name": "tool",
+                "binary_path": "tool",
+                "asset_patterns": {  # type: ignore[typeddict-item]
+                    "linux": {
+                        "amd64": "tool-{version}-linux_{arch}.tar.gz",
+                        "arm64": "tool-{version}-linux_{arch}.tar.gz",
+                    },
+                },
+            },
+        )
+        assets = tool_config.latest_release["assets"]
+        assert len(assets) == 3
+        bin_spec = tool_config.bin_spec("amd64", "linux")
+        assert bin_spec.asset_pattern == "tool-{version}-linux_{arch}.tar.gz"
+        assert bin_spec.search_pattern == "tool-1.0.0-linux_amd64.tar.gz"
+        assert bin_spec.matching_asset == assets[0]
 
-    # Test finding Linux amd64 asset
-    pattern = "tool-{version}-linux_{arch}.tar.gz"
-    asset = dotbins.download._find_asset(assets, pattern)
-    assert asset is not None
-    assert asset["name"] == "tool-1.0.0-linux_amd64.tar.gz"
-
-    # Test finding macOS asset
-    pattern = "tool-{version}-darwin_{arch}.tar.gz"
-    asset = dotbins.download._find_asset(assets, pattern)
-    assert asset is not None
-    assert asset["name"] == "tool-1.0.0-darwin_amd64.tar.gz"
-
-    # Test pattern with no match
-    pattern = "tool-{version}-windows_{arch}.zip"
-    asset = dotbins.download._find_asset(assets, pattern)
-    assert asset is None
+        bin_spec = tool_config.bin_spec("arm64", "linux")
+        assert bin_spec.asset_pattern == "tool-{version}-linux_{arch}.tar.gz"
+        assert bin_spec.search_pattern == "tool-1.0.0-linux_arm64.tar.gz"
+        assert bin_spec.matching_asset == assets[1]
 
 
 def test_download_file(requests_mock: MockFixture, temp_dir: Path) -> None:
@@ -360,9 +372,8 @@ def test_download_tool_asset_not_found(
         tools={"test-tool": test_tool_config},
     )
 
-    # Mock find_asset to ensure it returns None for our specific pattern
-    with patch("dotbins.download._find_asset") as mock_find_asset:
-        mock_find_asset.return_value = None
+    with patch("dotbins.utils.get_latest_release") as mock_release:
+        mock_release.return_value = {"tag_name": "v1.0.0", "assets": []}
 
         # Call the function
         result = dotbins.download._prepare_download_task(
@@ -372,9 +383,6 @@ def test_download_tool_asset_not_found(
             config,
             force=False,
         )
-
-        # Verify find_asset was called with the correct pattern
-        mock_find_asset.assert_called_once()
 
         # Should return None since asset wasn't found
         assert result is None

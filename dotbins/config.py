@@ -144,6 +144,24 @@ class BinSpec:
         log(f"No asset matching '{search_pattern}' found", "warning")
         return None
 
+    def skip_download(self, config: Config, force: bool) -> bool:
+        """Check if download should be skipped (binary already exists)."""
+        tool_info = config.version_store.get_tool_info(
+            self.tool_config.tool_name,
+            self.platform,
+            self.arch,
+        )
+        destination_dir = config.bin_dir(self.platform, self.arch)
+        all_exist = _exists_in_destination_dir(destination_dir, self.tool_config)
+        if tool_info and tool_info["version"] == self.version and all_exist and not force:
+            log(
+                f"{self.tool_config.tool_name} {self.version} for {self.platform}/{self.arch} is already"
+                f" up to date (installed on {tool_info['updated_at']}) use --force to re-download.",
+                "success",
+            )
+            return True
+        return False
+
 
 class RawToolConfigDict(TypedDict, total=False):
     """TypedDict for raw data passed to build_tool_config."""
@@ -351,3 +369,7 @@ def _validate_tool_config(
                     f"Tool {tool_name}: 'asset_patterns[{platform}]' uses unknown arch '{arch}'",
                     "error",
                 )
+
+
+def _exists_in_destination_dir(destination_dir: Path, tool_config: ToolConfig) -> bool:
+    return all((destination_dir / binary_name).exists() for binary_name in tool_config.binary_name)
