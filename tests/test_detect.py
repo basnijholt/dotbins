@@ -1,5 +1,7 @@
 """Tests for the dotbins.detect module."""
 
+import pytest
+
 from dotbins.detect import (
     ArchAMD64,
     ArchArm,
@@ -128,9 +130,7 @@ def test_single_asset_detector_detect() -> None:
 def test_create_system_detector() -> None:
     """Test the create_system_detector function."""
     # Valid OS and arch
-    detector_fn, error = create_system_detector("linux", "amd64")
-    assert detector_fn is not None
-    assert error is None
+    detector_fn = create_system_detector("linux", "amd64")
 
     # We can't directly check the detector's internal state anymore,
     # so we'll test it by using it to detect an asset
@@ -140,14 +140,12 @@ def test_create_system_detector() -> None:
     assert err is None
 
     # Invalid OS
-    detector_fn, error = create_system_detector("invalid", "amd64")
-    assert detector_fn is None
-    assert error == "unsupported target OS: invalid"
+    with pytest.raises(ValueError, match="unsupported target OS: invalid"):
+        create_system_detector("invalid", "amd64")
 
     # Invalid arch
-    detector_fn, error = create_system_detector("linux", "invalid")
-    assert detector_fn is None
-    assert error == "unsupported target arch: invalid"
+    with pytest.raises(ValueError, match="unsupported target arch: invalid"):
+        create_system_detector("linux", "invalid")
 
 
 def test_system_detector_detect() -> None:
@@ -233,8 +231,7 @@ def test_system_detector_detect() -> None:
 def test_detector_chain() -> None:
     """Test the chain_detectors function."""
     # Set up a chain of detectors
-    system_detector_fn, _ = create_system_detector("linux", "amd64")
-    assert system_detector_fn is not None
+    system_detector_fn = create_system_detector("linux", "amd64")
     asset_detector_fn = detect_single_asset("app")
 
     chain_fn = chain_detectors(detectors=[asset_detector_fn], system=system_detector_fn)

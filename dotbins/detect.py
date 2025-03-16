@@ -186,13 +186,15 @@ def detect_system(os_obj: OS, arch: Arch) -> DetectFunc:
 def create_system_detector(
     os_name: str,
     arch_name: str,
-) -> tuple[DetectFunc | None, str | None]:
+) -> DetectFunc:
     """Create a system detector function for a given OS and architecture."""
     if os_name not in os_mapping:
-        return None, f"unsupported target OS: {os_name}"
+        msg = f"unsupported target OS: {os_name}"
+        raise ValueError(msg)
     if arch_name not in arch_mapping:
-        return None, f"unsupported target arch: {arch_name}"
-    return detect_system(os_mapping[os_name], arch_mapping[arch_name]), None
+        msg = f"unsupported target arch: {arch_name}"
+        raise ValueError(msg)
+    return detect_system(os_mapping[os_name], arch_mapping[arch_name])
 
 
 def chain_detectors(detectors: list[DetectFunc], system: DetectFunc) -> DetectFunc:
