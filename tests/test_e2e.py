@@ -641,15 +641,7 @@ def test_e2e_update_tools_specific_platform(tmp_path: Path) -> None:
         patch("dotbins.download.download_file", side_effect=mock_download_file),
     ):
         # Only update macOS => We expect only the darwin_arm64 asset
-        _update_tools(
-            config=config,
-            tools=[],  # update all tools
-            platform="macos",  # crucial
-            architecture=None,  # means all archs for macos => only arm64 in this config
-            current=False,
-            force=False,
-            shell_setup=False,
-        )
+        _update_tools(config=config, platform="macos")
 
     # Should only have downloaded the darwin_arm64 file
     assert len(downloaded_files) == 1
