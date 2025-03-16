@@ -1,11 +1,8 @@
 """Integration tests for the dotbins module."""
 
-import shutil
 import sys
-import tempfile
-from collections.abc import Generator
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from unittest.mock import patch
 
 import pytest
@@ -17,26 +14,14 @@ from dotbins import cli
 from dotbins.config import Config, build_tool_config
 
 
-class TestIntegration:
-    """Integration tests for dotbins."""
-
-
-@pytest.fixture
-def tmp_dir() -> Generator[Path, None, None]:
-    """Create a temporary directory for tests."""
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        yield Path(tmpdirname)
-
-
 def test_initialization(
-    tmp_dir: Path,
+    tmp_path: Path,
 ) -> None:
     """Test the 'init' command."""
     # Create a config with our test directories
     config = Config(
-        tools_dir=tmp_dir / "tools",
+        tools_dir=tmp_path / "tools",
         platforms={"linux": ["amd64", "arm64"], "macos": ["arm64"]},
-        tools={},
     )
 
     # Call initialize with the config
@@ -46,10 +31,10 @@ def test_initialization(
     platform_archs = [("linux", "amd64"), ("linux", "arm64"), ("macos", "arm64")]
 
     for platform, arch in platform_archs:
-        assert (tmp_dir / "tools" / platform / arch / "bin").exists()
+        assert (tmp_path / "tools" / platform / arch / "bin").exists()
 
     # Also verify that macos/amd64 does NOT exist
-    assert not (tmp_dir / "tools" / "macos" / "amd64" / "bin").exists()
+    assert not (tmp_path / "tools" / "macos" / "amd64" / "bin").exists()
 
 
 def test_list_tools(
@@ -85,9 +70,10 @@ def test_list_tools(
 
 
 def test_update_tool(
-    tmp_dir: Path,
+    tmp_path: Path,
     monkeypatch: MonkeyPatch,
     mock_github_api: Any,  # noqa: ARG001
+    create_dummy_archive: Callable,
 ) -> None:
     """Test updating a specific tool."""
     # Set up mock environment
@@ -105,17 +91,14 @@ def test_update_tool(
 
     # Create config with our test tool - use new format
     config = Config(
-        tools_dir=tmp_dir / "tools",
+        tools_dir=tmp_path / "tools",
         platforms={"linux": ["amd64"]},  # Just linux/amd64 for this test
         tools={"test-tool": test_tool_config},
     )
 
-    # Create a test binary tarball
-    _create_test_tarball(tmp_dir / "test_binary.tar.gz", "test-tool")
-
-    # Mock the download_file function to use our test tarball
+    # Mock the download_file function to use our fixture
     def mock_download_file(_url: str, destination: str) -> str:
-        shutil.copy(tmp_dir / "test_binary.tar.gz", destination)
+        create_dummy_archive(dest_path=Path(destination), binary_names="test-tool")
         return destination
 
     # Mock download and extraction to avoid actual downloads
@@ -133,26 +116,7 @@ def test_update_tool(
     )
 
     # Check if binary was installed
-    assert (tmp_dir / "tools" / "linux" / "amd64" / "bin" / "test-tool").exists()
-
-
-def _create_test_tarball(path: Path, binary_name: str) -> None:
-    """Create a test tarball with a binary inside."""
-    import tarfile
-
-    # Create a temporary directory
-    with tempfile.TemporaryDirectory() as tmpdir:
-        # Create a dummy binary file
-        binary_path = Path(tmpdir) / binary_name
-        with open(binary_path, "w") as f:
-            f.write("#!/bin/sh\necho 'Hello from test tool'\n")
-
-        # Make it executable
-        binary_path.chmod(0o755)  # nosec: B103
-
-        # Create tarball
-        with tarfile.open(path, "w:gz") as tar:
-            tar.add(binary_path, arcname=binary_name)
+    assert (tmp_path / "tools" / "linux" / "amd64" / "bin" / "test-tool").exists()
 
 
 def test_analyze_tool(
@@ -201,15 +165,15 @@ def test_cli_unknown_tool() -> None:
         patch.object(
             Config,
             "from_file",
-            return_value=Config(tools={}),
+            return_value=Config(),
         ),
     ):
         cli.main()
 
 
-def test_cli_tools_dir_override(tmp_dir: Path) -> None:
+def test_cli_tools_dir_override(tmp_path: Path) -> None:
     """Test overriding tools directory via CLI."""
-    custom_dir = tmp_dir / "custom_tools"
+    custom_dir = tmp_path / "custom_tools"
 
     # Mock config loading to return a predictable config
     def mock_load_config(
@@ -217,9 +181,8 @@ def test_cli_tools_dir_override(tmp_dir: Path) -> None:
         **kwargs: Any,  # noqa: ARG001
     ) -> Config:
         return Config(
-            tools_dir=tmp_dir / "default_tools",  # Default dir
+            tools_dir=tmp_path / "default_tools",  # Default dir
             platforms={"linux": ["amd64"]},  # Use new format
-            tools={},
         )
 
     # Patch config loading

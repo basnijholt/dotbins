@@ -11,9 +11,9 @@ from dotbins.versions import VersionStore
 
 
 @pytest.fixture
-def temp_version_file(temp_dir: Path) -> Path:
+def temp_version_file(tmp_path: Path) -> Path:
     """Create a temporary version file with sample data."""
-    version_file = temp_dir / "versions.json"
+    version_file = tmp_path / "versions.json"
 
     # Sample version data
     version_data = {
@@ -28,19 +28,19 @@ def temp_version_file(temp_dir: Path) -> Path:
     return version_file
 
 
-def test_version_store_init(temp_dir: Path) -> None:
+def test_version_store_init(tmp_path: Path) -> None:
     """Test initializing a VersionStore."""
-    store = VersionStore(temp_dir)
-    assert store.version_file == temp_dir / "versions.json"
+    store = VersionStore(tmp_path)
+    assert store.version_file == tmp_path / "versions.json"
     assert store.versions == {}  # Empty if file doesn't exist
 
 
 def test_version_store_load(
-    temp_dir: Path,
+    tmp_path: Path,
     temp_version_file: Path,  # noqa: ARG001
 ) -> None:
     """Test loading version data from file."""
-    store = VersionStore(temp_dir)
+    store = VersionStore(tmp_path)
 
     # Versions should be loaded from the file
     assert len(store.versions) == 2
@@ -53,11 +53,11 @@ def test_version_store_load(
 
 
 def test_version_store_get_tool_info(
-    temp_dir: Path,
+    tmp_path: Path,
     temp_version_file: Path,  # noqa: ARG001
 ) -> None:
     """Test getting tool info for a specific combination."""
-    store = VersionStore(temp_dir)
+    store = VersionStore(tmp_path)
 
     # Test getting existing tool info
     info = store.get_tool_info("fzf", "linux", "amd64")
@@ -68,9 +68,9 @@ def test_version_store_get_tool_info(
     assert store.get_tool_info("nonexistent", "linux", "amd64") is None
 
 
-def test_version_store_update_tool_info(temp_dir: Path) -> None:
+def test_version_store_update_tool_info(tmp_path: Path) -> None:
     """Test updating tool information."""
-    store = VersionStore(temp_dir)
+    store = VersionStore(tmp_path)
 
     # Before update
     assert store.get_tool_info("ripgrep", "linux", "amd64") is None
@@ -87,10 +87,10 @@ def test_version_store_update_tool_info(temp_dir: Path) -> None:
     datetime.fromisoformat(info["updated_at"])  # Should not raise exception
 
     # Verify the file was created
-    assert os.path.exists(temp_dir / "versions.json")
+    assert os.path.exists(tmp_path / "versions.json")
 
     # Read the file and check contents
-    with open(temp_dir / "versions.json") as f:
+    with open(tmp_path / "versions.json") as f:
         saved_data = json.load(f)
 
     assert "ripgrep/linux/amd64" in saved_data
@@ -98,11 +98,11 @@ def test_version_store_update_tool_info(temp_dir: Path) -> None:
 
 
 def test_version_store_list_all(
-    temp_dir: Path,
+    tmp_path: Path,
     temp_version_file: Path,  # noqa: ARG001
 ) -> None:
     """Test listing all version information."""
-    store = VersionStore(temp_dir)
+    store = VersionStore(tmp_path)
 
     # List all versions
     versions = store.list_all()
@@ -112,9 +112,9 @@ def test_version_store_list_all(
     assert "bat/macos/arm64" in versions
 
 
-def test_version_store_save_creates_parent_dirs(temp_dir: Path) -> None:
+def test_version_store_save_creates_parent_dirs(tmp_path: Path) -> None:
     """Test that save creates parent directories if needed."""
-    nested_dir = temp_dir / "nested" / "path"
+    nested_dir = tmp_path / "nested" / "path"
     store = VersionStore(nested_dir)
 
     # Update to trigger save
@@ -125,25 +125,25 @@ def test_version_store_save_creates_parent_dirs(temp_dir: Path) -> None:
     assert os.path.exists(nested_dir / "versions.json")
 
 
-def test_version_store_load_invalid_json(temp_dir: Path) -> None:
+def test_version_store_load_invalid_json(tmp_path: Path) -> None:
     """Test loading from an invalid JSON file."""
-    version_file = temp_dir / "versions.json"
+    version_file = tmp_path / "versions.json"
 
     # Write invalid JSON
     with open(version_file, "w") as f:
         f.write("{ this is not valid JSON")
 
     # Should handle gracefully and return empty dict
-    store = VersionStore(temp_dir)
+    store = VersionStore(tmp_path)
     assert store.versions == {}
 
 
 def test_version_store_update_existing(
-    temp_dir: Path,
+    tmp_path: Path,
     temp_version_file: Path,  # noqa: ARG001
 ) -> None:
     """Test updating an existing tool entry."""
-    store = VersionStore(temp_dir)
+    store = VersionStore(tmp_path)
 
     # Initial state
     info = store.get_tool_info("fzf", "linux", "amd64")

@@ -99,10 +99,8 @@ def test_tool_config_has_required_fields(
 ) -> None:
     """Test that each tool configuration has the required fields."""
     tool_config = tools_config[tool_name]
-    assert getattr(tool_config, key), f"Tool {tool_name} missing required field '{key}'"
-
-    # For repo field, validate it's not empty
-    assert tool_config.repo, f"Tool {tool_name} has empty '{key}' field"
+    assert getattr(tool_config, key)
+    assert tool_config.repo
 
 
 @pytest.mark.parametrize("tool_name", TOOLS)
@@ -112,13 +110,5 @@ def test_tool_config_has_asset_pattern(
 ) -> None:
     """Test that each tool configuration has asset_patterns."""
     tool_config = tools_config[tool_name]
-
-    assert tool_config.asset_patterns, f"Tool {tool_name} is missing 'asset_patterns'"
-
-    # Make sure asset_patterns is not empty
-    if isinstance(tool_config.asset_patterns, dict):
-        assert any(
-            tool_config.asset_patterns.values(),
-        ), f"Tool {tool_name} has empty asset_patterns dictionary"
-    elif isinstance(tool_config.asset_patterns, str):
-        assert tool_config.asset_patterns, f"Tool {tool_name} has empty asset_patterns string"
+    assert tool_config.asset_patterns
+    assert any(tool_config.asset_patterns.values())

@@ -82,11 +82,11 @@ class Config:
 
         """
         tools_to_update = _tools_to_update(self, tools)
-        if current:
-            platform, architecture = current_platform()
-            platforms_to_update = [platform]
-        else:
-            platforms_to_update = [platform] if platform else None  # type: ignore[assignment]
+        platforms_to_update, architecture = _platforms_and_archs_to_update(
+            platform,
+            architecture,
+            current,
+        )
         download_tasks, total_count = prepare_download_tasks(
             self,
             tools_to_update,
@@ -98,6 +98,19 @@ class Config:
         success_count = process_downloaded_files(downloaded_tasks, self.version_store)
         self.make_binaries_executable()
         _print_completion_summary(success_count, total_count)
+
+
+def _platforms_and_archs_to_update(
+    platform: str | None,
+    architecture: str | None,
+    current: bool,
+) -> tuple[list[str] | None, str | None]:
+    if current:
+        platform, architecture = current_platform()
+        platforms_to_update = [platform]
+    else:
+        platforms_to_update = [platform] if platform else None  # type: ignore[assignment]
+    return platforms_to_update, architecture
 
 
 def _tools_to_update(config: Config, tools: list[str] | None) -> list[str] | None:
@@ -164,42 +177,35 @@ class BinSpec:
         """Get the platform in the tool's convention."""
         return self.tool_config.platform_map.get(self.platform, self.platform)
 
-    @property
-    def asset_pattern(self) -> str | None:
-        """Get the asset pattern for the tool."""
-        return self.tool_config.asset_patterns[self.platform][self.arch]
-
-    def search_pattern(self) -> str | None:
+    def regex_pattern(self) -> str | None:
         """Get the formatted asset pattern for the tool."""
-        asset_pattern = self.asset_pattern
-        if asset_pattern is None:
+        search_pattern = self.tool_config.asset_patterns[self.platform][self.arch]
+        if search_pattern is None:
             log(f"No asset pattern found for {self.platform}/{self.arch}", "warning")
             return None
-        return asset_pattern.format(
-            version=self.version,
-            platform=self.tool_platform,
-            arch=self.tool_arch,
+        return (
+            search_pattern.format(
+                version=self.version,
+                platform=self.tool_platform,
+                arch=self.tool_arch,
+            )
+            .replace("{version}", ".*")
+            .replace("{arch}", ".*")
+            .replace("{platform}", ".*")
         )
 
     def matching_asset(self) -> _AssetDict | None:
         """Find a matching asset for the tool."""
-        search_pattern = self.search_pattern()
-        if search_pattern is None:
+        regex_pattern = self.regex_pattern()
+        if regex_pattern is None:
             return None
-        assets = self.tool_config.latest_release["assets"]
-
-        regex_pattern = (
-            search_pattern.replace("{version}", ".*")
-            .replace("{arch}", ".*")
-            .replace("{platform}", ".*")
-        )
         log(f"Looking for asset with pattern: {regex_pattern}", "info", "🔍")
-
+        assets = self.tool_config.latest_release["assets"]
         for asset in assets:
             if re.search(regex_pattern, asset["name"]):
                 log(f"Found matching asset: {asset['name']}", "success")
                 return asset
-        log(f"No asset matching '{search_pattern}' found", "warning")
+        log(f"No asset matching '{regex_pattern}' found", "warning")
         return None
 
     def skip_download(self, config: Config, force: bool) -> bool:
@@ -210,7 +216,9 @@ class BinSpec:
             self.arch,
         )
         destination_dir = config.bin_dir(self.platform, self.arch)
-        all_exist = _exists_in_destination_dir(destination_dir, self.tool_config)
+        all_exist = all(
+            (destination_dir / binary_name).exists() for binary_name in self.tool_config.binary_name
+        )
         if tool_info and tool_info["version"] == self.version and all_exist and not force:
             log(
                 f"{self.tool_config.tool_name} {self.version} for {self.platform}/{self.arch} is already"
@@ -440,7 +448,3 @@ def _validate_tool_config(
                     f"Tool {tool_name}: 'asset_patterns[{platform}]' uses unknown arch '{arch}'",
                     "error",
                 )
-
-
-def _exists_in_destination_dir(destination_dir: Path, tool_config: ToolConfig) -> bool:
-    return all((destination_dir / binary_name).exists() for binary_name in tool_config.binary_name)

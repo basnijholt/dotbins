@@ -3,78 +3,23 @@
 from __future__ import annotations
 
 import os
-import tarfile
-import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from unittest.mock import patch
 
 import pytest
 
-from dotbins.cli import _update_tools
 from dotbins.config import Config, _config_from_dict
 from dotbins.utils import log
 
 
-def create_dummy_archive(
-    dest_path: Path,
-    binary_names: str | list[str],
-    archive_type: str = "tar.gz",
-    binary_content: str = "#!/usr/bin/env echo\n",
-) -> None:
-    """Create a dummy archive file with provided binary names inside.
-
-    Args:
-        dest_path: Path where the archive will be created
-        binary_names: Single binary name or list of binary names to include
-        archive_type: Type of archive to create ("tar.gz", "zip", "tar.bz2")
-        binary_content: Content to put in the binary files
-
-    """
-    if isinstance(binary_names, str):
-        binary_names = [binary_names]
-
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        tmp_path = Path(tmp_dir)
-        bin_dir = tmp_path
-        bin_dir.mkdir(exist_ok=True)
-
-        created_files = []
-        for binary in binary_names:
-            # Create the binary file
-            bin_file = bin_dir / binary
-            bin_file.write_text(binary_content)
-            bin_file.chmod(0o755)
-            created_files.append(bin_file)
-
-        # Create the archive
-        assert archive_type == "tar.gz"
-        with tarfile.open(dest_path, "w:gz") as tar:
-            for file_path in created_files:
-                archive_path = file_path.relative_to(tmp_path)
-                tar.add(file_path, arcname=str(archive_path))
-
-
-def create_mock_release_info(
+def _create_mock_release_info(
     tool_name: str,
     version: str = "1.2.3",
     platforms: list[str] | None = None,
     architectures: list[str] | None = None,
     archive_type: str = "tar.gz",
 ) -> dict[str, Any]:
-    """Create mock GitHub release information for a tool.
-
-    Args:
-        tool_name: Name of the tool
-        version: Version string (without 'v' prefix)
-        platforms: List of platforms (defaults to ['linux', 'darwin'])
-        architectures: List of architectures (defaults to ['amd64', 'arm64'])
-        archive_type: Archive file extension
-
-    Returns:
-        Dict with release information matching GitHub API format
-
-    """
     if platforms is None:
         platforms = ["linux", "darwin"]
     if architectures is None:
@@ -94,6 +39,7 @@ def create_mock_release_info(
 def run_e2e_test(
     tools_dir: Path,
     tool_configs: dict[str, dict[str, Any]],
+    create_dummy_archive: Callable,
     platforms: dict[str, list[str]] | None = None,
     filter_tools: list[str] | None = None,
     filter_platform: str | None = None,
@@ -105,6 +51,7 @@ def run_e2e_test(
     Args:
         tools_dir: Temporary directory to use for tools
         tool_configs: Dictionary of tool configurations
+        create_dummy_archive: The create_dummy_archive fixture
         platforms: Platform configuration (defaults to linux/amd64)
         filter_tools: List of tools to update (all if None)
         filter_platform: Platform to filter updates for
@@ -125,7 +72,7 @@ def run_e2e_test(
 
     def mock_latest_release(repo: str) -> dict[str, Any]:
         tool_name = repo.split("/")[-1]
-        return create_mock_release_info(tool_name)
+        return _create_mock_release_info(tool_name)
 
     def mock_download_func(url: str, destination: str) -> str:
         # Extract tool name from URL
@@ -141,14 +88,11 @@ def run_e2e_test(
         patch("dotbins.download.download_file", side_effect=mock_download_func),
     ):
         # Run the update
-        _update_tools(
-            config=config,
-            tools=filter_tools or [],
+        config.update_tools(
+            tools=filter_tools,
             platform=filter_platform,
             architecture=filter_arch,
-            current=False,
             force=force,
-            shell_setup=True,
         )
 
     return config
@@ -184,7 +128,10 @@ def verify_binaries_installed(
                     assert os.access(binary_path, os.X_OK)
 
 
-def test_simple_tool_update(tmp_path: Path) -> None:
+def test_simple_tool_update(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+) -> None:
     """Test updating a simple tool configuration."""
     tool_configs = {
         "mytool": {
@@ -195,11 +142,18 @@ def test_simple_tool_update(tmp_path: Path) -> None:
             "asset_patterns": "mytool-{version}-{platform}_{arch}.tar.gz",
         },
     }
-    config = run_e2e_test(tools_dir=tmp_path, tool_configs=tool_configs)
+    config = run_e2e_test(
+        tools_dir=tmp_path,
+        tool_configs=tool_configs,
+        create_dummy_archive=create_dummy_archive,
+    )
     verify_binaries_installed(config)
 
 
-def test_multiple_tools_with_filtering(tmp_path: Path) -> None:
+def test_multiple_tools_with_filtering(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+) -> None:
     """Test updating multiple tools with filtering."""
     tool_configs = {
         "tool1": {
@@ -224,6 +178,7 @@ def test_multiple_tools_with_filtering(tmp_path: Path) -> None:
         tool_configs=tool_configs,
         filter_tools=["tool1"],  # Only update tool1
         platforms={"linux": ["amd64", "arm64"]},  # Only test Linux platforms
+        create_dummy_archive=create_dummy_archive,
     )
 
     # Verify that only tool1 was installed
@@ -234,7 +189,10 @@ def test_multiple_tools_with_filtering(tmp_path: Path) -> None:
     )  # Specify Linux only
 
 
-def test_auto_detect_binary(tmp_path: Path) -> None:
+def test_auto_detect_binary(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+) -> None:
     """Test that the binary is auto-detected."""
     tool_configs = {
         "mytool": {
@@ -242,7 +200,11 @@ def test_auto_detect_binary(tmp_path: Path) -> None:
             "asset_patterns": "mytool-{version}-linux_{arch}.tar.gz",
         },
     }
-    config = run_e2e_test(tools_dir=tmp_path, tool_configs=tool_configs)
+    config = run_e2e_test(
+        tools_dir=tmp_path,
+        tool_configs=tool_configs,
+        create_dummy_archive=create_dummy_archive,
+    )
     verify_binaries_installed(config)
 
 
@@ -291,14 +253,18 @@ def test_auto_detect_binary(tmp_path: Path) -> None:
         },
     ],
 )
-def test_e2e_update_tools(tmp_path: Path, raw_config: dict) -> None:
+def test_e2e_update_tools(
+    tmp_path: Path,
+    raw_config: dict,
+    create_dummy_archive: Callable,
+) -> None:
     """Shows an end-to-end test.
 
     This test:
     - Builds a Config from a dict
     - Mocks out `latest_release_info` to produce predictable asset names
     - Mocks out `download_file` so we skip real network usage
-    - Calls `_update_tools` directly
+    - Calls `config.update_tools` directly
     - Verifies that the binaries are extracted into the correct location.
     """
     config = _config_from_dict(raw_config)
@@ -341,7 +307,7 @@ def test_e2e_update_tools_skip_up_to_date(tmp_path: Path) -> None:
     """Demonstrates a scenario where we have a single tool that is already up-to-date.
 
     - We populate the VersionStore with the exact version returned by mocked GitHub releases.
-    - The `_update_tools` call should skip downloading or extracting anything.
+    - The `config.update_tools` call should skip downloading or extracting anything.
     """
     raw_config = {
         "tools_dir": str(tmp_path),
@@ -398,7 +364,10 @@ def test_e2e_update_tools_skip_up_to_date(tmp_path: Path) -> None:
     assert stored_info["version"] == "1.2.3"
 
 
-def test_e2e_update_tools_partial_skip_and_update(tmp_path: Path) -> None:
+def test_e2e_update_tools_partial_skip_and_update(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+) -> None:
     """Partial skip & update.
 
     Demonstrates:
@@ -478,15 +447,7 @@ def test_e2e_update_tools_partial_skip_and_update(tmp_path: Path) -> None:
         patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
         patch("dotbins.download.download_file", side_effect=mock_download_file),
     ):
-        _update_tools(
-            config=config,
-            tools=[],  # update all tools
-            platform=None,  # all platforms
-            architecture=None,  # all archs
-            current=False,
-            force=False,
-            shell_setup=False,
-        )
+        config.update_tools()
 
     # 'mytool' should remain at version 2.0.0, unchanged
     mytool_info = config.version_store.get_tool_info("mytool", "linux", "amd64")
@@ -503,7 +464,7 @@ def test_e2e_update_tools_partial_skip_and_update(tmp_path: Path) -> None:
     assert os.access(other_bin, os.X_OK), "otherbin should be executable."
 
 
-def test_e2e_update_tools_force_re_download(tmp_path: Path) -> None:
+def test_e2e_update_tools_force_re_download(tmp_path: Path, create_dummy_archive: Callable) -> None:
     """Force a re-download.
 
     Scenario:
@@ -555,14 +516,11 @@ def test_e2e_update_tools_force_re_download(tmp_path: Path) -> None:
         patch("dotbins.download.download_file", side_effect=mock_download_file),
     ):
         # Force a re-download, even though we're "up to date"
-        _update_tools(
-            config=config,
+        config.update_tools(
             tools=["mytool"],
             platform="linux",
             architecture="amd64",
-            current=False,
             force=True,  # Key point: forcing
-            shell_setup=False,
         )
 
     # Verify that the download actually happened (1 item in the list)
@@ -577,7 +535,7 @@ def test_e2e_update_tools_force_re_download(tmp_path: Path) -> None:
     assert tool_info["updated_at"] != original_updated_at
 
 
-def test_e2e_update_tools_specific_platform(tmp_path: Path) -> None:
+def test_e2e_update_tools_specific_platform(tmp_path: Path, create_dummy_archive: Callable) -> None:
     """Update a specific platform.
 
     Scenario: We have a config with 'linux' & 'macos', but only request updates for 'macos'
