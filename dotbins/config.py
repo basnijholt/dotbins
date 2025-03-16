@@ -87,7 +87,6 @@ class Config:
             platforms_to_update = [platform]
         else:
             platforms_to_update = [platform] if platform else None  # type: ignore[assignment]
-        self.tools_dir.mkdir(parents=True, exist_ok=True)
         download_tasks, total_count = prepare_download_tasks(
             self,
             tools_to_update,
