@@ -234,6 +234,18 @@ def test_multiple_tools_with_filtering(tmp_path: Path) -> None:
     )  # Specify Linux only
 
 
+def test_auto_detect_binary(tmp_path: Path) -> None:
+    """Test that the binary is auto-detected."""
+    tool_configs = {
+        "mytool": {
+            "repo": "fakeuser/mytool",
+            "asset_patterns": "mytool-{version}-linux_{arch}.tar.gz",
+        },
+    }
+    config = run_e2e_test(tools_dir=tmp_path, tool_configs=tool_configs)
+    verify_binaries_installed(config)
+
+
 @pytest.mark.parametrize(
     "raw_config",
     [
