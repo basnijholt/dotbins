@@ -15,7 +15,6 @@ from dotbins.detect import (
     _match_os,
     chain_detectors,
     create_os_detector,
-    detect_all,
     detect_single_asset,
 )
 
@@ -63,21 +62,6 @@ def test_arch_match() -> None:
 
     assert _match_arch(ArchRiscv64, "linux-riscv64.tar.gz")
     assert not _match_arch(ArchRiscv64, "linux-amd64.tar.gz")
-
-
-def test_all_detector_detect() -> None:
-    """Test the detect_all function."""
-    # Single asset
-    match, candidates, error = detect_all(["app.tar.gz"])
-    assert match == "app.tar.gz"
-    assert candidates is None
-    assert error is None
-
-    # Multiple assets
-    match, candidates, error = detect_all(["app1.tar.gz", "app2.tar.gz"])
-    assert match == ""
-    assert candidates == ["app1.tar.gz", "app2.tar.gz"]
-    assert error == "2 matches found"
 
 
 def test_single_asset_detector_detect() -> None:

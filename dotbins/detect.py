@@ -99,13 +99,6 @@ def _match_arch(arch: _Arch, asset: str) -> bool:
     return bool(arch.regex.search(asset))
 
 
-def detect_all(assets: Assets) -> DetectResult:
-    """Detect any asset from a list of assets."""
-    if len(assets) == 1:
-        return assets[0], None, None
-    return "", assets, f"{len(assets)} matches found"
-
-
 def detect_single_asset(asset: str, anti: bool = False) -> DetectFunc:
     """Returns a function that detects a single asset."""
 
