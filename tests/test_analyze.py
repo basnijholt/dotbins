@@ -1,9 +1,8 @@
 """Tests for the analyze functionality of dotbins."""
 
 import os
-import zipfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -305,24 +304,23 @@ def test_analyze_tool(
     assert ToolConfig("tool", **parsed["tool"]) == tool_config
 
 
-def test_extract_archive(tmp_path: Path) -> None:
+def test_extract_archive(tmp_path: Path, create_dummy_archive: Callable) -> None:
     """Test extracting different archive types."""
     # Test with zip file
-    zip_path = os.path.join(tmp_path, "test.zip")
-    with zipfile.ZipFile(zip_path, "w") as zipf:
-        zipf.writestr("test.txt", "test content")
+    zip_path = tmp_path / "test.zip"
+    create_dummy_archive(dest_path=zip_path, binary_names="test-binary", archive_type="zip")
 
-    extract_dir = os.path.join(tmp_path, "extract_zip")
-    os.makedirs(extract_dir)
+    extract_dir = tmp_path / "extract_zip"
+    extract_dir.mkdir()
     extract_archive(zip_path, extract_dir)
-    assert os.path.exists(os.path.join(extract_dir, "test.txt"))
+    assert os.path.exists(extract_dir / "test-binary")
 
     # Test with unsupported format
-    unsupported_path = os.path.join(tmp_path, "test.bin")
+    unsupported_path = tmp_path / "test.bin"
     with open(unsupported_path, "w") as f:
         f.write("binary content")
 
-    extract_dir = os.path.join(tmp_path, "extract_unsupported")
-    os.makedirs(extract_dir)
+    extract_dir = tmp_path / "extract_unsupported"
+    extract_dir.mkdir()
     with pytest.raises(ValueError, match="Unsupported archive format"):
         extract_archive(unsupported_path, extract_dir)

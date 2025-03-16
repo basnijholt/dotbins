@@ -6,7 +6,7 @@ import os
 import tarfile
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from unittest.mock import patch
 
 import pytest
@@ -158,7 +158,7 @@ def verify_binaries_installed(
                     assert os.access(binary_path, os.X_OK)
 
 
-def test_simple_tool_update(tmp_path: Path) -> None:
+def test_simple_tool_update(tmp_path: Path, create_dummy_archive: Callable) -> None:
     """Test updating a simple tool configuration."""
     tool_configs = {
         "mytool": {
@@ -169,7 +169,26 @@ def test_simple_tool_update(tmp_path: Path) -> None:
             "asset_patterns": "mytool-{version}-{platform}_{arch}.tar.gz",
         },
     }
-    config = run_e2e_test(tools_dir=tmp_path, tool_configs=tool_configs)
+
+    def mock_latest_release(repo: str) -> dict[str, Any]:
+        tool_name = repo.split("/")[-1]
+        return _create_mock_release_info(tool_name)
+
+    def mock_download_func(url: str, destination: str) -> str:
+        # Extract tool name from URL
+        parts = url.split("/")[-1].split("-")
+        tool_name = parts[0]
+
+        # Create a dummy archive with the right name
+        create_dummy_archive(Path(destination), tool_name)
+        return destination
+
+    with (
+        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release),
+        patch("dotbins.download.download_file", side_effect=mock_download_func),
+    ):
+        config = run_e2e_test(tools_dir=tmp_path, tool_configs=tool_configs)
+
     verify_binaries_installed(config)
 
 
@@ -469,7 +488,7 @@ def test_e2e_update_tools_partial_skip_and_update(tmp_path: Path) -> None:
     assert os.access(other_bin, os.X_OK), "otherbin should be executable."
 
 
-def test_e2e_update_tools_force_re_download(tmp_path: Path) -> None:
+def test_e2e_update_tools_force_re_download(tmp_path: Path, create_dummy_archive: Callable) -> None:
     """Force a re-download.
 
     Scenario:
@@ -513,7 +532,7 @@ def test_e2e_update_tools_force_re_download(tmp_path: Path) -> None:
 
     def mock_download_file(url: str, destination: str) -> str:
         downloaded_urls.append(url)
-        _create_dummy_archive(Path(destination), binary_names="mybinary")
+        create_dummy_archive(Path(destination), binary_names="mybinary")
         return destination
 
     with (

@@ -4,6 +4,7 @@ import os
 import tarfile
 import zipfile
 from pathlib import Path
+from typing import Callable
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -13,44 +14,35 @@ from dotbins.download import _auto_detect_binary_paths, _extract_from_archive
 
 
 @pytest.fixture
-def mock_archive_simple(tmp_path: Path) -> Path:
+def mock_archive_simple(tmp_path: Path, create_dummy_archive: Callable) -> Path:
     """Create a mock archive with a simple binary that exactly matches the name."""
     archive_path = tmp_path / "simple.tar.gz"
-    extract_dir = tmp_path / "extract_simple"
-    extract_dir.mkdir()
-
-    # Create a binary file
-    binary_path = extract_dir / "fzf"
-    binary_path.touch()
-    os.chmod(binary_path, 0o755)  # Make executable  # noqa: S103
-
-    # Create archive
-    with tarfile.open(archive_path, "w:gz") as tar:
-        tar.add(binary_path, arcname="fzf")
-
+    create_dummy_archive(dest_path=archive_path, binary_names="fzf")
     return archive_path
 
 
 @pytest.fixture
 def mock_archive_nested(tmp_path: Path) -> Path:
     """Create a mock archive with a nested binary structure."""
-    archive_path = tmp_path / "nested.zip"
+    # First create an extraction directory to organize our files
     extract_dir = tmp_path / "extract_nested"
     extract_dir.mkdir()
+
+    # Create a nested structure manually
     bin_dir = extract_dir / "bin"
     bin_dir.mkdir()
 
-    # Create a binary file in bin directory
+    # Create binary files
     binary_path = bin_dir / "delta"
     binary_path.touch()
     os.chmod(binary_path, 0o755)  # Make executable  # noqa: S103
 
-    # Create another executable to test disambiguation
     other_path = extract_dir / "delta-backup"
     other_path.touch()
     os.chmod(other_path, 0o755)  # Make executable  # noqa: S103
 
-    # Create archive
+    # Create archive (we'll use zipfile directly since we need specific structure)
+    archive_path = tmp_path / "nested.zip"
     with zipfile.ZipFile(archive_path, "w") as zipf:
         zipf.write(binary_path, arcname="bin/delta")
         zipf.write(other_path, arcname="delta-backup")
@@ -59,45 +51,18 @@ def mock_archive_nested(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def mock_archive_multiple(tmp_path: Path) -> Path:
+def mock_archive_multiple(tmp_path: Path, create_dummy_archive: Callable) -> Path:
     """Create a mock archive with multiple binaries."""
     archive_path = tmp_path / "multiple.tar.gz"
-    extract_dir = tmp_path / "extract_multiple"
-    extract_dir.mkdir()
-
-    # Create multiple binary files
-    binary1_path = extract_dir / "uv"
-    binary1_path.touch()
-    os.chmod(binary1_path, 0o755)  # Make executable  # noqa: S103
-
-    binary2_path = extract_dir / "uvx"
-    binary2_path.touch()
-    os.chmod(binary2_path, 0o755)  # Make executable  # noqa: S103
-
-    # Create archive
-    with tarfile.open(archive_path, "w:gz") as tar:
-        tar.add(binary1_path, arcname="uv")
-        tar.add(binary2_path, arcname="uvx")
-
+    create_dummy_archive(dest_path=archive_path, binary_names=["uv", "uvx"])
     return archive_path
 
 
 @pytest.fixture
-def mock_archive_no_match(tmp_path: Path) -> Path:
+def mock_archive_no_match(tmp_path: Path, create_dummy_archive: Callable) -> Path:
     """Create a mock archive with no matching binaries."""
     archive_path = tmp_path / "nomatch.tar.gz"
-    extract_dir = tmp_path / "extract_nomatch"
-    extract_dir.mkdir()
-
-    # Create a non-matching binary file
-    binary_path = extract_dir / "something-else"
-    binary_path.touch()
-    os.chmod(binary_path, 0o755)  # Make executable  # noqa: S103
-
-    # Create archive
-    with tarfile.open(archive_path, "w:gz") as tar:
-        tar.add(binary_path, arcname="something-else")
-
+    create_dummy_archive(dest_path=archive_path, binary_names="something-else")
     return archive_path
 
 
