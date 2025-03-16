@@ -10,11 +10,11 @@ from dotbins.detect import (
     ArchRiscv64,
     OSDarwin,
     OSLinux,
-    _detect_os,
+    _detect_system,
     _match_arch,
     _match_os,
     chain_detectors,
-    create_os_detector,
+    create_system_detector,
     detect_single_asset,
 )
 
@@ -111,10 +111,10 @@ def test_single_asset_detector_detect() -> None:
     assert error == "2 candidates found for asset `app`"
 
 
-def test_create_os_detector() -> None:
-    """Test the create_os_detector function."""
+def test_create_system_detector() -> None:
+    """Test the create_system_detector function."""
     # Valid OS and arch
-    detector_fn = create_os_detector("linux", "amd64")
+    detector_fn = create_system_detector("linux", "amd64")
 
     # We can't directly check the detector's internal state anymore,
     # so we'll test it by using it to detect an asset
@@ -125,16 +125,16 @@ def test_create_os_detector() -> None:
 
     # Invalid OS
     with pytest.raises(ValueError, match="unsupported target OS: invalid"):
-        create_os_detector("invalid", "amd64")
+        create_system_detector("invalid", "amd64")
 
     # Invalid arch
     with pytest.raises(ValueError, match="unsupported target arch: invalid"):
-        create_os_detector("linux", "invalid")
+        create_system_detector("linux", "invalid")
 
 
-def test_os_detector_detect() -> None:
-    """Test the detect_os function."""
-    detector = _detect_os(OSLinux, ArchAMD64)
+def test_system_detector_detect() -> None:
+    """Test the detect_system function."""
+    detector = _detect_system(OSLinux, ArchAMD64)
 
     # Perfect match
     assets = [
@@ -215,7 +215,7 @@ def test_os_detector_detect() -> None:
 def test_detector_chain() -> None:
     """Test the chain_detectors function."""
     # Set up a chain of detectors
-    os_detector_fn = create_os_detector("linux", "amd64")
+    os_detector_fn = create_system_detector("linux", "amd64")
     asset_detector_fn = detect_single_asset("app")
 
     chain_fn = chain_detectors(detectors=[asset_detector_fn], os_detector=os_detector_fn)

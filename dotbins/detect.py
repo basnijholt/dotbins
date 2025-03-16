@@ -15,7 +15,11 @@ else:
 
 Asset: TypeAlias = str
 Assets: TypeAlias = list[str]
-DetectResult: TypeAlias = tuple[Asset, Optional[Assets], Optional[str]]
+DetectResult: TypeAlias = tuple[
+    Asset,
+    Optional[Assets],  # candidates
+    Optional[str],  # error
+]
 DetectFunc: TypeAlias = Callable[[Assets], DetectResult]
 
 
@@ -55,6 +59,7 @@ OSPlan9 = _OS(name="plan9", regex=re.compile(r"(?i)(plan9)"))
 # Define OS mapping
 os_mapping: dict[str, _OS] = {
     "darwin": OSDarwin,
+    "macos": OSDarwin,  # alias for darwin
     "windows": OSWindows,
     "linux": OSLinux,
     "netbsd": OSNetBSD,
@@ -125,7 +130,7 @@ def detect_single_asset(asset: str, anti: bool = False) -> DetectFunc:
     return detector
 
 
-def _detect_os(os_obj: _OS, arch: _Arch) -> DetectFunc:
+def _detect_system(os_obj: _OS, arch: _Arch) -> DetectFunc:
     """Returns a function that detects based on OS and architecture."""
 
     def detector(assets: Assets) -> DetectResult:  # noqa: PLR0911
@@ -172,7 +177,7 @@ def _detect_os(os_obj: _OS, arch: _Arch) -> DetectFunc:
     return detector
 
 
-def create_os_detector(
+def create_system_detector(
     os_name: str,
     arch_name: str,
 ) -> DetectFunc:
@@ -183,7 +188,7 @@ def create_os_detector(
     if arch_name not in arch_mapping:
         msg = f"unsupported target arch: {arch_name}"
         raise ValueError(msg)
-    return _detect_os(os_mapping[os_name], arch_mapping[arch_name])
+    return _detect_system(os_mapping[os_name], arch_mapping[arch_name])
 
 
 def chain_detectors(detectors: list[DetectFunc], os_detector: DetectFunc) -> DetectFunc:

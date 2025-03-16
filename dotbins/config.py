@@ -12,6 +12,7 @@ from typing import TypedDict, TypeVar
 
 import yaml
 
+from .detect import create_system_detector
 from .download import download_files_in_parallel, prepare_download_tasks, process_downloaded_files
 from .utils import current_platform, latest_release_info, log
 from .versions import VersionStore
@@ -177,7 +178,7 @@ class BinSpec:
         """Get the platform in the tool's convention."""
         return self.tool_config.platform_map.get(self.platform, self.platform)
 
-    def regex_pattern(self) -> str | None:
+    def asset_pattern(self) -> str | None:
         """Get the formatted asset pattern for the tool."""
         search_pattern = self.tool_config.asset_patterns[self.platform][self.arch]
         if search_pattern is None:
@@ -196,16 +197,16 @@ class BinSpec:
 
     def matching_asset(self) -> _AssetDict | None:
         """Find a matching asset for the tool."""
-        regex_pattern = self.regex_pattern()
-        if regex_pattern is None:
-            return None
-        log(f"Looking for asset with pattern: {regex_pattern}", "info", "🔍")
+        asset_pattern = self.asset_pattern()
         assets = self.tool_config.latest_release["assets"]
+        if asset_pattern is None:
+            return _auto_detect_asset(self.platform, self.arch, assets)
+        log(f"Looking for asset with pattern: {asset_pattern}", "info", "🔍")
         for asset in assets:
-            if re.search(regex_pattern, asset["name"]):
+            if re.search(asset_pattern, asset["name"]):
                 log(f"Found matching asset: {asset['name']}", "success")
                 return asset
-        log(f"No asset matching '{regex_pattern}' found", "warning")
+        log(f"No asset matching '{asset_pattern}' found", "warning")
         return None
 
     def skip_download(self, config: Config, force: bool) -> bool:
@@ -448,3 +449,25 @@ def _validate_tool_config(
                     f"Tool {tool_name}: 'asset_patterns[{platform}]' uses unknown arch '{arch}'",
                     "error",
                 )
+
+
+def _auto_detect_asset(
+    platform: str,
+    arch: str,
+    assets: list[_AssetDict],
+) -> _AssetDict | None:
+    """Auto-detect an asset for the tool."""
+    log(f"Auto-detecting asset for {platform}/{arch}", "info", "🔍")
+    detect_fn = create_system_detector(platform, arch)
+    asset_names = [x["name"] for x in assets]
+    asset_name, candidates, err = detect_fn(asset_names)
+    if candidates is not None:
+        log(f"Candidates: {candidates}", "info", "🔍")
+        asset_name = candidates[0]
+        log(f"Using the first candidate: {asset_name}", "info", "🔍")
+    asset = assets[asset_names.index(asset_name)]
+    if err is not None:
+        log(f"Error detecting asset: {err}", "error")
+        return None
+    log(f"Found asset: {asset['name']}", "success")
+    return asset

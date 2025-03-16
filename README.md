@@ -435,9 +435,6 @@ tools:
     extract_binary: true
     binary_name: eget
     binary_path: "*/eget"
-    asset_patterns:
-      linux: eget-{version}-{platform}_{arch}.tar.gz
-      macos: eget-{version}-darwin_{arch}.tar.gz
 ```
 
 <!-- OUTPUT:END -->
