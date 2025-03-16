@@ -111,8 +111,8 @@ def test_single_asset_detector_detect() -> None:
     assert error == "2 candidates found for asset `app`"
 
 
-def test_create_system_detector() -> None:
-    """Test the create_system_detector function."""
+def test_create_os_detector() -> None:
+    """Test the create_os_detector function."""
     # Valid OS and arch
     detector_fn = create_os_detector("linux", "amd64")
 
@@ -132,8 +132,8 @@ def test_create_system_detector() -> None:
         create_os_detector("linux", "invalid")
 
 
-def test_system_detector_detect() -> None:
-    """Test the detect_system function."""
+def test_os_detector_detect() -> None:
+    """Test the detect_os function."""
     detector = _detect_os(OSLinux, ArchAMD64)
 
     # Perfect match
@@ -215,10 +215,10 @@ def test_system_detector_detect() -> None:
 def test_detector_chain() -> None:
     """Test the chain_detectors function."""
     # Set up a chain of detectors
-    system_detector_fn = create_os_detector("linux", "amd64")
+    os_detector_fn = create_os_detector("linux", "amd64")
     asset_detector_fn = detect_single_asset("app")
 
-    chain_fn = chain_detectors(detectors=[asset_detector_fn], os_detector=system_detector_fn)
+    chain_fn = chain_detectors(detectors=[asset_detector_fn], os_detector=os_detector_fn)
 
     # Test successful chain
     assets = [
@@ -234,7 +234,7 @@ def test_detector_chain() -> None:
     # Test chain that narrows down but then has multiple matches
     chain_fn = chain_detectors(
         detectors=[detect_single_asset("app")],
-        os_detector=system_detector_fn,
+        os_detector=os_detector_fn,
     )
     assets = [
         "app-linux-amd64.tar.gz",
@@ -249,7 +249,7 @@ def test_detector_chain() -> None:
     # Test chain with error in first detector
     chain_fn = chain_detectors(
         detectors=[detect_single_asset("missing")],
-        os_detector=system_detector_fn,
+        os_detector=os_detector_fn,
     )
     assets = ["app-linux-amd64.tar.gz", "other-linux-amd64.tar.gz"]
     match, candidates, error = chain_fn(assets)
