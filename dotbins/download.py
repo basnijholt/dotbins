@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import re
 import shutil
 import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -12,26 +11,11 @@ from typing import TYPE_CHECKING, NamedTuple
 
 import requests
 
-from .utils import calculate_sha256, extract_archive, get_latest_release, log
+from .utils import calculate_sha256, extract_archive, log
 
 if TYPE_CHECKING:
     from .config import BinSpec, Config, ToolConfig
     from .versions import VersionStore
-
-
-def _find_asset(assets: list[dict], pattern: str) -> dict | None:
-    """Find an asset that matches the given pattern."""
-    regex_pattern = (
-        pattern.replace("{version}", ".*").replace("{arch}", ".*").replace("{platform}", ".*")
-    )
-    log(f"Looking for asset with pattern: {regex_pattern}", "info", "🔍")
-
-    for asset in assets:
-        if re.search(regex_pattern, asset["name"]):
-            log(f"Found matching asset: {asset['name']}", "success")
-            return asset
-
-    return None
 
 
 def download_file(url: str, destination: str) -> str:
@@ -218,26 +202,6 @@ def _replace_variables_in_path(path: str, version: str, arch: str) -> str:
     return path
 
 
-def _get_release_info(tool_config: ToolConfig) -> tuple[dict, str]:
-    """Get release information for a tool."""
-    repo = tool_config.repo
-    release = get_latest_release(repo)
-    version = release["tag_name"].lstrip("v")
-    return release, version
-
-
-def _find_matching_asset(release: dict, bin_spec: BinSpec) -> dict | None:
-    """Find a matching asset for the tool."""
-    search_pattern = bin_spec.search_pattern
-    if search_pattern is None:
-        return None
-    asset = _find_asset(release["assets"], search_pattern)
-    if not asset:
-        log(f"No asset matching '{search_pattern}' found", "warning")
-        return None
-    return asset
-
-
 def make_binaries_executable(config: Config) -> None:
     """Make all binaries executable."""
     for platform, architectures in config.platforms.items():
@@ -335,7 +299,7 @@ def _prepare_download_task(
         return None
 
     try:
-        asset = _find_matching_asset(tool_config.latest_release, bin_spec)
+        asset = bin_spec.matching_asset
         if not asset:
             return None
         tmp_dir = Path(tempfile.gettempdir())

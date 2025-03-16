@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
@@ -119,6 +120,29 @@ class BinSpec:
             platform=self.tool_platform,
             arch=self.tool_arch,
         )
+
+    @property
+    def matching_asset(self) -> dict | None:
+        """Find a matching asset for the tool."""
+        search_pattern = self.search_pattern
+        if search_pattern is None:
+            return None
+        assets = self.tool_config.latest_release["assets"]
+
+        regex_pattern = (
+            search_pattern.replace("{version}", ".*")
+            .replace("{arch}", ".*")
+            .replace("{platform}", ".*")
+        )
+        log(f"Looking for asset with pattern: {regex_pattern}", "info", "🔍")
+
+        for asset in assets:
+            if re.search(regex_pattern, asset["name"]):
+                log(f"Found matching asset: {asset['name']}", "success")
+                return asset
+
+        log(f"No asset matching '{search_pattern}' found", "warning")
+        return None
 
 
 class RawToolConfigDict(TypedDict, total=False):
