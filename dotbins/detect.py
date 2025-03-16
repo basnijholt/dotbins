@@ -19,7 +19,7 @@ DetectResult: TypeAlias = tuple[Asset, Optional[Assets], Optional[str]]
 DetectFunc: TypeAlias = Callable[[Assets], DetectResult]
 
 
-class OS(NamedTuple):
+class _OS(NamedTuple):
     """An OS represents a target operating system."""
 
     name: str
@@ -28,7 +28,7 @@ class OS(NamedTuple):
     priority: Pattern | None = None
 
 
-class Arch(NamedTuple):
+class _Arch(NamedTuple):
     """An Arch represents a system architecture, such as amd64, i386, arm or others."""
 
     name: str
@@ -36,24 +36,24 @@ class Arch(NamedTuple):
 
 
 # Define OS constants
-OSDarwin = OS(name="darwin", regex=re.compile(r"(?i)(darwin|mac.?(os)?|osx)"))
-OSWindows = OS(name="windows", regex=re.compile(r"(?i)([^r]win|windows)"))
-OSLinux = OS(
+OSDarwin = _OS(name="darwin", regex=re.compile(r"(?i)(darwin|mac.?(os)?|osx)"))
+OSWindows = _OS(name="windows", regex=re.compile(r"(?i)([^r]win|windows)"))
+OSLinux = _OS(
     name="linux",
     regex=re.compile(r"(?i)(linux|ubuntu)"),
     anti=re.compile(r"(?i)(android)"),
     priority=re.compile(r"\.appimage$"),
 )
-OSNetBSD = OS(name="netbsd", regex=re.compile(r"(?i)(netbsd)"))
-OSFreeBSD = OS(name="freebsd", regex=re.compile(r"(?i)(freebsd)"))
-OSOpenBSD = OS(name="openbsd", regex=re.compile(r"(?i)(openbsd)"))
-OSAndroid = OS(name="android", regex=re.compile(r"(?i)(android)"))
-OSIllumos = OS(name="illumos", regex=re.compile(r"(?i)(illumos)"))
-OSSolaris = OS(name="solaris", regex=re.compile(r"(?i)(solaris)"))
-OSPlan9 = OS(name="plan9", regex=re.compile(r"(?i)(plan9)"))
+OSNetBSD = _OS(name="netbsd", regex=re.compile(r"(?i)(netbsd)"))
+OSFreeBSD = _OS(name="freebsd", regex=re.compile(r"(?i)(freebsd)"))
+OSOpenBSD = _OS(name="openbsd", regex=re.compile(r"(?i)(openbsd)"))
+OSAndroid = _OS(name="android", regex=re.compile(r"(?i)(android)"))
+OSIllumos = _OS(name="illumos", regex=re.compile(r"(?i)(illumos)"))
+OSSolaris = _OS(name="solaris", regex=re.compile(r"(?i)(solaris)"))
+OSPlan9 = _OS(name="plan9", regex=re.compile(r"(?i)(plan9)"))
 
 # Define OS mapping
-os_mapping: dict[str, OS] = {
+os_mapping: dict[str, _OS] = {
     "darwin": OSDarwin,
     "windows": OSWindows,
     "linux": OSLinux,
@@ -67,14 +67,14 @@ os_mapping: dict[str, OS] = {
 }
 
 # Define Arch constants
-ArchAMD64 = Arch(name="amd64", regex=re.compile(r"(?i)(x64|amd64|x86(-|_)?64)"))
-ArchI386 = Arch(name="386", regex=re.compile(r"(?i)(x32|amd32|x86(-|_)?32|i?386)"))
-ArchArm = Arch(name="arm", regex=re.compile(r"(?i)(arm32|armv6|arm\b)"))
-ArchArm64 = Arch(name="arm64", regex=re.compile(r"(?i)(arm64|armv8|aarch64)"))
-ArchRiscv64 = Arch(name="riscv64", regex=re.compile(r"(?i)(riscv64)"))
+ArchAMD64 = _Arch(name="amd64", regex=re.compile(r"(?i)(x64|amd64|x86(-|_)?64)"))
+ArchI386 = _Arch(name="386", regex=re.compile(r"(?i)(x32|amd32|x86(-|_)?32|i?386)"))
+ArchArm = _Arch(name="arm", regex=re.compile(r"(?i)(arm32|armv6|arm\b)"))
+ArchArm64 = _Arch(name="arm64", regex=re.compile(r"(?i)(arm64|armv8|aarch64)"))
+ArchRiscv64 = _Arch(name="riscv64", regex=re.compile(r"(?i)(riscv64)"))
 
 # Define Arch mapping
-arch_mapping: dict[str, Arch] = {
+arch_mapping: dict[str, _Arch] = {
     "amd64": ArchAMD64,
     "386": ArchI386,
     "arm": ArchArm,
@@ -83,7 +83,7 @@ arch_mapping: dict[str, Arch] = {
 }
 
 
-def match_os(os_obj: OS, asset: str) -> tuple[bool, bool]:
+def _match_os(os_obj: _OS, asset: str) -> tuple[bool, bool]:
     """Match returns true if the asset name matches the OS. Also returns if this is a priority match."""
     if os_obj.anti is not None and os_obj.anti.search(asset):
         return False, False
@@ -94,7 +94,7 @@ def match_os(os_obj: OS, asset: str) -> tuple[bool, bool]:
     return os_obj.regex.search(asset) is not None, False
 
 
-def match_arch(arch: Arch, asset: str) -> bool:
+def _match_arch(arch: _Arch, asset: str) -> bool:
     """Returns True if the architecture matches the given string."""
     return bool(arch.regex.search(asset))
 
@@ -132,7 +132,7 @@ def detect_single_asset(asset: str, anti: bool = False) -> DetectFunc:
     return detector
 
 
-def detect_system(os_obj: OS, arch: Arch) -> DetectFunc:
+def _detect_os(os_obj: _OS, arch: _Arch) -> DetectFunc:
     """Returns a function that detects based on OS and architecture."""
 
     def detector(assets: Assets) -> DetectResult:  # noqa: PLR0911
@@ -146,11 +146,11 @@ def detect_system(os_obj: OS, arch: Arch) -> DetectFunc:
                 # skip checksums (they will be checked later by the verifier)
                 continue
 
-            os_match, extra = match_os(os_obj, a)
+            os_match, extra = _match_os(os_obj, a)
             if extra:
                 priority.append(a)
 
-            arch_match = match_arch(arch, a)
+            arch_match = _match_arch(arch, a)
             if os_match and arch_match:
                 matches.append(a)
 
@@ -170,11 +170,7 @@ def detect_system(os_obj: OS, arch: Arch) -> DetectFunc:
         if len(candidates) == 1:
             return candidates[0], None, None
         if len(candidates) > 1:
-            return (
-                "",
-                candidates,
-                f"{len(candidates)} candidates found (unsure architecture)",
-            )
+            return ("", candidates, f"{len(candidates)} candidates found (unsure architecture)")
         if len(all_assets) == 1:
             return all_assets[0], None, None
 
@@ -183,21 +179,21 @@ def detect_system(os_obj: OS, arch: Arch) -> DetectFunc:
     return detector
 
 
-def create_system_detector(
+def create_os_detector(
     os_name: str,
     arch_name: str,
 ) -> DetectFunc:
-    """Create a system detector function for a given OS and architecture."""
+    """Create a OS detector function for a given OS and architecture."""
     if os_name not in os_mapping:
         msg = f"unsupported target OS: {os_name}"
         raise ValueError(msg)
     if arch_name not in arch_mapping:
         msg = f"unsupported target arch: {arch_name}"
         raise ValueError(msg)
-    return detect_system(os_mapping[os_name], arch_mapping[arch_name])
+    return _detect_os(os_mapping[os_name], arch_mapping[arch_name])
 
 
-def chain_detectors(detectors: list[DetectFunc], system: DetectFunc) -> DetectFunc:
+def chain_detectors(detectors: list[DetectFunc], os_detector: DetectFunc) -> DetectFunc:
     """Chain multiple detectors together."""
 
     def detector(assets: Assets) -> DetectResult:
@@ -214,7 +210,7 @@ def chain_detectors(detectors: list[DetectFunc], system: DetectFunc) -> DetectFu
                 current_assets = candidates
 
         # Apply the system detector
-        choice, candidates, err = system(current_assets)
+        choice, candidates, err = os_detector(current_assets)
         if len(candidates or []) == 0 and err is not None:
             return "", None, err
         if len(candidates or []) == 0:

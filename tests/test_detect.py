@@ -10,59 +10,59 @@ from dotbins.detect import (
     ArchRiscv64,
     OSDarwin,
     OSLinux,
+    _detect_os,
+    _match_arch,
+    _match_os,
     chain_detectors,
-    create_system_detector,
+    create_os_detector,
     detect_all,
     detect_single_asset,
-    detect_system,
-    match_arch,
-    match_os,
 )
 
 
 def test_os_match() -> None:
     """Test the match_os function."""
     # Test basic OS matching
-    assert match_os(OSDarwin, "darwin-amd64.tar.gz") == (True, False)
-    assert match_os(OSDarwin, "macos-amd64.tar.gz") == (True, False)
-    assert match_os(OSDarwin, "osx-amd64.tar.gz") == (True, False)
-    assert match_os(OSDarwin, "linux-amd64.tar.gz") == (False, False)
+    assert _match_os(OSDarwin, "darwin-amd64.tar.gz") == (True, False)
+    assert _match_os(OSDarwin, "macos-amd64.tar.gz") == (True, False)
+    assert _match_os(OSDarwin, "osx-amd64.tar.gz") == (True, False)
+    assert _match_os(OSDarwin, "linux-amd64.tar.gz") == (False, False)
 
     # Test with anti-pattern
-    assert match_os(OSLinux, "linux-amd64.tar.gz") == (True, False)
-    assert match_os(OSLinux, "ubuntu-amd64.tar.gz") == (True, False)
-    assert match_os(OSLinux, "android-amd64.tar.gz") == (False, False)
+    assert _match_os(OSLinux, "linux-amd64.tar.gz") == (True, False)
+    assert _match_os(OSLinux, "ubuntu-amd64.tar.gz") == (True, False)
+    assert _match_os(OSLinux, "android-amd64.tar.gz") == (False, False)
 
     # Test with priority pattern
-    assert match_os(OSLinux, "app.appimage") == (False, False)  # No Linux in name
-    assert match_os(OSLinux, "linux-app.appimage") == (True, True)
+    assert _match_os(OSLinux, "app.appimage") == (False, False)  # No Linux in name
+    assert _match_os(OSLinux, "linux-app.appimage") == (True, True)
 
 
 def test_arch_match() -> None:
     """Test the match_arch function."""
     # Test basic arch matching
-    assert match_arch(ArchAMD64, "linux-amd64.tar.gz")
-    assert match_arch(ArchAMD64, "linux-x86_64.tar.gz")
-    assert match_arch(ArchAMD64, "linux-x64.tar.gz")
-    assert not match_arch(ArchAMD64, "linux-386.tar.gz")
+    assert _match_arch(ArchAMD64, "linux-amd64.tar.gz")
+    assert _match_arch(ArchAMD64, "linux-x86_64.tar.gz")
+    assert _match_arch(ArchAMD64, "linux-x64.tar.gz")
+    assert not _match_arch(ArchAMD64, "linux-386.tar.gz")
 
-    assert match_arch(ArchI386, "linux-i386.tar.gz")
-    assert match_arch(ArchI386, "linux-386.tar.gz")
-    assert match_arch(ArchI386, "linux-x86_32.tar.gz")
-    assert not match_arch(ArchI386, "linux-amd64.tar.gz")
+    assert _match_arch(ArchI386, "linux-i386.tar.gz")
+    assert _match_arch(ArchI386, "linux-386.tar.gz")
+    assert _match_arch(ArchI386, "linux-x86_32.tar.gz")
+    assert not _match_arch(ArchI386, "linux-amd64.tar.gz")
 
-    assert match_arch(ArchArm, "linux-arm.tar.gz")
-    assert match_arch(ArchArm, "linux-armv6.tar.gz")
-    assert match_arch(ArchArm, "linux-arm32.tar.gz")
-    assert not match_arch(ArchArm, "linux-amd64.tar.gz")
+    assert _match_arch(ArchArm, "linux-arm.tar.gz")
+    assert _match_arch(ArchArm, "linux-armv6.tar.gz")
+    assert _match_arch(ArchArm, "linux-arm32.tar.gz")
+    assert not _match_arch(ArchArm, "linux-amd64.tar.gz")
 
-    assert match_arch(ArchArm64, "linux-arm64.tar.gz")
-    assert match_arch(ArchArm64, "linux-aarch64.tar.gz")
-    assert match_arch(ArchArm64, "linux-armv8.tar.gz")
-    assert not match_arch(ArchArm64, "linux-amd64.tar.gz")
+    assert _match_arch(ArchArm64, "linux-arm64.tar.gz")
+    assert _match_arch(ArchArm64, "linux-aarch64.tar.gz")
+    assert _match_arch(ArchArm64, "linux-armv8.tar.gz")
+    assert not _match_arch(ArchArm64, "linux-amd64.tar.gz")
 
-    assert match_arch(ArchRiscv64, "linux-riscv64.tar.gz")
-    assert not match_arch(ArchRiscv64, "linux-amd64.tar.gz")
+    assert _match_arch(ArchRiscv64, "linux-riscv64.tar.gz")
+    assert not _match_arch(ArchRiscv64, "linux-amd64.tar.gz")
 
 
 def test_all_detector_detect() -> None:
@@ -130,7 +130,7 @@ def test_single_asset_detector_detect() -> None:
 def test_create_system_detector() -> None:
     """Test the create_system_detector function."""
     # Valid OS and arch
-    detector_fn = create_system_detector("linux", "amd64")
+    detector_fn = create_os_detector("linux", "amd64")
 
     # We can't directly check the detector's internal state anymore,
     # so we'll test it by using it to detect an asset
@@ -141,16 +141,16 @@ def test_create_system_detector() -> None:
 
     # Invalid OS
     with pytest.raises(ValueError, match="unsupported target OS: invalid"):
-        create_system_detector("invalid", "amd64")
+        create_os_detector("invalid", "amd64")
 
     # Invalid arch
     with pytest.raises(ValueError, match="unsupported target arch: invalid"):
-        create_system_detector("linux", "invalid")
+        create_os_detector("linux", "invalid")
 
 
 def test_system_detector_detect() -> None:
     """Test the detect_system function."""
-    detector = detect_system(OSLinux, ArchAMD64)
+    detector = _detect_os(OSLinux, ArchAMD64)
 
     # Perfect match
     assets = [
@@ -231,10 +231,10 @@ def test_system_detector_detect() -> None:
 def test_detector_chain() -> None:
     """Test the chain_detectors function."""
     # Set up a chain of detectors
-    system_detector_fn = create_system_detector("linux", "amd64")
+    system_detector_fn = create_os_detector("linux", "amd64")
     asset_detector_fn = detect_single_asset("app")
 
-    chain_fn = chain_detectors(detectors=[asset_detector_fn], system=system_detector_fn)
+    chain_fn = chain_detectors(detectors=[asset_detector_fn], os_detector=system_detector_fn)
 
     # Test successful chain
     assets = [
@@ -250,7 +250,7 @@ def test_detector_chain() -> None:
     # Test chain that narrows down but then has multiple matches
     chain_fn = chain_detectors(
         detectors=[detect_single_asset("app")],
-        system=system_detector_fn,
+        os_detector=system_detector_fn,
     )
     assets = [
         "app-linux-amd64.tar.gz",
@@ -265,7 +265,7 @@ def test_detector_chain() -> None:
     # Test chain with error in first detector
     chain_fn = chain_detectors(
         detectors=[detect_single_asset("missing")],
-        system=system_detector_fn,
+        os_detector=system_detector_fn,
     )
     assets = ["app-linux-amd64.tar.gz", "other-linux-amd64.tar.gz"]
     match, candidates, error = chain_fn(assets)
