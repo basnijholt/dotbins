@@ -26,12 +26,12 @@ def _list_tools(config: Config) -> None:
 
 def _update_tools(
     config: Config,
-    tools: list[str],
-    platform: str | None,
-    architecture: str | None,
-    current: bool,
-    force: bool,
-    shell_setup: bool,
+    tools: list[str] | None = None,
+    platform: str | None = None,
+    architecture: str | None = None,
+    current: bool = False,
+    force: bool = False,
+    shell_setup: bool = False,
 ) -> None:
     """Update tools based on command line arguments."""
     tools_to_update = _tools_to_update(config, tools)
@@ -54,7 +54,7 @@ def _update_tools(
     _print_completion_summary(config, success_count, total_count, shell_setup)
 
 
-def _tools_to_update(config: Config, tools: list[str]) -> list[str] | None:
+def _tools_to_update(config: Config, tools: list[str] | None) -> list[str] | None:
     """Determine which tools and platforms to update."""
     if tools:
         for tool in tools:

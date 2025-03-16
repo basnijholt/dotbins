@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 import tarfile
 import tempfile
-import zipfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
@@ -34,8 +33,6 @@ def create_dummy_archive(
     dest_path: Path,
     binary_names: str | list[str],
     archive_type: str = "tar.gz",
-    make_executable: bool = True,
-    with_bin_dir: bool = False,
     binary_content: str = "#!/usr/bin/env echo\n",
 ) -> None:
     """Create a dummy archive file with provided binary names inside.
@@ -54,7 +51,7 @@ def create_dummy_archive(
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
-        bin_dir = tmp_path / "bin" if with_bin_dir else tmp_path
+        bin_dir = tmp_path
         bin_dir.mkdir(exist_ok=True)
 
         created_files = []
@@ -62,29 +59,15 @@ def create_dummy_archive(
             # Create the binary file
             bin_file = bin_dir / binary
             bin_file.write_text(binary_content)
-            if make_executable:
-                bin_file.chmod(0o755)
+            bin_file.chmod(0o755)
             created_files.append(bin_file)
 
         # Create the archive
-        if archive_type == "tar.gz":
-            with tarfile.open(dest_path, "w:gz") as tar:
-                for file_path in created_files:
-                    archive_path = file_path.relative_to(tmp_path)
-                    tar.add(file_path, arcname=str(archive_path))
-        elif archive_type == "tar.bz2":
-            with tarfile.open(dest_path, "w:bz2") as tar:
-                for file_path in created_files:
-                    archive_path = file_path.relative_to(tmp_path)
-                    tar.add(file_path, arcname=str(archive_path))
-        elif archive_type == "zip":
-            with zipfile.ZipFile(dest_path, "w") as zip_file:
-                for file_path in created_files:
-                    archive_path = file_path.relative_to(tmp_path)
-                    zip_file.write(file_path, arcname=str(archive_path))
-        else:
-            msg = f"Unsupported archive type: {archive_type}"
-            raise ValueError(msg)
+        assert archive_type == "tar.gz"
+        with tarfile.open(dest_path, "w:gz") as tar:
+            for file_path in created_files:
+                archive_path = file_path.relative_to(tmp_path)
+                tar.add(file_path, arcname=str(archive_path))
 
 
 def create_mock_release_info(
@@ -155,29 +138,23 @@ def run_e2e_test(
 
     config = _config_from_dict(raw_config)
 
-    # Mock the GitHub API and download functions
+    def mock_latest_release(repo: str) -> dict[str, Any]:
+        tool_name = repo.split("/")[-1]
+        return create_mock_release_info(tool_name)
+
+    def mock_download_func(url: str, destination: str) -> str:
+        # Extract tool name from URL
+        parts = url.split("/")[-1].split("-")
+        tool_name = parts[0]
+
+        # Create a dummy archive with the right name
+        create_dummy_archive(Path(destination), tool_name)
+        return destination
+
     with (
-        patch("dotbins.config.latest_release_info") as mock_release_info,
-        patch("dotbins.download.download_file") as mock_download,
+        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release),
+        patch("dotbins.download.download_file", side_effect=mock_download_func),
     ):
-        # Configure the mocks
-        def mock_latest_release(repo: str) -> dict[str, Any]:
-            tool_name = repo.split("/")[-1]
-            return create_mock_release_info(tool_name)
-
-        mock_release_info.side_effect = mock_latest_release
-
-        def mock_download_func(url: str, destination: str) -> str:
-            # Extract tool name from URL
-            parts = url.split("/")[-1].split("-")
-            tool_name = parts[0]
-
-            # Create a dummy archive with the right name
-            create_dummy_archive(Path(destination), tool_name)
-            return destination
-
-        mock_download.side_effect = mock_download_func
-
         # Run the update
         _update_tools(
             config=config,
@@ -209,19 +186,12 @@ def verify_binaries_installed(
     """
     if expected_tools is None:
         expected_tools = list(config.tools.keys())
-
     platforms_to_check = [platform] if platform else list(config.platforms.keys())
-
     for check_platform in platforms_to_check:
         archs_to_check = [arch] if arch else config.platforms.get(check_platform, [])
-
         for check_arch in archs_to_check:
             bin_dir = config.bin_dir(check_platform, check_arch)
-
             for tool_name in expected_tools:
-                if tool_name not in config.tools:
-                    continue
-
                 tool_config = config.tools[tool_name]
                 for binary_name in tool_config.binary_name:
                     binary_path = bin_dir / binary_name
@@ -236,7 +206,6 @@ def verify_binaries_installed(
 
 def test_simple_tool_update(temp_tools_dir: Path) -> None:
     """Test updating a simple tool configuration."""
-    # Define a simple tool config
     tool_configs = {
         "mytool": {
             "repo": "fakeuser/mytool",
@@ -246,23 +215,12 @@ def test_simple_tool_update(temp_tools_dir: Path) -> None:
             "asset_patterns": "mytool-{version}-{platform}_{arch}.tar.gz",
         },
     }
-
-    # Run the test
     config = run_e2e_test(temp_tools_dir=temp_tools_dir, tool_configs=tool_configs)
-
-    # Verify results
     verify_binaries_installed(config)
-
-
-# Add this to the top of the test file to maintain backward compatibility
-def create_dummy_tarball(dest: Path, binary_name: str = "mybinary") -> None:
-    """Legacy helper function for backward compatibility."""
-    create_dummy_archive(dest, binary_name)
 
 
 def test_multiple_tools_with_filtering(temp_tools_dir: Path) -> None:
     """Test updating multiple tools with filtering."""
-    # Define configuration for multiple tools
     tool_configs = {
         "tool1": {
             "repo": "fakeuser/tool1",
@@ -382,14 +340,6 @@ def test_e2e_update_tools(temp_tools_dir: Path, raw_config: dict) -> None:
         patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
         patch("dotbins.download.download_file", side_effect=mock_download_file),
     ):
-        _update_tools(
-            config=config,
-            tools=[],  # empty => means "update all tools"
-            platform=None,  # None => "all configured platforms"
-            architecture=None,  # None => "all configured archs"
-            current=False,
-            force=False,
-            shell_setup=False,
-        )
+        _update_tools(config=config)
 
     verify_binaries_installed(config)
