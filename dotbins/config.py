@@ -465,9 +465,9 @@ def _auto_detect_asset(
         log(f"Candidates: {candidates}", "info", "🔍")
         asset_name = candidates[0]
         log(f"Using the first candidate: {asset_name}", "info", "🔍")
-    asset = assets[asset_names.index(asset_name)]
-    if err is not None:
+    elif err is not None:
         log(f"Error detecting asset: {err}", "error")
         return None
+    asset = assets[asset_names.index(asset_name)]
     log(f"Found asset: {asset['name']}", "success")
     return asset

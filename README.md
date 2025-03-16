@@ -411,24 +411,12 @@ tools:
     extract_binary: true
     binary_name: git-lfs
     binary_path: git-lfs-{version}/git-lfs
-    asset_patterns:
-      linux: git-lfs-linux-{arch}-v{version}.tar.gz
-      macos: git-lfs-darwin-{arch}-v{version}.zip
 
   ripgrep:
     repo: BurntSushi/ripgrep
     extract_binary: true
     binary_name: rg
     binary_path: ripgrep-*/rg
-    asset_patterns:
-      linux:
-        arm64: ripgrep-{version}-{arch}-unknown-linux-gnu.tar.gz
-        amd64: ripgrep-{version}-{arch}-unknown-linux-musl.tar.gz
-      macos:
-        arm64: ripgrep-{version}-{arch}-apple-darwin.tar.gz
-    arch_map:
-      amd64: x86_64
-      arm64: aarch64
 
   eget:
     repo: zyedidia/eget

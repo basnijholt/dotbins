@@ -140,8 +140,7 @@ def _detect_system(os_obj: _OS, arch: _Arch) -> DetectFunc:
         all_assets = []
 
         for a in assets:
-            if a.endswith((".sha256", ".sha256sum")):
-                # skip checksums (they will be checked later by the verifier)
+            if a.endswith((".sha256", ".sha256sum", ".deb")):
                 continue
 
             os_match, extra = _match_os(os_obj, a)
