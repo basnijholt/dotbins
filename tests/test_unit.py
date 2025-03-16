@@ -500,30 +500,21 @@ def test_extract_from_archive_missing_binary(tmp_path: Path) -> None:
         )
 
 
-def test_extract_from_archive_multiple_binaries(tmp_path: Path) -> None:
+def test_extract_from_archive_multiple_binaries(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+) -> None:
     """Test extracting multiple binaries from an archive."""
     # Create a test tarball with multiple binaries
-
     archive_path = tmp_path / "test.tar.gz"
-    bin_content = b"#!/bin/sh\necho test"
+    bin_content = "#!/bin/sh\necho test"
 
-    # Create a tarball with two binaries inside
-    with tempfile.TemporaryDirectory() as tmpdir:
-        # Create subdirectory for first binary
-        primary_dir = os.path.join(tmpdir, "test-1.0.0")
-        os.makedirs(primary_dir)
-
-        # Add two binaries
-        bin1_path = os.path.join(primary_dir, "primary-bin")
-        bin2_path = os.path.join(primary_dir, "secondary-bin")
-
-        for path in [bin1_path, bin2_path]:
-            with open(path, "wb") as f:
-                f.write(bin_content)
-            os.chmod(path, 0o755)  # noqa: S103
-
-        with tarfile.open(archive_path, "w:gz") as tar:
-            tar.add(primary_dir, arcname="test-1.0.0")
+    create_dummy_archive(
+        dest_path=archive_path,
+        binary_names=["primary-bin", "secondary-bin"],  # List of binary names
+        nested_dir="test-1.0.0",
+        binary_content=bin_content,
+    )
 
     # Setup tool config with multiple binaries
     test_tool_config = build_tool_config(
@@ -561,4 +552,4 @@ def test_extract_from_archive_multiple_binaries(tmp_path: Path) -> None:
     for bin_name in ["primary-tool", "secondary-tool"]:
         with open(dest_dir / bin_name, "rb") as f:
             content = f.read()
-        assert content == bin_content
+        assert content == bin_content.encode()
