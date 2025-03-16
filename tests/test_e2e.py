@@ -6,7 +6,7 @@ import os
 import tarfile
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -14,19 +14,6 @@ import pytest
 from dotbins.cli import _update_tools
 from dotbins.config import Config, _config_from_dict
 from dotbins.utils import log
-
-if TYPE_CHECKING:
-    from collections.abc import Generator
-
-
-@pytest.fixture
-def temp_tools_dir() -> Generator[Path, None, None]:
-    """Creates a temporary directory to serve as our tools_dir.
-
-    Cleans up after the test.
-    """
-    with tempfile.TemporaryDirectory() as tmpdir:
-        yield Path(tmpdir)
 
 
 def create_dummy_archive(
@@ -41,8 +28,6 @@ def create_dummy_archive(
         dest_path: Path where the archive will be created
         binary_names: Single binary name or list of binary names to include
         archive_type: Type of archive to create ("tar.gz", "zip", "tar.bz2")
-        make_executable: Whether to make the binaries executable
-        with_bin_dir: Put binaries in a bin/ subdirectory
         binary_content: Content to put in the binary files
 
     """
@@ -107,7 +92,7 @@ def create_mock_release_info(
 
 
 def run_e2e_test(
-    temp_tools_dir: Path,
+    tools_dir: Path,
     tool_configs: dict[str, dict[str, Any]],
     platforms: dict[str, list[str]] | None = None,
     filter_tools: list[str] | None = None,
@@ -118,7 +103,7 @@ def run_e2e_test(
     """Run an end-to-end test with the given configuration.
 
     Args:
-        temp_tools_dir: Temporary directory to use for tools
+        tools_dir: Temporary directory to use for tools
         tool_configs: Dictionary of tool configurations
         platforms: Platform configuration (defaults to linux/amd64)
         filter_tools: List of tools to update (all if None)
@@ -134,7 +119,7 @@ def run_e2e_test(
         platforms = {"linux": ["amd64"]}
 
     # Build the raw config dict
-    raw_config = {"tools_dir": str(temp_tools_dir), "platforms": platforms, "tools": tool_configs}
+    raw_config = {"tools_dir": str(tools_dir), "platforms": platforms, "tools": tool_configs}
 
     config = _config_from_dict(raw_config)
 
@@ -195,16 +180,11 @@ def verify_binaries_installed(
                 tool_config = config.tools[tool_name]
                 for binary_name in tool_config.binary_name:
                     binary_path = bin_dir / binary_name
-                    assert (
-                        binary_path.exists()
-                    ), f"Binary {binary_name} for {tool_name} not found at {binary_path}"
-                    assert os.access(
-                        binary_path,
-                        os.X_OK,
-                    ), f"Binary {binary_name} is not executable"
+                    assert binary_path.exists()
+                    assert os.access(binary_path, os.X_OK)
 
 
-def test_simple_tool_update(temp_tools_dir: Path) -> None:
+def test_simple_tool_update(tmp_path: Path) -> None:
     """Test updating a simple tool configuration."""
     tool_configs = {
         "mytool": {
@@ -215,11 +195,11 @@ def test_simple_tool_update(temp_tools_dir: Path) -> None:
             "asset_patterns": "mytool-{version}-{platform}_{arch}.tar.gz",
         },
     }
-    config = run_e2e_test(temp_tools_dir=temp_tools_dir, tool_configs=tool_configs)
+    config = run_e2e_test(tools_dir=tmp_path, tool_configs=tool_configs)
     verify_binaries_installed(config)
 
 
-def test_multiple_tools_with_filtering(temp_tools_dir: Path) -> None:
+def test_multiple_tools_with_filtering(tmp_path: Path) -> None:
     """Test updating multiple tools with filtering."""
     tool_configs = {
         "tool1": {
@@ -240,7 +220,7 @@ def test_multiple_tools_with_filtering(temp_tools_dir: Path) -> None:
 
     # Run the test with filtering
     config = run_e2e_test(
-        temp_tools_dir=temp_tools_dir,
+        tools_dir=tmp_path,
         tool_configs=tool_configs,
         filter_tools=["tool1"],  # Only update tool1
         platforms={"linux": ["amd64", "arm64"]},  # Only test Linux platforms
@@ -299,7 +279,7 @@ def test_multiple_tools_with_filtering(temp_tools_dir: Path) -> None:
         },
     ],
 )
-def test_e2e_update_tools(temp_tools_dir: Path, raw_config: dict) -> None:
+def test_e2e_update_tools(tmp_path: Path, raw_config: dict) -> None:
     """Shows an end-to-end test.
 
     This test:
@@ -310,7 +290,7 @@ def test_e2e_update_tools(temp_tools_dir: Path, raw_config: dict) -> None:
     - Verifies that the binaries are extracted into the correct location.
     """
     config = _config_from_dict(raw_config)
-    config.tools_dir = temp_tools_dir
+    config.tools_dir = tmp_path
 
     def mock_latest_release_info(repo: str) -> dict:
         tool_name = repo.split("/")[-1]
