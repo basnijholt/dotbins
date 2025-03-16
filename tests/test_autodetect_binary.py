@@ -11,11 +11,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from dotbins.config import ToolConfig
-from dotbins.download import (
-    _auto_detect_binary_paths,
-    _extract_from_archive,
-)
+from dotbins.config import BinSpec, build_tool_config
+from dotbins.download import _auto_detect_binary_paths, _extract_from_archive
 
 
 @pytest.fixture
@@ -208,12 +205,13 @@ def test_extract_from_archive_with_auto_detection(
     destination_dir.mkdir()
 
     # Mock config without binary_path
-    tool_config = ToolConfig(
+    tool_config = build_tool_config(
         tool_name="fzf",
-        binary_name="fzf",
-        # No binary_path!
-        repo="junegunn/fzf",
-        extract_binary=True,
+        raw_data={
+            "binary_name": "fzf",
+            "repo": "junegunn/fzf",
+            "extract_binary": True,
+        },
     )
 
     # Mock console to capture output
@@ -222,10 +220,14 @@ def test_extract_from_archive_with_auto_detection(
     with patch("dotbins.utils.console", mock_console):
         # Call the function
         _extract_from_archive(
-            str(mock_archive_simple),
+            mock_archive_simple,
             destination_dir,
-            tool_config,
-            "linux",
+            BinSpec(
+                tool_config=tool_config,
+                version="1.0.0",
+                arch="amd64",
+                platform="linux",
+            ),
         )
 
     # Check that the binary was copied correctly
@@ -250,12 +252,13 @@ def test_extract_from_archive_auto_detection_failure(
     destination_dir.mkdir()
 
     # Mock config without binary_path
-    tool_config = ToolConfig(
+    tool_config = build_tool_config(
         tool_name="git-lfs",
-        binary_name="git-lfs",
-        # No binary_path!
-        repo="git-lfs/git-lfs",
-        extract_binary=True,
+        raw_data={
+            "binary_name": "git-lfs",
+            "repo": "git-lfs/git-lfs",
+            "extract_binary": True,
+        },
     )
 
     # Mock console to capture output
@@ -266,8 +269,12 @@ def test_extract_from_archive_auto_detection_failure(
         pytest.raises(ValueError, match="Could not auto-detect binary paths"),
     ):
         _extract_from_archive(
-            str(mock_archive_no_match),
+            mock_archive_no_match,
             destination_dir,
-            tool_config,
-            "linux",
+            BinSpec(
+                tool_config=tool_config,
+                version="1.0.0",
+                arch="amd64",
+                platform="linux",
+            ),
         )

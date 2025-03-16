@@ -8,13 +8,13 @@ import re
 import shutil
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import yaml
 
-from .config import ToolConfig
+from .config import RawToolConfigDict, ToolConfig, build_tool_config
 from .download import download_file, extract_archive
-from .utils import get_latest_release, log
+from .utils import latest_release_info, log
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -46,7 +46,7 @@ def generate_tool_configuration(
 
     # Get latest release info if not provided
     if release is None:
-        release = get_latest_release(repo)
+        release = latest_release_info(repo)
 
     # Find sample asset and determine binary path
     sample_asset = _find_sample_asset(release["assets"])
@@ -59,13 +59,11 @@ def generate_tool_configuration(
     return generate_tool_config(repo, tool_name, release, binary_path)
 
 
-def analyze_tool(args: Any, _config: Any = None) -> None:
+def analyze_tool(repo: str, name: str | None = None) -> None:
     """Analyze GitHub releases for a tool to help determine patterns."""
-    repo = args.repo
-
     try:
         log(f"Analyzing releases for {repo}...", "info", "🔍")
-        release = get_latest_release(repo)
+        release = latest_release_info(repo)
 
         log(
             f"Latest release: {release['tag_name']} ({release['name']})",
@@ -75,7 +73,7 @@ def analyze_tool(args: Any, _config: Any = None) -> None:
         _print_assets_info(release["assets"])
 
         # Extract tool name from repo or use provided name
-        tool_name = args.name or repo.split("/")[-1]
+        tool_name = name or repo.split("/")[-1]
 
         # Generate tool configuration
         tool_config = generate_tool_configuration(repo, tool_name, release)
@@ -84,9 +82,7 @@ def analyze_tool(args: Any, _config: Any = None) -> None:
         log("Suggested configuration for YAML tools file:", "info", "📋")
         # Convert ToolConfig to dict for YAML serialization
         tool_config_dict = {
-            k: v
-            for k, v in tool_config.__dict__.items()
-            if v is not None and k not in ["version", "arch", "tool_name"]
+            k: v for k, v in tool_config.__dict__.items() if v is not None and k != "tool_name"
         }
         yaml_config = {tool_name: tool_config_dict}
         print(yaml.dump(yaml_config, sort_keys=False, default_flow_style=False))
@@ -282,28 +278,25 @@ def generate_tool_config(
     processed_binary_path: str | list[str] | None = None
     if binary_path:
         if isinstance(binary_path, list):
-            processed_binary_path = [
-                _generalize_binary_path(path) for path in binary_path
-            ]
+            processed_binary_path = [_generalize_binary_path(path) for path in binary_path]
         else:
             processed_binary_path = _generalize_binary_path(binary_path)
 
-    arch_map = (
-        {"amd64": "x86_64", "arm64": "aarch64"}
-        if _needs_arch_conversion(assets)
-        else {}
-    )
+    arch_map = {"amd64": "x86_64", "arm64": "aarch64"} if _needs_arch_conversion(assets) else {}
 
     asset_patterns = _get_asset_patterns(release, linux_assets, macos_assets)
-
-    return ToolConfig(
+    raw_data: RawToolConfigDict = {
+        "repo": repo,
+        "binary_name": tool_name,
+        "extract_binary": True,
+        "asset_patterns": asset_patterns,  # type: ignore[typeddict-item]
+        "arch_map": arch_map,
+    }
+    if processed_binary_path is not None:
+        raw_data["binary_path"] = processed_binary_path
+    return build_tool_config(
         tool_name=tool_name,
-        repo=repo,
-        binary_name=tool_name,
-        binary_path=processed_binary_path,
-        extract_binary=True,
-        asset_patterns=asset_patterns,
-        arch_map=arch_map,
+        raw_data=raw_data,
     )
 
 
@@ -311,16 +304,12 @@ def _get_asset_patterns(
     release: dict,
     linux_assets: list[dict],
     macos_assets: list[dict],
-) -> str | dict | None:
+) -> str | dict[str, str | None]:
     """Get asset patterns based on release info."""
     platform_specific = bool(linux_assets and macos_assets)
     if platform_specific:
         return generate_platform_specific_patterns(release)
-    # Single pattern for all platforms
-    pattern = generate_single_pattern(release)
-    if pattern != "?":
-        return pattern
-    return None
+    return generate_single_pattern(release)
 
 
 def _generalize_binary_path(path: str) -> str:
@@ -348,26 +337,22 @@ def _generalize_binary_path(path: str) -> str:
 
 def _needs_arch_conversion(assets: list[dict]) -> bool:
     """Determine if we need architecture conversion."""
-    return any("x86_64" in a["name"] for a in assets) or any(
-        "aarch64" in a["name"] for a in assets
-    )
+    return any("x86_64" in a["name"] for a in assets) or any("aarch64" in a["name"] for a in assets)
 
 
-def generate_platform_specific_patterns(release: dict) -> dict:
+def generate_platform_specific_patterns(release: dict) -> dict[str, str | None]:
     """Generate platform-specific asset patterns."""
     assets = release["assets"]
     linux_assets = get_platform_assets(assets, "linux")
     macos_assets = get_platform_assets(assets, "macos")
     version = release["tag_name"].lstrip("v")
 
-    patterns = {"linux": "?", "macos": "?"}
+    patterns: dict[str, str | None] = {"linux": None, "macos": None}
 
     # Find pattern for each platform
     for platform, platform_assets in [("linux", linux_assets), ("macos", macos_assets)]:
         amd64_assets = [
-            a
-            for a in platform_assets
-            if any(arch in a["name"] for arch in ["x86_64", "amd64"])
+            a for a in platform_assets if any(arch in a["name"] for arch in ["x86_64", "amd64"])
         ]
 
         if amd64_assets:
@@ -430,7 +415,8 @@ def _replace_pattern_placeholders(
 def generate_single_pattern(release: dict) -> str:
     """Generate a single asset pattern for all platforms."""
     if not release["assets"]:
-        return "?"
+        msg = "No assets found in the release."
+        raise ValueError(msg)
 
     asset_name = release["assets"][0]["name"]
     version = release["tag_name"].lstrip("v")

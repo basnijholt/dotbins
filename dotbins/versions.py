@@ -7,6 +7,8 @@ import os
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from .utils import log
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -83,3 +85,20 @@ class VersionStore:
     def list_all(self) -> dict[str, Any]:
         """Return all version information."""
         return self.versions
+
+    def print(self) -> None:
+        """Show versions of installed tools."""
+        versions = self.list_all()
+
+        if not versions:
+            log("No tool versions recorded yet.", "info")
+            return
+
+        log("Installed tool versions:", "info", "📋")
+        for key, info in versions.items():
+            tool, platform, arch = key.split("/")
+            sha256_info = f" [SHA256: {info.get('sha256', 'N/A')}]" if info.get("sha256") else ""
+            log(
+                f"  {tool} ({platform}/{arch}): {info['version']} - Updated on {info['updated_at']}{sha256_info}",
+                "success",
+            )

@@ -8,21 +8,20 @@ import os
 import sys
 import tarfile
 import zipfile
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import requests
 from rich.console import Console
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from .config import Config
 
 console = Console()
 
 
 @functools.cache
-def get_latest_release(repo: str) -> dict:
+def latest_release_info(repo: str) -> dict:
     """Get the latest release information from GitHub."""
     url = f"https://api.github.com/repos/{repo}/releases/latest"
     log(f"Fetching latest release from {url}", "info", "🔍")
@@ -34,6 +33,22 @@ def get_latest_release(repo: str) -> dict:
     except requests.RequestException as e:
         log("Failed to fetch latest release.", "error", print_exception=True)
         msg = f"Failed to fetch latest release for {repo}: {e}"
+        raise RuntimeError(msg) from e
+
+
+def download_file(url: str, destination: str) -> str:
+    """Download a file from a URL to a destination path."""
+    log(f"Downloading from {url}", "info", "📥")
+    try:
+        response = requests.get(url, stream=True, timeout=30)
+        response.raise_for_status()
+        with open(destination, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        return destination
+    except requests.RequestException as e:
+        log(f"Download failed: {e}", "error", print_exception=True)
+        msg = f"Failed to download {url}: {e}"
         raise RuntimeError(msg) from e
 
 
@@ -60,26 +75,9 @@ def current_platform() -> tuple[str, str]:
     return platform, arch
 
 
-def get_platform_map(platform: str, platform_map: dict) -> str:
-    """Map dotbins platform names to tool-specific platform names.
-
-    Args:
-        platform: Platform name used by dotbins (e.g., 'macos')
-        platform_map: Dictionary mapping platform names
-
-    Returns:
-        Mapped platform name
-
-    """
-    if not platform_map or not isinstance(platform_map, dict):
-        return platform
-
-    return platform_map.get(platform, platform)
-
-
 def print_shell_setup(config: Config) -> None:
     """Print shell setup instructions."""
-    tools_path = config.tools_dir.resolve()
+    tools_path = config.tools_dir.absolute()
     tools_dir = str(tools_path).replace(os.path.expanduser("~"), "$HOME")
     print("\n# Add this to your shell configuration file (e.g., .bashrc, .zshrc):")
     print(
@@ -154,23 +152,24 @@ def calculate_sha256(file_path: str | Path) -> str:
     return sha256_hash.hexdigest()
 
 
-def extract_archive(archive_path: str, dest_dir: str) -> None:
+def extract_archive(archive_path: str | Path, dest_dir: str | Path) -> None:
     """Extract an archive to a destination directory."""
+    archive_path = Path(archive_path)
+    dest_dir = Path(dest_dir)
     try:
-        # Check file type
         is_gzip = False
-        with open(archive_path, "rb") as f:
+        with archive_path.open("rb") as f:
             header = f.read(3)
             if header.startswith(b"\x1f\x8b"):
                 is_gzip = True
 
-        if is_gzip or archive_path.endswith((".tar.gz", ".tgz")):
+        if is_gzip or archive_path.name.endswith((".tar.gz", ".tgz")):
             with tarfile.open(archive_path, mode="r:gz") as tar:
                 tar.extractall(path=dest_dir)
-        elif archive_path.endswith((".tar.bz2", ".tbz2")):
+        elif archive_path.name.endswith((".tar.bz2", ".tbz2")):
             with tarfile.open(archive_path, mode="r:bz2") as tar:
                 tar.extractall(path=dest_dir)
-        elif archive_path.endswith(".zip"):
+        elif archive_path.name.endswith(".zip"):
             with zipfile.ZipFile(archive_path) as zip_file:
                 zip_file.extractall(path=dest_dir)
         else:

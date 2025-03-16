@@ -24,7 +24,7 @@ def tools_config() -> dict[str, ToolConfig]:
     script_dir = Path(__file__).parent.parent
     tools_yaml_path = script_dir / "dotbins.yaml"
 
-    config = Config.load_from_file(tools_yaml_path)
+    config = Config.from_file(tools_yaml_path)
     return config.tools
 
 
@@ -48,7 +48,7 @@ def test_tool_has_repo_defined(
 
 # Mock the GitHub API call to ensure tests pass consistently
 @pytest.mark.parametrize("tool_name", TOOLS)
-@patch("dotbins.utils.get_latest_release")
+@patch("dotbins.utils.latest_release_info")
 def test_config_generation_with_mocked_release(
     mock_get_latest_release: Any,
     tools_config: dict[str, ToolConfig],
@@ -121,6 +121,4 @@ def test_tool_config_has_asset_pattern(
             tool_config.asset_patterns.values(),
         ), f"Tool {tool_name} has empty asset_patterns dictionary"
     elif isinstance(tool_config.asset_patterns, str):
-        assert (
-            tool_config.asset_patterns
-        ), f"Tool {tool_name} has empty asset_patterns string"
+        assert tool_config.asset_patterns, f"Tool {tool_name} has empty asset_patterns string"

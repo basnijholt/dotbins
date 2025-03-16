@@ -2,159 +2,45 @@
 
 from __future__ import annotations
 
-import concurrent.futures
 import os
 import shutil
 import tempfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
-import requests
-
-from .detect import create_system_detector, detect_single_asset
-from .utils import calculate_sha256, extract_archive, get_latest_release, log
+from .utils import calculate_sha256, download_file, extract_archive, log
 
 if TYPE_CHECKING:
-    from .config import Config, ToolConfig
+    from .config import BinSpec, Config, ToolConfig
     from .versions import VersionStore
 
 
-def _find_asset(  # noqa: PLR0911, PLR0912
-    assets: list[dict],
-    pattern: str | None,
-    platform: str,
-    arch: str,
-) -> dict | None:
-    """Find an asset that matches the given pattern using the detector system.
-
-    Args:
-        assets: List of asset dictionaries from GitHub
-        pattern: Pattern to match or None to use automatic detection
-        platform: Target platform (e.g., "linux", "darwin")
-        arch: Target architecture (e.g., "amd64", "arm64")
-
-    Returns:
-        Matching asset or None if no match found
-
-    """
-    # Extract asset names for detection
-    asset_names = [asset["name"] for asset in assets]
-
-    # Create appropriate detector
-    detector_func = None
-    err = None
-
-    if pattern:
-        log(f"Looking for asset with pattern: {pattern}", "info", "🔍")
-        # If pattern is just a string without variables, use simple detector
-        if "{" not in pattern:
-            detector_func = detect_single_asset(pattern)
-        else:
-            # Create system detector based on platform and arch
-            detector_func, err = create_system_detector(platform, arch)
-            if err is not None:
-                log(f"Error creating detector: {err}", "error")
-                return None
-    else:
-        # No pattern specified, use pure system detector
-        log(
-            f"No pattern specified, using automatic detection for {platform}/{arch}",
-            "info",
-            "🔍",
-        )
-        detector_func, err = create_system_detector(platform, arch)
-        if err is not None:
-            log(f"Error creating detector: {err}", "error")
-            return None
-
-    # Detect asset
-    assert detector_func is not None
-    choice, candidates, err = detector_func(asset_names)
-    if err:
-        log(f"Asset detection error: {err}", "warning")
-
-        # If there are no candidates found for this platform/arch, return None
-        if "no candidates found" in err:
-            return None
-
-    if choice:
-        # Find the matching asset dictionary
-        for asset in assets:
-            if asset["name"] == choice:
-                log(f"Found matching asset: {asset['name']}", "success")
-                return asset
-
-    # If no direct match but candidates available, use first candidate
-    if candidates and len(candidates) > 0:
-        # Check if these are system-specific candidates or just all assets
-        # For patterns with format strings, we need to ensure we only use proper matches
-        if pattern and "{" in pattern and len(candidates) == len(asset_names):
-            # This means all assets were returned as candidates which indicates no real match
-            log(f"No specific match found for {platform}/{arch}", "warning")
-            return None
-
-        # Select only with supported extensions
-        filtered_candidates = [
-            c for c in candidates if c.endswith((".tar.gz", ".zip", ".tar.bz2"))
-        ]
-
-        if not filtered_candidates:
-            return None
-
-        log(f"Candidates: {filtered_candidates}", "info")
-        log(f"Using first candidate from {len(filtered_candidates)} options", "info")
-        for asset in assets:
-            if asset["name"] == filtered_candidates[0]:
-                log(f"Selected candidate: {asset['name']}", "success")
-                return asset
-
-    return None
-
-
-def download_file(url: str, destination: str) -> str:
-    """Download a file from a URL to a destination path."""
-    log(f"Downloading from {url}", "info", "📥")
-    try:
-        response = requests.get(url, stream=True, timeout=30)
-        response.raise_for_status()
-
-        with open(destination, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
-
-        return destination
-    except requests.RequestException as e:
-        log(f"Download failed: {e}", "error", print_exception=True)
-        msg = f"Failed to download {url}: {e}"
-        raise RuntimeError(msg) from e
-
-
 def _extract_from_archive(
-    archive_path: str,
+    archive_path: Path,
     destination_dir: Path,
-    tool_config: ToolConfig,
-    platform: str,
+    bin_spec: BinSpec,
 ) -> None:
     """Extract binaries from an archive."""
-    log(f"Extracting from {archive_path} for {platform}", "info", "📦")
+    log(f"Extracting from {archive_path} for {bin_spec.platform}", "info", "📦")
     temp_dir = Path(tempfile.mkdtemp())
 
     try:
-        extract_archive(str(archive_path), str(temp_dir))
+        extract_archive(archive_path, temp_dir)
         log(f"Archive extracted to {temp_dir}", "success", "📦")
-        # Debug: List the extracted files
         _log_extracted_files(temp_dir)
-        binary_paths = tool_config.binary_path or _detect_binary_paths(
+        binary_paths = bin_spec.tool_config.binary_path or _detect_binary_paths(
             temp_dir,
-            tool_config.binary_name,
+            bin_spec.tool_config.binary_name,
         )
         destination_dir.mkdir(parents=True, exist_ok=True)
         _process_binaries(
             temp_dir,
             destination_dir,
-            tool_config.binary_name,
+            bin_spec.tool_config.binary_name,
             binary_paths,
-            tool_config,
+            bin_spec.version,
+            bin_spec.tool_arch,
         )
 
     except Exception as e:
@@ -180,14 +66,16 @@ def _process_binaries(
     destination_dir: Path,
     binary_names: list[str],
     binary_paths: list[str],
-    tool_config: ToolConfig,
+    version: str,
+    tool_arch: str,
 ) -> None:
     """Process each binary by finding it and copying to destination."""
     for binary_path_pattern, binary_name in zip(binary_paths, binary_names):
         source_path = _find_binary_in_extracted_files(
             temp_dir,
-            tool_config,
             binary_path_pattern,
+            version,
+            tool_arch,
         )
         _copy_binary_to_destination(source_path, destination_dir, binary_name)
 
@@ -246,12 +134,13 @@ def _log_extracted_files(temp_dir: Path) -> None:
 
 def _find_binary_in_extracted_files(
     temp_dir: Path,
-    tool_config: ToolConfig,
     binary_path: str,
+    version: str,
+    tool_arch: str,
 ) -> Path:
     """Find a specific binary in the extracted files."""
     # Replace variables in the binary path
-    binary_path = _replace_variables_in_path(binary_path, tool_config)
+    binary_path = _replace_variables_in_path(binary_path, version, tool_arch)
 
     # Handle glob patterns in binary path
     if "*" in binary_path:
@@ -264,7 +153,7 @@ def _find_binary_in_extracted_files(
     # Direct path
     source_path = temp_dir / binary_path
     if not source_path.exists():
-        msg = f"Binary not found at {source_path}"
+        msg = f"Binary ({binary_path}) not found at {source_path}"
         raise FileNotFoundError(msg)
 
     return source_path
@@ -284,179 +173,114 @@ def _copy_binary_to_destination(
     log(f"Copied binary to {dest_path}", "success")
 
 
-def _replace_variables_in_path(path: str, tool_config: ToolConfig) -> str:
+def _replace_variables_in_path(path: str, version: str, arch: str) -> str:
     """Replace variables in a path with their values."""
-    if "{version}" in path and tool_config.version:
-        path = path.replace("{version}", tool_config.version)
+    if "{version}" in path and version:
+        path = path.replace("{version}", version)
 
-    if "{arch}" in path and tool_config.arch:
-        path = path.replace("{arch}", tool_config.arch)
+    if "{arch}" in path and arch:
+        path = path.replace("{arch}", arch)
 
     return path
-
-
-def _validate_tool_config(tool_name: str, config: Config) -> ToolConfig | None:
-    """Validate that the tool exists in configuration."""
-    tool_config = config.tools.get(tool_name)
-    if not tool_config:
-        log(f"Tool '{tool_name}' not found in configuration", "error")
-        return None
-    return tool_config
-
-
-def should_skip_download(
-    tool_name: str,
-    platform: str,
-    arch: str,
-    config: Config,
-    force: bool,
-) -> bool:
-    """Check if download should be skipped (binary already exists)."""
-    destination_dir = config.tools_dir / platform / arch / "bin"
-    tool_config = config.tools[tool_name]
-    all_exist = True
-    for binary_name in tool_config.binary_name:
-        binary_path = destination_dir / binary_name
-        if not binary_path.exists():
-            all_exist = False
-            break
-
-    if all_exist and not force:
-        log(
-            f"{tool_name} for {platform}/{arch} already exists (use --force to update)",
-            "success",
-        )
-        return True
-    return False
-
-
-def _get_release_info(tool_config: ToolConfig) -> tuple[dict, str]:
-    """Get release information for a tool."""
-    repo = tool_config.repo
-    release = get_latest_release(repo)
-    version = release["tag_name"].lstrip("v")
-    tool_config.version = version  # Update the version field
-    return release, version
-
-
-def _map_platform_and_arch(
-    platform: str,
-    arch: str,
-    tool_config: ToolConfig,
-) -> tuple[str, str]:
-    """Map platform and architecture names."""
-    # Map architecture if needed
-    tool_arch = arch
-    if tool_config.arch_map and arch in tool_config.arch_map:
-        tool_arch = tool_config.arch_map[arch]
-    tool_config.arch = tool_arch  # Update the arch field
-
-    # Map platform if needed
-    tool_platform = platform
-    if tool_config.platform_map and platform in tool_config.platform_map:
-        tool_platform = tool_config.platform_map[platform]
-
-    return tool_platform, tool_arch
-
-
-def _find_matching_asset(
-    tool_config: ToolConfig,
-    release: dict,
-    version: str,
-    platform: str,
-    arch: str,
-    tool_platform: str,
-    tool_arch: str,
-) -> dict | None:
-    """Find a matching asset for the tool."""
-    # Check if we have specific asset patterns to use
-    asset_pattern = None
-    if tool_config.asset_patterns:
-        asset_pattern = get_asset_pattern(tool_config, platform, arch)
-
-        # Format the pattern if found
-        if asset_pattern:
-            asset_pattern = asset_pattern.format(
-                version=version,
-                platform=tool_platform,
-                arch=tool_arch,
-            )
-
-    # Use detector system (with or without pattern)
-    asset = _find_asset(release["assets"], asset_pattern, platform, arch)
-    if not asset:
-        if asset_pattern:
-            log(f"No asset matching '{asset_pattern}' found", "warning")
-        else:
-            log(f"No suitable asset found for {platform}/{arch}", "warning")
-        return None
-
-    return asset
-
-
-def get_asset_pattern(  # noqa: PLR0911
-    tool_config: ToolConfig,
-    platform: str,
-    arch: str,
-) -> str | None:
-    """Get the asset pattern for a tool, platform, and architecture."""
-    # No asset patterns defined
-    if not tool_config.asset_patterns:
-        log("No asset patterns defined", "warning")
-        return None
-
-    patterns = tool_config.asset_patterns
-
-    # Case 1: String pattern (global pattern for all platforms/architectures)
-    if isinstance(patterns, str):
-        return patterns
-
-    # Case 2: Dict of patterns by platform
-    if isinstance(patterns, dict):
-        # If platform not in dict or explicitly set to null, no pattern for this platform
-        if platform not in patterns or patterns[platform] is None:
-            return None
-
-        platform_patterns = patterns[platform]
-
-        # Case 2a: String pattern for this platform
-        if isinstance(platform_patterns, str):
-            return platform_patterns
-
-        # Case 3: Dict of patterns by platform and architecture
-        if isinstance(platform_patterns, dict):
-            # If arch not in dict or explicitly set to null, no pattern for this arch
-            if arch not in platform_patterns or platform_patterns[arch] is None:
-                return None
-
-            return platform_patterns[arch]
-
-    # No valid pattern found
-    return None
-
-
-def make_binaries_executable(config: Config) -> None:
-    """Make all binaries executable."""
-    for platform, architectures in config.platforms.items():
-        for arch in architectures:
-            bin_dir = config.tools_dir / platform / arch / "bin"
-            if bin_dir.exists():
-                for binary in bin_dir.iterdir():
-                    if binary.is_file():
-                        binary.chmod(binary.stat().st_mode | 0o755)
 
 
 class _DownloadTask(NamedTuple):
     """Represents a single download task."""
 
-    tool_name: str
-    platform: str
-    arch: str
+    bin_spec: BinSpec
     asset_url: str
     asset_name: str
-    tool_config: ToolConfig
     destination_dir: Path
     temp_path: Path
+
+    @property
+    def tool_name(self) -> str:
+        return self.tool_config.tool_name
+
+    @property
+    def tool_config(self) -> ToolConfig:
+        return self.bin_spec.tool_config
+
+    @property
+    def version(self) -> str:
+        return self.bin_spec.version
+
+    @property
+    def platform(self) -> str:
+        return self.bin_spec.platform
+
+    @property
+    def arch(self) -> str:
+        return self.bin_spec.arch
+
+
+def _prepare_download_task(
+    tool_name: str,
+    platform: str,
+    arch: str,
+    config: Config,
+    force: bool,
+) -> _DownloadTask | None:
+    """Prepare a download task, checking if update is needed based on version."""
+    try:
+        tool_config = config.tools[tool_name]
+        bin_spec = tool_config.bin_spec(arch, platform)
+        if bin_spec.skip_download(config, force):
+            return None
+        asset = bin_spec.matching_asset()
+        if asset is None:
+            return None
+        tmp_dir = Path(tempfile.gettempdir())
+        temp_path = tmp_dir / asset["browser_download_url"].split("/")[-1]
+        return _DownloadTask(
+            bin_spec=bin_spec,
+            asset_url=asset["browser_download_url"],
+            asset_name=asset["name"],
+            destination_dir=config.bin_dir(platform, arch),
+            temp_path=temp_path,
+        )
+
+    except Exception as e:
+        log(
+            f"Error processing {tool_name} for {platform}/{arch}: {e!s}",
+            "error",
+            print_exception=True,
+        )
+        return None
+
+
+def prepare_download_tasks(
+    config: Config,
+    tools_to_update: list[str] | None = None,
+    platforms_to_update: list[str] | None = None,
+    architecture: str | None = None,
+    force: bool = False,
+) -> tuple[list[_DownloadTask], int]:
+    """Prepare download tasks for all tools and platforms."""
+    download_tasks = []
+    total_count = 0
+    if tools_to_update is None:
+        tools_to_update = list(config.tools)
+    if platforms_to_update is None:
+        platforms_to_update = list(config.platforms)
+
+    for tool_name in tools_to_update:
+        for platform in platforms_to_update:
+            if platform not in config.platforms:
+                log(f"Skipping unknown platform: {platform}", "warning")
+                continue
+
+            archs_to_update = _determine_architectures(platform, architecture, config)
+            if not archs_to_update:
+                continue
+
+            for arch in archs_to_update:
+                total_count += 1
+                task = _prepare_download_task(tool_name, platform, arch, config, force)
+                if task:
+                    download_tasks.append(task)
+
+    return sorted(download_tasks, key=lambda t: t.asset_url), total_count
 
 
 def _download_task(task: _DownloadTask) -> tuple[_DownloadTask, bool]:
@@ -470,101 +294,22 @@ def _download_task(task: _DownloadTask) -> tuple[_DownloadTask, bool]:
         download_file(task.asset_url, str(task.temp_path))
         return task, True
     except Exception as e:
-        log(
-            f"Error downloading {task.asset_name}: {e!s}",
-            "error",
-            print_exception=True,
-        )
+        log(f"Error downloading {task.asset_name}: {e!s}", "error", print_exception=True)
         return task, False
 
 
-def _prepare_download_task(
-    tool_name: str,
-    platform: str,
-    arch: str,
-    config: Config,
-    version_store: VersionStore,
-    force: bool = False,
-) -> _DownloadTask | None:
-    """Prepare a download task, checking if update is needed based on version."""
-    tool_config = _validate_tool_config(tool_name, config)
-    if not tool_config:
-        return None
-
-    # Get current version info
-    tool_info = version_store.get_tool_info(tool_name, platform, arch)
-
-    # Get latest release info
-    release, version = _get_release_info(tool_config)
-
-    # Check if update is needed
-    if tool_info and tool_info["version"] == version and not force:
-        log(
-            f"{tool_name} {version} for {platform}/{arch} is already up to date (installed on {tool_info['updated_at']})",
-            "success",
-        )
-        return None
-
-    destination_dir = config.tools_dir / platform / arch / "bin"
-
-    all_exist = True
-    for binary_name in tool_config.binary_name:
-        binary_path = destination_dir / binary_name
-        if not binary_path.exists():
-            all_exist = False
-            break
-
-    if all_exist:
-        log(
-            f"{tool_name} for {platform}/{arch} already exists (use --force to update)",
-            "success",
-        )
-        return None
-
-    try:
-        release, version = _get_release_info(tool_config)
-        tool_platform, tool_arch = _map_platform_and_arch(
-            platform,
-            arch,
-            tool_config,
-        )
-        asset = _find_matching_asset(
-            tool_config,
-            release,
-            version,
-            platform,
-            arch,
-            tool_platform,
-            tool_arch,
-        )
-        if not asset:
-            return None
-
-        tmp_dir = Path(tempfile.gettempdir())
-        temp_path = tmp_dir / asset["browser_download_url"].split("/")[-1]
-
-        return _DownloadTask(
-            tool_name=tool_name,
-            platform=platform,
-            arch=arch,
-            asset_url=asset["browser_download_url"],
-            asset_name=asset["name"],
-            # Make a copy of tool_config because we'll modify it
-            tool_config=tool_config.copy(
-                version=version,
-                arch=tool_arch,
-            ),
-            destination_dir=destination_dir,
-            temp_path=temp_path,
-        )
-
-    except Exception as e:
-        log(
-            f"Error processing {tool_name} for {platform}/{arch}: {e!s}",
-            "error",
-            print_exception=True,
-        )
-        return None
+def download_files_in_parallel(
+    download_tasks: list[_DownloadTask],
+) -> list[tuple[_DownloadTask, bool]]:
+    """Download files in parallel using ThreadPoolExecutor."""
+    log(f"\nDownloading {len(download_tasks)} tools in parallel...", "info", "🔄")
+    downloaded_tasks = []
+    with ThreadPoolExecutor(max_workers=min(8, len(download_tasks) or 1)) as ex:
+        future_to_task = {ex.submit(_download_task, task): task for task in download_tasks}
+        for future in as_completed(future_to_task):
+            task, success = future.result()
+            downloaded_tasks.append((task, success))
+    return downloaded_tasks
 
 
 def _process_downloaded_task(
@@ -575,7 +320,6 @@ def _process_downloaded_task(
     """Process a downloaded file."""
     if not success:
         return False
-
     try:
         # Calculate SHA256 hash before extraction
         sha256_hash = calculate_sha256(task.temp_path)
@@ -583,12 +327,7 @@ def _process_downloaded_task(
 
         task.destination_dir.mkdir(parents=True, exist_ok=True)
         if task.tool_config.extract_binary:
-            _extract_from_archive(
-                str(task.temp_path),
-                task.destination_dir,
-                task.tool_config,
-                task.platform,
-            )
+            _extract_from_archive(task.temp_path, task.destination_dir, task.bin_spec)
         else:
             binary_names = task.tool_config.binary_name
             if len(binary_names) != 1:
@@ -607,12 +346,12 @@ def _process_downloaded_task(
             task.tool_name,
             task.platform,
             task.arch,
-            task.tool_config.version or "unknown",
+            task.version,
             sha256=sha256_hash,
         )
 
         log(
-            f"Successfully processed {task.tool_name} v{task.tool_config.version} for {task.platform}/{task.arch}",
+            f"Successfully processed {task.tool_name} v{task.version} for {task.platform}/{task.arch}",
             "success",
         )
         return True
@@ -631,79 +370,19 @@ def process_downloaded_files(
     """Process downloaded files and return success count."""
     log(f"\nProcessing {len(downloaded_tasks)} downloaded tools...", "info", "🔄")
     success_count = 0
-
     for task, download_success in downloaded_tasks:
         if _process_downloaded_task(task, download_success, version_store):
             success_count += 1
-
     return success_count
-
-
-def download_files_in_parallel(
-    download_tasks: list[_DownloadTask],
-) -> list[tuple[_DownloadTask, bool]]:
-    """Download files in parallel using ThreadPoolExecutor."""
-    log(f"\nDownloading {len(download_tasks)} tools in parallel...", "info", "🔄")
-    downloaded_tasks = []
-    with concurrent.futures.ThreadPoolExecutor(
-        max_workers=min(8, len(download_tasks) or 1),
-    ) as executor:
-        future_to_task = {
-            executor.submit(_download_task, task): task for task in download_tasks
-        }
-        for future in concurrent.futures.as_completed(future_to_task):
-            task, success = future.result()
-            downloaded_tasks.append((task, success))
-
-    return downloaded_tasks
-
-
-def prepare_download_tasks(
-    tools_to_update: list[str],
-    platforms_to_update: list[str],
-    architecture: str,
-    config: Config,
-    version_store: VersionStore,
-    force: bool = False,
-) -> tuple[list[_DownloadTask], int]:
-    """Prepare download tasks for all tools and platforms."""
-    download_tasks = []
-    total_count = 0
-
-    for tool_name in tools_to_update:
-        for platform in platforms_to_update:
-            if platform not in config.platforms:
-                log(f"Skipping unknown platform: {platform}", "warning")
-                continue
-
-            # Get architectures to update
-            archs_to_update = _determine_architectures(platform, architecture, config)
-            if not archs_to_update:
-                continue
-
-            for arch in archs_to_update:
-                total_count += 1
-                task = _prepare_download_task(
-                    tool_name,
-                    platform,
-                    arch,
-                    config,
-                    version_store,
-                    force,
-                )
-                if task:
-                    download_tasks.append(task)
-
-    return sorted(download_tasks, key=lambda t: t.asset_url), total_count
 
 
 def _determine_architectures(
     platform: str,
-    architecture: str,
+    architecture: str | None,
     config: Config,
 ) -> list[str]:
     """Determine which architectures to update for a platform."""
-    if architecture:
+    if architecture is not None:
         # Filter to only include the specified architecture if it's supported
         if architecture in config.platforms[platform]:
             return [architecture]

@@ -6,7 +6,7 @@ import tempfile
 from collections.abc import Generator
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 import yaml
@@ -14,7 +14,7 @@ from _pytest.capture import CaptureFixture
 from _pytest.monkeypatch import MonkeyPatch
 
 from dotbins import cli
-from dotbins.config import Config, ToolConfig
+from dotbins.config import Config, build_tool_config
 
 
 class TestIntegration:
@@ -40,7 +40,7 @@ def test_initialization(
     )
 
     # Call initialize with the config
-    cli._initialize(None, config=config)
+    cli._initialize(config=config)
 
     # Check if directories were created - only for valid platform/arch combinations
     platform_archs = [("linux", "amd64"), ("linux", "arm64"), ("macos", "arm64")]
@@ -58,13 +58,15 @@ def test_list_tools(
 ) -> None:
     """Test the 'list' command."""
     # Create a test tool configuration
-    test_tool_config = ToolConfig(
+    test_tool_config = build_tool_config(
         tool_name="test-tool",
-        repo="test/tool",
-        extract_binary=True,
-        binary_name="test-tool",
-        binary_path="test-tool",
-        asset_patterns="test-tool-{version}-{platform}_{arch}.tar.gz",
+        raw_data={
+            "repo": "test/tool",
+            "extract_binary": True,
+            "binary_name": "test-tool",
+            "binary_path": "test-tool",
+            "asset_patterns": "test-tool-{version}-{platform}_{arch}.tar.gz",
+        },
     )
 
     # Create config with our test tools
@@ -74,7 +76,7 @@ def test_list_tools(
     )
 
     # Directly call the list_tools function
-    cli._list_tools(None, config)
+    cli._list_tools(config)
 
     # Check if tool was listed
     captured = capsys.readouterr()
@@ -89,17 +91,16 @@ def test_update_tool(
 ) -> None:
     """Test updating a specific tool."""
     # Set up mock environment
-    test_tool_config = ToolConfig(
+    test_tool_config = build_tool_config(
         tool_name="test-tool",
-        repo="test/tool",
-        extract_binary=True,
-        binary_name="test-tool",
-        binary_path="*",
-        asset_patterns={
-            "linux": "test-tool-{version}-{platform}_{arch}.tar.gz",
-            "macos": "test-tool-{version}-{platform}_{arch}.tar.gz",
+        raw_data={
+            "repo": "test/tool",
+            "extract_binary": True,
+            "binary_name": "test-tool",
+            "binary_path": "*",
+            "asset_patterns": "test-tool-{version}-{platform}_{arch}.tar.gz",
+            "platform_map": {"macos": "darwin"},
         },
-        platform_map={"macos": "darwin"},
     )
 
     # Create config with our test tool - use new format
@@ -120,17 +121,16 @@ def test_update_tool(
     # Mock download and extraction to avoid actual downloads
     monkeypatch.setattr("dotbins.download.download_file", mock_download_file)
 
-    # Create a mock args object
-    mock_args = MagicMock()
-    mock_args.tools = ["test-tool"]
-    mock_args.platform = "linux"  # Specify platform to avoid skipping
-    mock_args.architecture = "amd64"
-    mock_args.force = False
-    mock_args.shell_setup = False
-    mock_args.current = False
-
     # Directly call update_tools
-    cli._update_tools(mock_args, config)
+    cli._update_tools(
+        config,
+        tools=["test-tool"],
+        platform="linux",
+        architecture="amd64",
+        current=False,
+        force=False,
+        shell_setup=False,
+    )
 
     # Check if binary was installed
     assert (tmp_dir / "tools" / "linux" / "amd64" / "bin" / "test-tool").exists()
@@ -179,9 +179,7 @@ def test_analyze_tool(
     assert "extract_binary: true" in captured.out
 
     # Make sure the output is in valid YAML format
-    yaml_text = captured.out.split("Suggested configuration for YAML tools file:")[
-        1
-    ].strip()
+    yaml_text = captured.out.split("Suggested configuration for YAML tools file:")[1].strip()
     yaml.safe_load(yaml_text)
 
 
@@ -202,7 +200,7 @@ def test_cli_unknown_tool() -> None:
         patch.object(sys, "argv", ["dotbins", "update", "unknown-tool"]),
         patch.object(
             Config,
-            "load_from_file",
+            "from_file",
             return_value=Config(tools={}),
         ),
     ):
@@ -226,7 +224,7 @@ def test_cli_tools_dir_override(tmp_dir: Path) -> None:
 
     # Patch config loading
     with (
-        patch.object(Config, "load_from_file", mock_load_config),
+        patch.object(Config, "from_file", mock_load_config),
         patch.object(sys, "argv", ["dotbins", "--tools-dir", str(custom_dir), "init"]),
     ):
         cli.main()

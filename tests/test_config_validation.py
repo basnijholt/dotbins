@@ -1,6 +1,6 @@
 """Tests for the config validation."""
 
-from dotbins.config import Config, ToolConfig
+from dotbins.config import Config, build_tool_config
 
 
 def test_validate_unknown_architecture() -> None:
@@ -9,14 +9,14 @@ def test_validate_unknown_architecture() -> None:
     config = Config(
         platforms={"linux": ["amd64", "arm64"]},
         tools={
-            "test-tool": ToolConfig(
+            "test-tool": build_tool_config(
                 tool_name="test-tool",
-                repo="test/repo",
-                binary_name="test-tool",
-                binary_path="test-tool",
-                asset_patterns={
-                    "linux": {
-                        "unknown_arch": "test-{version}-linux_unknown.tar.gz",
+                raw_data={
+                    "repo": "test/repo",
+                    "binary_name": "test-tool",
+                    "binary_path": "test-tool",
+                    "asset_patterns": {
+                        "linux": {"unknown_arch": "test-{version}-linux_unknown.tar.gz"},
                     },
                 },
             ),
