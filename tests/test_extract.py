@@ -223,9 +223,7 @@ def test_extract_tar_directory(temp_dir: Path) -> None:
     assert (output_path / "lib" / "data.txt").exists()
     assert (output_path / "tool").read_bytes() == b"#!/bin/sh\necho 'Hello, World!'\n"
     assert (output_path / "lib" / "data.txt").read_bytes() == b"Some data"
-    assert (
-        output_path / "tool"
-    ).stat().st_mode & 0o777 & 0o111 != 0  # Should be executable
+    assert (output_path / "tool").stat().st_mode & 0o777 & 0o111 != 0  # Should be executable
 
 
 def test_extract_tar_multiple_candidates() -> None:
@@ -331,9 +329,7 @@ def test_extract_zip_directory(temp_dir: Path) -> None:
     assert (output_path / "lib" / "data.txt").exists()
     assert (output_path / "tool.exe").read_bytes() == b"Windows executable content"
     assert (output_path / "lib" / "data.txt").read_bytes() == b"Some data"
-    assert (
-        output_path / "tool.exe"
-    ).stat().st_mode & 0o777 & 0o111 != 0  # Should be executable
+    assert (output_path / "tool.exe").stat().st_mode & 0o777 & 0o111 != 0  # Should be executable
 
 
 def test_extract_zip_multiple_candidates() -> None:

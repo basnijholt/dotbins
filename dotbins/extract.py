@@ -204,9 +204,7 @@ def _extract_tar_directory(
                     sub_data = file_data.read()
                     sub_mode = sub_member.mode
                     mode_to_use = (
-                        sub_mode | 0o111
-                        if is_exec(str(target_path), sub_mode)
-                        else sub_mode
+                        sub_mode | 0o111 if is_exec(str(target_path), sub_mode) else sub_mode
                     )
                     _write_file(sub_data, target_path, mode_to_use)
 
@@ -235,11 +233,7 @@ def _extract_zip_directory(
                 sub_mode = 0o644
                 if sub_info.external_attr > 0:
                     sub_mode = (sub_info.external_attr >> 16) & 0o777
-                mode_to_use = (
-                    sub_mode | 0o111
-                    if is_exec(str(target_path), sub_mode)
-                    else sub_mode
-                )
+                mode_to_use = sub_mode | 0o111 if is_exec(str(target_path), sub_mode) else sub_mode
                 _write_file(sub_data, target_path, mode_to_use)
 
 
@@ -418,11 +412,7 @@ def _extract_tar(
                 )
 
                 # Read file data if not a directory or link
-                if (
-                    not file_info.is_dir
-                    and not file_info.is_symlink
-                    and not file_info.is_hardlink
-                ):
+                if not file_info.is_dir and not file_info.is_symlink and not file_info.is_hardlink:
                     file_data = tar.extractfile(member)
                     if file_data:
                         all_file_data[member.name] = file_data.read()
