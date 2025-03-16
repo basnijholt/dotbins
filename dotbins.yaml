@@ -15,21 +15,12 @@ tools:
     extract_binary: true
     binary_name: fzf
     binary_path: fzf
-    asset_patterns: fzf-{version}-{platform}_{arch}.tar.gz
-    platform_map:
-      macos: darwin
 
   bat:
     repo: sharkdp/bat
     extract_binary: true
     binary_name: bat
-    binary_path: bat-v{version}-{arch}-*/bat
-    arch_map:
-      amd64: x86_64
-      arm64: aarch64
-    asset_patterns:
-      linux: bat-v{version}-{arch}-unknown-linux-gnu.tar.gz
-      macos: bat-v{version}-{arch}-apple-darwin.tar.gz
+    binary_path: bat-v{version}-*/bat
 
   eza:
     repo: eza-community/eza
@@ -48,48 +39,24 @@ tools:
     extract_binary: true
     binary_name: zoxide
     binary_path: zoxide
-    arch_map:
-      amd64: x86_64
-      arm64: aarch64
-    asset_patterns:
-      linux: zoxide-{version}-{arch}-unknown-linux-musl.tar.gz
-      macos: zoxide-{version}-{arch}-apple-darwin.tar.gz
 
   delta:
     repo: dandavison/delta
     extract_binary: true
     binary_name: delta
-    binary_path: delta-{version}-{arch}-*/delta
-    arch_map:
-      amd64: x86_64
-      arm64: aarch64
-    asset_patterns:
-      linux: delta-{version}-{arch}-unknown-linux-gnu.tar.gz
-      macos: delta-{version}-{arch}-apple-darwin.tar.gz
+    binary_path: delta-{version}-*/delta
 
   uv:
     repo: astral-sh/uv
     extract_binary: true
     binary_name: [uv, uvx]
     binary_path: [uv-*/uv, uv-*/uvx]
-    arch_map:
-      amd64: x86_64
-      arm64: aarch64
-    asset_patterns:
-      linux: uv-{arch}-unknown-linux-gnu.tar.gz
-      macos: uv-{arch}-apple-darwin.tar.gz
 
   micromamba:
     repo: mamba-org/micromamba-releases
-    extract_binary: true
+    extract_binary: false
     binary_name: micromamba
     binary_path: bin/micromamba
-    asset_patterns:
-      linux:
-        amd64: micromamba-linux-64.tar.bz2
-        arm64: micromamba-linux-aarch64.tar.bz2
-      macos:
-        arm64: micromamba-osx-arm64.tar.bz2
 
   atuin:
     repo: atuinsh/atuin
@@ -108,30 +75,15 @@ tools:
     extract_binary: true
     binary_name: git-lfs
     binary_path: git-lfs-{version}/git-lfs
-    asset_patterns:
-      linux: git-lfs-linux-{arch}-v{version}.tar.gz
-      macos: git-lfs-darwin-{arch}-v{version}.zip
 
   ripgrep:
     repo: BurntSushi/ripgrep
     extract_binary: true
     binary_name: rg
     binary_path: ripgrep-*/rg
-    asset_patterns:
-      linux:
-        arm64: ripgrep-{version}-{arch}-unknown-linux-gnu.tar.gz
-        amd64: ripgrep-{version}-{arch}-unknown-linux-musl.tar.gz
-      macos:
-        arm64: ripgrep-{version}-{arch}-apple-darwin.tar.gz
-    arch_map:
-      amd64: x86_64
-      arm64: aarch64
 
   eget:
     repo: zyedidia/eget
     extract_binary: true
     binary_name: eget
     binary_path: "*/eget"
-    asset_patterns:
-      linux: eget-{version}-{platform}_{arch}.tar.gz
-      macos: eget-{version}-darwin_{arch}.tar.gz
