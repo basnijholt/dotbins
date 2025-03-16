@@ -332,7 +332,7 @@ def test_e2e_update_tools(tmp_path: Path, raw_config: dict) -> None:
         patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
         patch("dotbins.download.download_file", side_effect=mock_download_file),
     ):
-        _update_tools(config=config)
+        config.update_tools()
 
     verify_binaries_installed(config)
 
@@ -389,7 +389,7 @@ def test_e2e_update_tools_skip_up_to_date(tmp_path: Path) -> None:
         patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
         patch("dotbins.download.download_file", side_effect=mock_download_file),
     ):
-        _update_tools(config=config)
+        config.update_tools()
 
     # If everything is skipped, no new binary is downloaded,
     # and the existing version_store is unchanged.
@@ -641,7 +641,7 @@ def test_e2e_update_tools_specific_platform(tmp_path: Path) -> None:
         patch("dotbins.download.download_file", side_effect=mock_download_file),
     ):
         # Only update macOS => We expect only the darwin_arm64 asset
-        _update_tools(config=config, platform="macos")
+        config.update_tools(platform="macos")
 
     # Should only have downloaded the darwin_arm64 file
     assert len(downloaded_files) == 1

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
@@ -11,7 +12,8 @@ from typing import TypedDict, TypeVar
 
 import yaml
 
-from .utils import latest_release_info, log
+from .download import download_files_in_parallel, prepare_download_tasks, process_downloaded_files
+from .utils import current_platform, latest_release_info, log
 from .versions import VersionStore
 
 DEFAULT_TOOLS_DIR = "~/.mydotbins/tools"
@@ -62,6 +64,60 @@ class Config:
                     for binary in bin_dir.iterdir():
                         if binary.is_file():
                             binary.chmod(binary.stat().st_mode | 0o755)
+
+    def update_tools(
+        self: Config,
+        tools: list[str] | None = None,
+        platform: str | None = None,
+        architecture: str | None = None,
+        current: bool = False,
+        force: bool = False,
+    ) -> None:
+        """Update tools.
+
+        Args:
+            tools: List of tools to update.
+            platform: Platform to update, if not provided, all platforms will be updated.
+            architecture: Architecture to update, if not provided, all architectures will be updated.
+            current: Whether to update only the current platform and architecture. Overrides platform and architecture.
+            force: Whether to force update.
+
+        """
+        tools_to_update = _tools_to_update(self, tools)
+        if current:
+            platform, architecture = current_platform()
+            platforms_to_update = [platform]
+        else:
+            platforms_to_update = [platform] if platform else None  # type: ignore[assignment]
+        self.tools_dir.mkdir(parents=True, exist_ok=True)
+        download_tasks, total_count = prepare_download_tasks(
+            self,
+            tools_to_update,
+            platforms_to_update,
+            architecture,
+            force,
+        )
+        downloaded_tasks = download_files_in_parallel(download_tasks)
+        success_count = process_downloaded_files(downloaded_tasks, self.version_store)
+        self.make_binaries_executable()
+        _print_completion_summary(success_count, total_count)
+
+
+def _tools_to_update(config: Config, tools: list[str] | None) -> list[str] | None:
+    if tools:
+        for tool in tools:
+            if tool not in config.tools:
+                log(f"Unknown tool: {tool}", "error")
+                sys.exit(1)
+        return tools
+    return None
+
+
+def _print_completion_summary(success_count: int, total_count: int) -> None:
+    """Print completion summary and additional instructions."""
+    log(f"Completed: {success_count}/{total_count} tools updated successfully", "info", "🔄")
+    if success_count > 0:
+        log("Don't forget to commit the changes to your dotfiles repository", "success", "💾")
 
 
 @dataclass(frozen=True)

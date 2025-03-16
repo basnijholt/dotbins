@@ -9,12 +9,7 @@ from pathlib import Path
 from . import __version__
 from .analyze import analyze_tool
 from .config import Config
-from .download import (
-    download_files_in_parallel,
-    prepare_download_tasks,
-    process_downloaded_files,
-)
-from .utils import current_platform, log, print_shell_setup
+from .utils import log, print_shell_setup
 
 
 def _list_tools(config: Config) -> None:
@@ -26,65 +21,15 @@ def _list_tools(config: Config) -> None:
 
 def _update_tools(
     config: Config,
-    tools: list[str] | None = None,
-    platform: str | None = None,
-    architecture: str | None = None,
-    current: bool = False,
-    force: bool = False,
-    shell_setup: bool = False,
-) -> None:
-    """Update tools based on command line arguments."""
-    tools_to_update = _tools_to_update(config, tools)
-    if current:
-        platform, architecture = current_platform()
-        platforms_to_update = [platform]
-    else:
-        platforms_to_update = [platform] if platform else None  # type: ignore[assignment]
-    config.tools_dir.mkdir(parents=True, exist_ok=True)
-    download_tasks, total_count = prepare_download_tasks(
-        config,
-        tools_to_update,
-        platforms_to_update,
-        architecture,
-        force,
-    )
-    downloaded_tasks = download_files_in_parallel(download_tasks)
-    success_count = process_downloaded_files(downloaded_tasks, config.version_store)
-    config.make_binaries_executable()
-    _print_completion_summary(config, success_count, total_count, shell_setup)
-
-
-def _tools_to_update(config: Config, tools: list[str] | None) -> list[str] | None:
-    """Determine which tools and platforms to update."""
-    if tools:
-        for tool in tools:
-            if tool not in config.tools:
-                log(f"Unknown tool: {tool}", "error")
-                sys.exit(1)
-        return tools
-    return None
-
-
-def _print_completion_summary(
-    config: Config,
-    success_count: int,
-    total_count: int,
+    tools: list[str],
+    platform: str | None,
+    architecture: str | None,
+    current: bool,
+    force: bool,
     shell_setup: bool,
 ) -> None:
-    """Print completion summary and additional instructions."""
-    log(
-        f"Completed: {success_count}/{total_count} tools updated successfully",
-        "info",
-        "🔄",
-    )
-
-    if success_count > 0:
-        log(
-            "Don't forget to commit the changes to your dotfiles repository",
-            "success",
-            "💾",
-        )
-
+    """Update tools based on command line arguments."""
+    config.update_tools(tools, platform, architecture, current, force)
     if shell_setup:
         print_shell_setup(config)
 
