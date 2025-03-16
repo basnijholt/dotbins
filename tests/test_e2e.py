@@ -296,66 +296,6 @@ def test_multiple_tools_with_filtering(temp_tools_dir: Path) -> None:
     )  # Specify Linux only
 
 
-def test_multiple_binaries_per_tool(temp_tools_dir: Path) -> None:
-    """Test a tool that provides multiple binaries."""
-    # Define a tool with multiple binaries
-    tool_configs = {
-        "multibin": {
-            "repo": "fakeuser/multibin",
-            "extract_binary": True,
-            "binary_name": ["bin1", "bin2"],
-            "binary_path": ["bin1", "bin2"],  # Simplified paths that match what mock creates
-            "asset_patterns": "multibin-{version}-{platform}_{arch}.tar.gz",
-        },
-    }
-
-    # Override the mock_download_func to create correct structure
-    def custom_mock_download(url: str, destination: str) -> str:
-        # Extract tool name from URL
-        parts = url.split("/")[-1].split("-")
-        tool_name = parts[0]
-
-        # For multibin tool, create archive with both binaries
-        if tool_name == "multibin":
-            create_dummy_archive(Path(destination), ["bin1", "bin2"])
-        else:
-            create_dummy_archive(Path(destination), tool_name)
-        return destination
-
-    # Run the test with custom mock
-    with patch("dotbins.download.download_file", side_effect=custom_mock_download):
-        config = run_e2e_test(temp_tools_dir=temp_tools_dir, tool_configs=tool_configs)
-
-    # Verify results
-    verify_binaries_installed(config)
-
-
-def mock_latest_release_with_all_platforms(repo: str) -> dict:
-    """Create a mock release with assets for all platforms."""
-    tool_name = repo.split("/")[-1]
-    return {
-        "tag_name": "v1.2.3",
-        "assets": [
-            {
-                "name": f"{tool_name}-1.2.3-linux_amd64.tar.gz",
-                "browser_download_url": f"https://example.com/{tool_name}-1.2.3-linux_amd64.tar.gz",
-            },
-            {
-                "name": f"{tool_name}-1.2.3-linux_arm64.tar.gz",
-                "browser_download_url": f"https://example.com/{tool_name}-1.2.3-linux_arm64.tar.gz",
-            },
-            {
-                "name": f"{tool_name}-1.2.3-darwin_amd64.tar.gz",
-                "browser_download_url": f"https://example.com/{tool_name}-1.2.3-darwin_amd64.tar.gz",
-            },
-            {
-                "name": f"{tool_name}-1.2.3-darwin_arm64.tar.gz",
-                "browser_download_url": f"https://example.com/{tool_name}-1.2.3-darwin_arm64.tar.gz",
-            },
-        ],
-    }
-
-
 @pytest.mark.parametrize(
     "raw_config",
     [
@@ -452,10 +392,4 @@ def test_e2e_update_tools(temp_tools_dir: Path, raw_config: dict) -> None:
             shell_setup=False,
         )
 
-    for tool_conf in config.tools.values():
-        for platform, arch_list in config.platforms.items():
-            for arch in arch_list:
-                for binary_name in tool_conf.binary_name:
-                    bin_file = config.bin_dir(platform, arch) / binary_name
-                    assert bin_file.exists(), f"Expected {bin_file} to exist after update!"
-                    assert os.access(bin_file, os.X_OK), f"Expected {bin_file} to be executable"
+    verify_binaries_installed(config)

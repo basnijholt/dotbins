@@ -153,7 +153,7 @@ def _find_binary_in_extracted_files(
     # Direct path
     source_path = temp_dir / binary_path
     if not source_path.exists():
-        msg = f"Binary not found at {source_path}"
+        msg = f"Binary ({binary_path}) not found at {source_path}"
         raise FileNotFoundError(msg)
 
     return source_path
