@@ -68,7 +68,7 @@ def create_dummy_archive() -> Callable:
                     for file_path in created_files:
                         archive_path = file_path.relative_to(tmp_path)
                         zipf.write(file_path, arcname=str(archive_path))
-            else:
+            else:  # pragma: no cover
                 msg = f"Unsupported archive type: {archive_type}"
                 raise ValueError(msg)
 
