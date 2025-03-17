@@ -175,35 +175,6 @@ def mock_archive_substring_matches(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def mock_archive_with_symlinks(tmp_path: Path) -> Path:
-    """Create a mock archive with symlinks to binaries."""
-    extract_dir = tmp_path / "extract_symlinks"
-    extract_dir.mkdir()
-
-    # Create actual binary
-    binary = extract_dir / "actual-tool"
-    binary.touch()
-    os.chmod(binary, 0o755)  # Make executable  # noqa: S103
-
-    # Create symlinks in various locations
-    bin_dir = extract_dir / "bin"
-    bin_dir.mkdir()
-    symlink_in_bin = bin_dir / "tool"
-    symlink_in_bin.symlink_to(binary)
-
-    symlink_in_root = extract_dir / "tool"
-    symlink_in_root.symlink_to(binary)
-
-    archive_path = tmp_path / "with_symlinks.zip"
-    with zipfile.ZipFile(archive_path, "w") as zipf:
-        zipf.write(binary, arcname="actual-tool")
-        zipf.write(symlink_in_bin, arcname="bin/tool")
-        zipf.write(symlink_in_root, arcname="tool")
-
-    return archive_path
-
-
-@pytest.fixture
 def mock_archive_non_executable_match(tmp_path: Path) -> Path:
     """Create a mock archive with exact name matches that aren't executable."""
     extract_dir = tmp_path / "extract_non_exec_match"
