@@ -201,13 +201,7 @@ class BinSpec:
         assets = self.tool_config.latest_release["assets"]
         if asset_pattern is None:
             return _auto_detect_asset(self.platform, self.arch, assets)
-        log(f"Looking for asset with pattern: {asset_pattern}", "info", "🔍")
-        for asset in assets:
-            if re.search(asset_pattern, asset["name"]):
-                log(f"Found matching asset: {asset['name']}", "success")
-                return asset
-        log(f"No asset matching '{asset_pattern}' found", "warning")
-        return None
+        return _find_matching_asset(asset_pattern, assets)
 
     def skip_download(self, config: Config, force: bool) -> bool:
         """Check if download should be skipped (binary already exists)."""
@@ -471,3 +465,17 @@ def _auto_detect_asset(
     asset = assets[asset_names.index(asset_name)]
     log(f"Found asset: {asset['name']}", "success")
     return asset
+
+
+def _find_matching_asset(
+    asset_pattern: str,
+    assets: list[_AssetDict],
+) -> _AssetDict | None:
+    """Find a matching asset for the tool."""
+    log(f"Looking for asset with pattern: {asset_pattern}", "info", "🔍")
+    for asset in assets:
+        if re.search(asset_pattern, asset["name"]):
+            log(f"Found matching asset: {asset['name']}", "success")
+            return asset
+    log(f"No asset matching '{asset_pattern}' found", "warning")
+    return None
