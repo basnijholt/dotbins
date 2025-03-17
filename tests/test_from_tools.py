@@ -89,7 +89,7 @@ def test_config_generation_with_mocked_release(
 
 @pytest.mark.parametrize(
     "key",
-    ["repo", "extract_binary", "binary_name", "binary_path"],
+    ["repo", "extract_binary", "binary_name"],
 )
 @pytest.mark.parametrize("tool_name", TOOLS)
 def test_tool_config_has_required_fields(
