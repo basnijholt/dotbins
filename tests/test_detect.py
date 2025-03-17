@@ -13,7 +13,6 @@ from dotbins.detect import (
     _detect_system,
     _match_arch,
     _match_os,
-    chain_detectors,
     create_system_detector,
     detect_single_asset,
 )
@@ -210,49 +209,3 @@ def test_system_detector_detect() -> None:
     assert match == "app-linux-amd64.tar.gz"
     assert candidates is None
     assert error is None
-
-
-def test_detector_chain() -> None:
-    """Test the chain_detectors function."""
-    # Set up a chain of detectors
-    os_detector_fn = create_system_detector("linux", "amd64")
-    asset_detector_fn = detect_single_asset("app")
-
-    chain_fn = chain_detectors(detectors=[asset_detector_fn], os_detector=os_detector_fn)
-
-    # Test successful chain
-    assets = [
-        "app-linux-amd64.tar.gz",
-        "app-darwin-amd64.tar.gz",
-        "other-linux-amd64.tar.gz",
-    ]
-    match, candidates, error = chain_fn(assets)
-    assert match == "app-linux-amd64.tar.gz"
-    assert candidates is None
-    assert error is None
-
-    # Test chain that narrows down but then has multiple matches
-    chain_fn = chain_detectors(
-        detectors=[detect_single_asset("app")],
-        os_detector=os_detector_fn,
-    )
-    assets = [
-        "app-linux-amd64.tar.gz",
-        "app-linux-x86_64.tar.gz",
-        "other-linux-amd64.tar.gz",
-    ]
-    match, candidates, error = chain_fn(assets)
-    assert match == ""
-    assert candidates == ["app-linux-amd64.tar.gz", "app-linux-x86_64.tar.gz"]
-    assert error == "2 candidates found for asset chain"
-
-    # Test chain with error in first detector
-    chain_fn = chain_detectors(
-        detectors=[detect_single_asset("missing")],
-        os_detector=os_detector_fn,
-    )
-    assets = ["app-linux-amd64.tar.gz", "other-linux-amd64.tar.gz"]
-    match, candidates, error = chain_fn(assets)
-    assert match == ""
-    assert candidates is None
-    assert error == "asset `missing` not found"

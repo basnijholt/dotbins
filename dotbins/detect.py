@@ -189,37 +189,3 @@ def create_system_detector(
         msg = f"unsupported target arch: {arch_name}"
         raise ValueError(msg)
     return _detect_system(os_mapping[os_name], arch_mapping[arch_name])
-
-
-def chain_detectors(detectors: list[DetectFunc], os_detector: DetectFunc) -> DetectFunc:
-    """Chain multiple detectors together."""
-
-    def detector(assets: Assets) -> DetectResult:
-        current_assets = assets
-
-        # Apply each detector in sequence
-        for detect_fn in detectors:
-            choice, candidates, err = detect_fn(current_assets)
-            if len(candidates or []) == 0 and err is not None:
-                return "", None, err
-            if len(candidates or []) == 0:
-                return choice, None, None
-            if candidates is not None:
-                current_assets = candidates
-
-        # Apply the system detector
-        choice, candidates, err = os_detector(current_assets)
-        if len(candidates or []) == 0 and err is not None:
-            return "", None, err
-        if len(candidates or []) == 0:
-            return choice, None, None
-        if candidates is not None and len(candidates) >= 1:
-            current_assets = candidates
-
-        return (
-            "",
-            current_assets,
-            f"{len(current_assets)} candidates found for asset chain",
-        )
-
-    return detector
