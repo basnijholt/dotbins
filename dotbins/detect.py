@@ -84,6 +84,7 @@ arch_mapping: dict[str, _Arch] = {
     "386": ArchI386,
     "arm": ArchArm,
     "arm64": ArchArm64,
+    "aarch64": ArchArm64,  # alias for arm64
     "riscv64": ArchRiscv64,
 }
 
