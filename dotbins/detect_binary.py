@@ -23,15 +23,8 @@ def _is_definitely_not_exec(filename: str) -> bool:
 
 
 def _is_likely_exec(filename: str) -> bool:
-    return (
-        bool(
-            re.search(
-                r"\.(exe|bin|appimage|run|out)$",
-                filename.lower(),
-            ),
-        )
-        or "." not in Path(filename).name
-    )
+    match = re.search(r"\.(exe|bin|appimage|run|out)$", filename.lower())
+    return bool(match) or "." not in Path(filename).name
 
 
 def _is_exec(filename: str, mode: int) -> bool:
