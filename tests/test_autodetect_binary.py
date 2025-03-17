@@ -10,7 +10,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from dotbins.config import BinSpec, build_tool_config
-from dotbins.download import _auto_detect_binary_paths, _extract_from_archive
+from dotbins.detect_binary import auto_detect_binary_paths
+from dotbins.download import _extract_from_archive
 
 
 @pytest.fixture
@@ -81,7 +82,7 @@ def test_auto_detect_binary_paths_simple(
 
     # Test auto-detection
     binary_names = ["fzf"]
-    detected_paths = _auto_detect_binary_paths(extract_dir, binary_names)
+    detected_paths = auto_detect_binary_paths(extract_dir, binary_names)
 
     assert len(detected_paths) == 1
     assert detected_paths[0] == "fzf"
@@ -102,7 +103,7 @@ def test_auto_detect_binary_paths_nested(
 
     # Test auto-detection
     binary_names = ["delta"]
-    detected_paths = _auto_detect_binary_paths(extract_dir, binary_names)
+    detected_paths = auto_detect_binary_paths(extract_dir, binary_names)
 
     assert len(detected_paths) == 1
     assert detected_paths[0] == "bin/delta"  # Should prefer the one in bin/
@@ -123,7 +124,7 @@ def test_auto_detect_binary_paths_multiple(
 
     # Test auto-detection
     binary_names = ["uv", "uvx"]
-    detected_paths = _auto_detect_binary_paths(extract_dir, binary_names)
+    detected_paths = auto_detect_binary_paths(extract_dir, binary_names)
 
     assert len(detected_paths) == 2
     assert detected_paths[0] == "uv"
@@ -145,7 +146,7 @@ def test_auto_detect_binary_paths_no_match(
 
     # Test auto-detection
     binary_names = ["git-lfs"]
-    detected_paths = _auto_detect_binary_paths(extract_dir, binary_names)
+    detected_paths = auto_detect_binary_paths(extract_dir, binary_names)
 
     assert len(detected_paths) == 0  # Should not find any matches
 
