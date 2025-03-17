@@ -41,6 +41,7 @@ def _extract_from_archive(
             binary_paths,
             bin_spec.version,
             bin_spec.tool_arch,
+            bin_spec.tool_platform,
         )
 
     except Exception as e:
@@ -68,6 +69,7 @@ def _process_binaries(
     binary_paths: list[str],
     version: str,
     tool_arch: str,
+    tool_platform: str,
 ) -> None:
     """Process each binary by finding it and copying to destination."""
     for binary_path_pattern, binary_name in zip(binary_paths, binary_names):
@@ -76,6 +78,7 @@ def _process_binaries(
             binary_path_pattern,
             version,
             tool_arch,
+            tool_platform,
         )
         _copy_binary_to_destination(source_path, destination_dir, binary_name)
 
@@ -137,10 +140,11 @@ def _find_binary_in_extracted_files(
     binary_path: str,
     version: str,
     tool_arch: str,
+    tool_platform: str,
 ) -> Path:
     """Find a specific binary in the extracted files."""
     # Replace variables in the binary path
-    binary_path = _replace_variables_in_path(binary_path, version, tool_arch)
+    binary_path = _replace_variables_in_path(binary_path, version, tool_arch, tool_platform)
 
     # Handle glob patterns in binary path
     if "*" in binary_path:
@@ -173,13 +177,16 @@ def _copy_binary_to_destination(
     log(f"Copied binary to {dest_path}", "success")
 
 
-def _replace_variables_in_path(path: str, version: str, arch: str) -> str:
+def _replace_variables_in_path(path: str, version: str, arch: str, platform: str) -> str:
     """Replace variables in a path with their values."""
     if "{version}" in path and version:
         path = path.replace("{version}", version)
 
     if "{arch}" in path and arch:
         path = path.replace("{arch}", arch)
+
+    if "{platform}" in path and platform:
+        path = path.replace("{platform}", platform)
 
     return path
 
