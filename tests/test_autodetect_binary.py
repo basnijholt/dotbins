@@ -203,6 +203,29 @@ def mock_archive_with_symlinks(tmp_path: Path) -> Path:
     return archive_path
 
 
+@pytest.fixture
+def mock_archive_non_executable_match(tmp_path: Path) -> Path:
+    """Create a mock archive with exact name matches that aren't executable."""
+    extract_dir = tmp_path / "extract_non_exec_match"
+    extract_dir.mkdir()
+
+    # Create binary with exact name match but no executable permissions
+    binary = extract_dir / "mytool"
+    binary.touch()  # Explicitly not making executable
+
+    # Create another binary with executable bit but different name
+    other = extract_dir / "other-tool"
+    other.touch()
+    os.chmod(other, 0o755)  # Make executable  # noqa: S103
+
+    archive_path = tmp_path / "non_exec_match.zip"
+    with zipfile.ZipFile(archive_path, "w") as zipf:
+        zipf.write(binary, arcname="mytool")
+        zipf.write(other, arcname="other-tool")
+
+    return archive_path
+
+
 def test_auto_detect_binary_paths_simple(
     tmp_path: Path,
     mock_archive_simple: Path,
@@ -430,3 +453,18 @@ def test_substring_matches_fallback(
         "other-mytool-bin",
         "mytool.backup",
     ], "Should find a substring match"
+
+
+def test_non_executable_exact_match(
+    tmp_path: Path,
+    mock_archive_non_executable_match: Path,
+) -> None:
+    """Test handling of exact name matches that aren't executable."""
+    extract_dir = tmp_path / "test_non_exec_match"
+    extract_dir.mkdir()
+
+    with zipfile.ZipFile(mock_archive_non_executable_match, "r") as zipf:
+        zipf.extractall(path=extract_dir)
+
+    detected_paths = auto_detect_binary_paths(extract_dir, ["mytool"])
+    assert detected_paths == ["mytool"], "Should find exact match even if not executable"
