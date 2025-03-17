@@ -37,11 +37,8 @@ def _extract_from_archive(
         _process_binaries(
             temp_dir,
             destination_dir,
-            bin_spec.tool_config.binary_name,
             binary_paths,
-            bin_spec.version,
-            bin_spec.tool_arch,
-            bin_spec.tool_platform,
+            bin_spec,
         )
 
     except Exception as e:
@@ -65,20 +62,17 @@ def _detect_binary_paths(temp_dir: Path, binary_names: list[str]) -> list[str]:
 def _process_binaries(
     temp_dir: Path,
     destination_dir: Path,
-    binary_names: list[str],
     binary_paths: list[str],
-    version: str,
-    tool_arch: str,
-    tool_platform: str,
+    bin_spec: BinSpec,
 ) -> None:
     """Process each binary by finding it and copying to destination."""
-    for binary_path_pattern, binary_name in zip(binary_paths, binary_names):
+    for binary_path_pattern, binary_name in zip(binary_paths, bin_spec.tool_config.binary_name):
         source_path = _find_binary_in_extracted_files(
             temp_dir,
             binary_path_pattern,
-            version,
-            tool_arch,
-            tool_platform,
+            bin_spec.version,
+            bin_spec.tool_arch,
+            bin_spec.tool_platform,
         )
         _copy_binary_to_destination(source_path, destination_dir, binary_name)
 
