@@ -180,19 +180,13 @@ class BinSpec:
 
     def asset_pattern(self) -> str | None:
         """Get the formatted asset pattern for the tool."""
-        search_pattern = self.tool_config.asset_patterns[self.platform][self.arch]
-        if search_pattern is None:
-            log(f"No asset pattern found for {self.platform}/{self.arch}", "warning")
-            return None
-        return (
-            search_pattern.format(
-                version=self.version,
-                platform=self.tool_platform,
-                arch=self.tool_arch,
-            )
-            .replace("{version}", ".*")
-            .replace("{arch}", ".*")
-            .replace("{platform}", ".*")
+        return _maybe_asset_pattern(
+            self.tool_config,
+            self.platform,
+            self.arch,
+            self.version,
+            self.tool_platform,
+            self.tool_arch,
         )
 
     def matching_asset(self) -> _AssetDict | None:
@@ -443,6 +437,31 @@ def _validate_tool_config(
                     f"Tool {tool_name}: 'asset_patterns[{platform}]' uses unknown arch '{arch}'",
                     "error",
                 )
+
+
+def _maybe_asset_pattern(
+    tool_config: ToolConfig,
+    platform: str,
+    arch: str,
+    version: str,
+    tool_platform: str,
+    tool_arch: str,
+) -> str | None:
+    """Get the formatted asset pattern for the tool."""
+    search_pattern = tool_config.asset_patterns[platform][arch]
+    if search_pattern is None:
+        log(f"No asset pattern found for {platform}/{arch}", "warning")
+        return None
+    return (
+        search_pattern.format(
+            version=version,
+            platform=tool_platform,
+            arch=tool_arch,
+        )
+        .replace("{version}", ".*")
+        .replace("{arch}", ".*")
+        .replace("{platform}", ".*")
+    )
 
 
 def _auto_detect_asset(
