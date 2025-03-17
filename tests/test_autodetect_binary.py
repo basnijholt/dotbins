@@ -503,15 +503,14 @@ def test_bin_directory_preference(
     with zipfile.ZipFile(mock_archive_bin_matches, "r") as zipf:
         zipf.extractall(path=extract_dir)
 
-    # Test 1: When searching for 'tool', should prefer bin/tool-extra over bin/tool
-    # because it contains the name and is in bin/
     detected_paths = auto_detect_binary_paths(extract_dir, ["tool"])
     assert detected_paths == ["bin/tool"]
 
-    # Test 2: When searching for 'other', should find bin2/other-tool
-    # because it's in a bin directory and contains the name
     detected_paths = auto_detect_binary_paths(extract_dir, ["other-tool"])
-    assert detected_paths == ["bin2/other-tool"], "Should find match in bin2/ directory"
+    assert detected_paths == ["bin2/other-tool"]
+
+    detected_paths = auto_detect_binary_paths(extract_dir, ["extra"])
+    assert detected_paths == ["bin/tool-extra"]
 
     # Verify all test files exist
     assert os.path.exists(extract_dir / "bin" / "tool"), "Generic bin match should exist"
