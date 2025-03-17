@@ -519,3 +519,30 @@ def test_bin_directory_fallback(
     assert os.path.exists(
         extract_dir / "other" / "not-mytool",
     ), "Non-bin match with name should exist"
+
+
+def test_bin_directory_preference(
+    tmp_path: Path,
+    mock_archive_bin_matches: Path,
+) -> None:
+    """Test bin directory matching logic with name matches."""
+    extract_dir = tmp_path / "test_bin_matches"
+    extract_dir.mkdir()
+
+    with zipfile.ZipFile(mock_archive_bin_matches, "r") as zipf:
+        zipf.extractall(path=extract_dir)
+
+    # Test 1: When searching for 'tool', should prefer bin/tool-extra over bin/tool
+    # because it contains the name and is in bin/
+    detected_paths = auto_detect_binary_paths(extract_dir, ["tool"])
+    assert detected_paths == ["bin/tool"]
+
+    # Test 2: When searching for 'other', should find bin2/other-tool
+    # because it's in a bin directory and contains the name
+    detected_paths = auto_detect_binary_paths(extract_dir, ["other-tool"])
+    assert detected_paths == ["bin2/other-tool"], "Should find match in bin2/ directory"
+
+    # Verify all test files exist
+    assert os.path.exists(extract_dir / "bin" / "tool"), "Generic bin match should exist"
+    assert os.path.exists(extract_dir / "bin" / "tool-extra"), "Named bin match should exist"
+    assert os.path.exists(extract_dir / "other-bin" / "tool"), "Non-standard bin match should exist"
