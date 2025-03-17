@@ -208,6 +208,22 @@ def test_auto_detect_binary(
     verify_binaries_installed(config)
 
 
+def test_auto_detect_binary_and_asset_patterns(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+) -> None:
+    """Test that the binary is auto-detected."""
+    tool_configs = {
+        "mytool": {"repo": "fakeuser/mytool"},
+    }
+    config = run_e2e_test(
+        tools_dir=tmp_path,
+        tool_configs=tool_configs,
+        create_dummy_archive=create_dummy_archive,
+    )
+    verify_binaries_installed(config)
+
+
 @pytest.mark.parametrize(
     "raw_config",
     [
