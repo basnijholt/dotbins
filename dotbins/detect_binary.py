@@ -87,9 +87,11 @@ def _find_best_binary_match(
                 substring_matches.append(rel_path)
 
     # Return results in order of preference
+    exact_matches = sorted(exact_matches)
     if exact_matches:
         return exact_matches[0]
 
+    bin_dir_matches = sorted(bin_dir_matches)
     if bin_dir_matches:
         # For bin_dir matches, prefer ones with the binary name in them
         named_matches = [p for p in bin_dir_matches if binary_name in p.name]
@@ -97,6 +99,7 @@ def _find_best_binary_match(
             return named_matches[0]
         return bin_dir_matches[0]
 
+    substring_matches = sorted(substring_matches)
     if substring_matches:
         return substring_matches[0]
 
