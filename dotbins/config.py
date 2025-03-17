@@ -455,11 +455,9 @@ def _auto_detect_asset(
     detect_fn = create_system_detector(platform, arch)
     asset_names = [x["name"] for x in assets]
     asset_name, candidates, err = detect_fn(asset_names)
-    if candidates is not None:
-        log(f"Candidates: {candidates}", "info", "🔍")
-        asset_name = candidates[0]
-        log(f"Using the first candidate: {asset_name}", "info", "🔍")
-    elif err is not None:
+    if err is not None:
+        if candidates:
+            log(f"Found multiple candidates: {candidates}, manually select one", "info", "⁉️")
         log(f"Error detecting asset: {err}", "error")
         return None
     asset = assets[asset_names.index(asset_name)]
