@@ -58,11 +58,11 @@ def _binary_chooser(name: str, mode: int, target_name: str) -> tuple[bool, bool]
 
 def _substring_chooser(
     name: str,
-    mode: int,  # noqa: ARG001
+    mode: int,
     substring: str,
 ) -> tuple[bool, bool]:
     basename = Path(name).name
-    return False, substring.lower() in basename.lower()
+    return False, substring.lower() in basename.lower() and _is_exec(name, mode)
 
 
 def _find_best_binary_match(
