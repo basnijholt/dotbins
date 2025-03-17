@@ -29,10 +29,7 @@ def _extract_from_archive(
         extract_archive(archive_path, temp_dir)
         log(f"Archive extracted to {temp_dir}", "success", "📦")
         _log_extracted_files(temp_dir)
-        binary_paths = bin_spec.tool_config.binary_path or _detect_binary_paths(
-            temp_dir,
-            bin_spec.tool_config.binary_name,
-        )
+        binary_paths = _detect_binary_paths(temp_dir, bin_spec.tool_config)
         _process_binaries(temp_dir, destination_dir, binary_paths, bin_spec)
 
     except Exception as e:
@@ -42,9 +39,12 @@ def _extract_from_archive(
         shutil.rmtree(temp_dir)
 
 
-def _detect_binary_paths(temp_dir: Path, binary_names: list[str]) -> list[str]:
+def _detect_binary_paths(temp_dir: Path, tool_config: ToolConfig) -> list[str]:
     """Auto-detect binary paths if not specified in configuration."""
+    if tool_config.binary_path:
+        return tool_config.binary_path
     log("Binary path not specified, attempting auto-detection...", "info", "🔍")
+    binary_names = tool_config.binary_name
     binary_paths = auto_detect_binary_paths(temp_dir, binary_names)
     if not binary_paths:
         msg = f"Could not auto-detect binary paths for {', '.join(binary_names)}. Please specify binary_path in config."
