@@ -157,6 +157,10 @@ def _detect_system(os_obj: _OS, arch: _Arch) -> DetectFunc:
 
             all_assets.append(a)
 
+        candidates = sorted(candidates)
+        matches = sorted(matches)
+        priority = sorted(priority)
+
         if len(priority) == 1:
             return priority[0], None, None
         if len(priority) > 1:

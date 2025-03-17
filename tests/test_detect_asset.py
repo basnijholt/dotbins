@@ -172,7 +172,7 @@ def test_system_detector_detect() -> None:
     ]
     match, candidates, error = detector(assets)
     assert match == ""
-    assert candidates == ["app-linux-arm64.tar.gz", "app-linux-arm.tar.gz"]
+    assert candidates == ["app-linux-arm.tar.gz", "app-linux-arm64.tar.gz"]
     assert error == "2 candidates found (unsure architecture)"
 
     # No OS or arch match
