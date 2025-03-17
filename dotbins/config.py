@@ -475,10 +475,15 @@ def _auto_detect_asset(
     asset_names = [x["name"] for x in assets]
     asset_name, candidates, err = detect_fn(asset_names)
     if err is not None:
-        if candidates:
-            log(f"Found multiple candidates: {candidates}, manually select one", "info", "⁉️")
-        log(f"Error detecting asset: {err}", "error")
-        return None
+        if err.endswith("matches found"):
+            assert candidates is not None
+            log(f"Found multiple candidates: {candidates}, selecting first", "info")
+            asset_name = candidates[0]
+        else:
+            if candidates:
+                log(f"Found multiple candidates: {candidates}, manually select one", "info", "⁉️")
+            log(f"Error detecting asset: {err}", "error")
+            return None
     asset = assets[asset_names.index(asset_name)]
     log(f"Found asset: {asset['name']}", "success")
     return asset
