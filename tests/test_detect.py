@@ -209,3 +209,22 @@ def test_system_detector_detect() -> None:
     assert match == "app-linux-amd64.tar.gz"
     assert candidates is None
     assert error is None
+
+
+def test_system_detector_single_asset_fallback() -> None:
+    """Test that when there's only one asset, it's returned even if it doesn't match criteria."""
+    detector = _detect_system(OSLinux, ArchAMD64)
+
+    # Single asset with a name that doesn't match any OS or arch patterns
+    assets = ["completely-unrelated-name.zip"]
+    match, candidates, error = detector(assets)
+    assert match == "completely-unrelated-name.zip"
+    assert candidates is None
+    assert error is None
+
+    # Make sure filtered files don't count in the single asset check
+    assets = ["completely-unrelated-name.sha256"]
+    match, candidates, error = detector(assets)
+    assert match == ""
+    assert candidates == []
+    assert error == "no candidates found"

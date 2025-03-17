@@ -10,7 +10,7 @@ from typing import Callable, NamedTuple, Optional
 
 if sys.version_info >= (3, 10):
     from typing import TypeAlias
-else:
+else:  # pragma: no cover
     from typing_extensions import TypeAlias
 
 Asset: TypeAlias = str
