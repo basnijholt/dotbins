@@ -14,19 +14,16 @@ tools:
     repo: junegunn/fzf
     extract_binary: true
     binary_name: fzf
-    binary_path: fzf
 
   bat:
     repo: sharkdp/bat
     extract_binary: true
     binary_name: bat
-    binary_path: bat-v{version}-*/bat
 
   eza:
     repo: eza-community/eza
     extract_binary: true
     binary_name: eza
-    binary_path: eza
     arch_map:
       amd64: x86_64
       arm64: aarch64
@@ -38,13 +35,11 @@ tools:
     repo: ajeetdsouza/zoxide
     extract_binary: true
     binary_name: zoxide
-    binary_path: zoxide
 
   delta:
     repo: dandavison/delta
     extract_binary: true
     binary_name: delta
-    binary_path: delta-{version}-*/delta
 
   uv:
     repo: astral-sh/uv
@@ -62,7 +57,6 @@ tools:
     repo: atuinsh/atuin
     extract_binary: true
     binary_name: atuin
-    binary_path: atuin-{arch}-*/atuin
     arch_map:
       amd64: x86_64
       arm64: aarch64
@@ -74,16 +68,13 @@ tools:
     repo: git-lfs/git-lfs
     extract_binary: true
     binary_name: git-lfs
-    binary_path: git-lfs-{version}/git-lfs
 
   ripgrep:
     repo: BurntSushi/ripgrep
     extract_binary: true
     binary_name: rg
-    binary_path: ripgrep-*/rg
 
   eget:
     repo: zyedidia/eget
     extract_binary: true
     binary_name: eget
-    binary_path: "*/eget"

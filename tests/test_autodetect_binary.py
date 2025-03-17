@@ -10,7 +10,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from dotbins.config import BinSpec, build_tool_config
-from dotbins.download import _auto_detect_binary_paths, _extract_from_archive
+from dotbins.detect_binary import auto_detect_binary_paths
+from dotbins.download import _extract_from_archive
 
 
 @pytest.fixture
@@ -66,6 +67,192 @@ def mock_archive_no_match(tmp_path: Path, create_dummy_archive: Callable) -> Pat
     return archive_path
 
 
+@pytest.fixture
+def mock_archive_non_executables(tmp_path: Path) -> Path:
+    """Create a mock archive with non-executable files."""
+    extract_dir = tmp_path / "extract_non_exec"
+    extract_dir.mkdir()
+
+    # Create various non-executable files
+    files = [
+        "script.py",
+        "doc.md",
+        "config.yaml",
+        "data.json",
+        "image.png",
+        "style.css",
+        "code.ts",
+        "binary.exe.txt",
+    ]
+    for file in files:
+        (extract_dir / file).touch()
+
+    # Create archive
+    archive_path = tmp_path / "non_exec.zip"
+    with zipfile.ZipFile(archive_path, "w") as zipf:
+        for file in files:
+            zipf.write(extract_dir / file, arcname=file)
+
+    return archive_path
+
+
+@pytest.fixture
+def mock_archive_with_dirs(tmp_path: Path) -> Path:
+    """Create a mock archive with directories having binary names."""
+    extract_dir = tmp_path / "extract_dirs"
+    extract_dir.mkdir()
+
+    # Create directories with binary names
+    (extract_dir / "fzf").mkdir()
+    (extract_dir / "bin" / "delta").mkdir(parents=True)
+
+    # Create actual binary
+    binary = extract_dir / "actual-delta"
+    binary.touch()
+    os.chmod(binary, 0o755)  # Make executable  # noqa: S103
+
+    archive_path = tmp_path / "with_dirs.zip"
+    with zipfile.ZipFile(archive_path, "w") as zipf:
+        zipf.write(extract_dir / "fzf", arcname="fzf")
+        zipf.write(extract_dir / "bin" / "delta", arcname="bin/delta")
+        zipf.write(binary, arcname="actual-delta")
+
+    return archive_path
+
+
+@pytest.fixture
+def mock_archive_bin_matches(tmp_path: Path) -> Path:
+    """Create a mock archive with multiple bin directory matches."""
+    extract_dir = tmp_path / "extract_bin_matches"
+    extract_dir.mkdir()
+
+    # Create bin directories with various executables
+    bin_paths = [
+        "bin/tool",  # Generic bin match
+        "bin/tool-extra",  # Named bin match
+        "other-bin/tool",  # Non-standard bin
+        "bin2/other-tool",  # Another bin dir
+    ]
+
+    for path in bin_paths:
+        full_path = extract_dir / path
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+        full_path.touch()
+        os.chmod(full_path, 0o755)  # Make executable  # noqa: S103
+
+    archive_path = tmp_path / "bin_matches.zip"
+    with zipfile.ZipFile(archive_path, "w") as zipf:
+        for path in bin_paths:
+            zipf.write(extract_dir / path, arcname=path)
+
+    return archive_path
+
+
+@pytest.fixture
+def mock_archive_substring_matches(tmp_path: Path) -> Path:
+    """Create a mock archive with substring matches."""
+    extract_dir = tmp_path / "extract_substring"
+    extract_dir.mkdir()
+
+    # Create files with substrings of the binary name
+    files = [
+        "mytool-v1",  # Substring match
+        "other-mytool-bin",  # Another substring match
+        "mytool.backup",  # Another variation
+    ]
+
+    for file in files:
+        path = extract_dir / file
+        path.touch()
+        os.chmod(path, 0o755)  # Make executable  # noqa: S103
+
+    archive_path = tmp_path / "substring_matches.zip"
+    with zipfile.ZipFile(archive_path, "w") as zipf:
+        for file in files:
+            zipf.write(extract_dir / file, arcname=file)
+
+    return archive_path
+
+
+@pytest.fixture
+def mock_archive_with_symlinks(tmp_path: Path) -> Path:
+    """Create a mock archive with symlinks to binaries."""
+    extract_dir = tmp_path / "extract_symlinks"
+    extract_dir.mkdir()
+
+    # Create actual binary
+    binary = extract_dir / "actual-tool"
+    binary.touch()
+    os.chmod(binary, 0o755)  # Make executable  # noqa: S103
+
+    # Create symlinks in various locations
+    bin_dir = extract_dir / "bin"
+    bin_dir.mkdir()
+    symlink_in_bin = bin_dir / "tool"
+    symlink_in_bin.symlink_to(binary)
+
+    symlink_in_root = extract_dir / "tool"
+    symlink_in_root.symlink_to(binary)
+
+    archive_path = tmp_path / "with_symlinks.zip"
+    with zipfile.ZipFile(archive_path, "w") as zipf:
+        zipf.write(binary, arcname="actual-tool")
+        zipf.write(symlink_in_bin, arcname="bin/tool")
+        zipf.write(symlink_in_root, arcname="tool")
+
+    return archive_path
+
+
+@pytest.fixture
+def mock_archive_non_executable_match(tmp_path: Path) -> Path:
+    """Create a mock archive with exact name matches that aren't executable."""
+    extract_dir = tmp_path / "extract_non_exec_match"
+    extract_dir.mkdir()
+
+    # Create binary with exact name match but no executable permissions
+    binary = extract_dir / "mytool"
+    binary.touch()  # Explicitly not making executable
+
+    # Create another binary with executable bit but different name
+    other = extract_dir / "other-tool"
+    other.touch()
+    os.chmod(other, 0o755)  # Make executable  # noqa: S103
+
+    archive_path = tmp_path / "non_exec_match.zip"
+    with zipfile.ZipFile(archive_path, "w") as zipf:
+        zipf.write(binary, arcname="mytool")
+        zipf.write(other, arcname="other-tool")
+
+    return archive_path
+
+
+@pytest.fixture
+def mock_archive_bin_dir_fallback(tmp_path: Path) -> Path:
+    """Create a mock archive with bin directory matches but no name matches."""
+    extract_dir = tmp_path / "extract_bin_fallback"
+    extract_dir.mkdir()
+
+    # Create executables in bin directories
+    bin_paths = [
+        "bin/completely-different",  # Will be found first due to bin/
+        "bin2/unrelated",  # Another bin match
+        "other/not-mytool",  # Non-bin match with name
+    ]
+
+    for path in bin_paths:
+        full_path = extract_dir / path
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+        full_path.touch()
+        os.chmod(full_path, 0o755)  # Make executable  # noqa: S103
+
+    archive_path = tmp_path / "bin_fallback.zip"
+    with zipfile.ZipFile(archive_path, "w") as zipf:
+        for path in bin_paths:
+            zipf.write(extract_dir / path, arcname=path)
+
+    return archive_path
+
+
 def test_auto_detect_binary_paths_simple(
     tmp_path: Path,
     mock_archive_simple: Path,
@@ -81,7 +268,7 @@ def test_auto_detect_binary_paths_simple(
 
     # Test auto-detection
     binary_names = ["fzf"]
-    detected_paths = _auto_detect_binary_paths(extract_dir, binary_names)
+    detected_paths = auto_detect_binary_paths(extract_dir, binary_names)
 
     assert len(detected_paths) == 1
     assert detected_paths[0] == "fzf"
@@ -102,7 +289,7 @@ def test_auto_detect_binary_paths_nested(
 
     # Test auto-detection
     binary_names = ["delta"]
-    detected_paths = _auto_detect_binary_paths(extract_dir, binary_names)
+    detected_paths = auto_detect_binary_paths(extract_dir, binary_names)
 
     assert len(detected_paths) == 1
     assert detected_paths[0] == "bin/delta"  # Should prefer the one in bin/
@@ -123,7 +310,7 @@ def test_auto_detect_binary_paths_multiple(
 
     # Test auto-detection
     binary_names = ["uv", "uvx"]
-    detected_paths = _auto_detect_binary_paths(extract_dir, binary_names)
+    detected_paths = auto_detect_binary_paths(extract_dir, binary_names)
 
     assert len(detected_paths) == 2
     assert detected_paths[0] == "uv"
@@ -145,7 +332,7 @@ def test_auto_detect_binary_paths_no_match(
 
     # Test auto-detection
     binary_names = ["git-lfs"]
-    detected_paths = _auto_detect_binary_paths(extract_dir, binary_names)
+    detected_paths = auto_detect_binary_paths(extract_dir, binary_names)
 
     assert len(detected_paths) == 0  # Should not find any matches
 
@@ -232,3 +419,103 @@ def test_extract_from_archive_auto_detection_failure(
                 platform="linux",
             ),
         )
+
+
+def test_non_executable_files_ignored(
+    tmp_path: Path,
+    mock_archive_non_executables: Path,
+) -> None:
+    """Test that non-executable files are ignored."""
+    extract_dir = tmp_path / "test_non_exec"
+    extract_dir.mkdir()
+
+    with zipfile.ZipFile(mock_archive_non_executables, "r") as zipf:
+        zipf.extractall(path=extract_dir)
+
+    # Try to detect various non-executable files
+    for name in ["script", "doc", "binary"]:
+        detected_paths = auto_detect_binary_paths(extract_dir, [name])
+        assert len(detected_paths) == 0, f"Should not detect {name} as binary"
+
+
+def test_directories_ignored(
+    tmp_path: Path,
+    mock_archive_with_dirs: Path,
+) -> None:
+    """Test that directories with binary names don't affect binary detection."""
+    extract_dir = tmp_path / "test_dirs"
+    extract_dir.mkdir()
+
+    with zipfile.ZipFile(mock_archive_with_dirs, "r") as zipf:
+        zipf.extractall(path=extract_dir)
+
+    # The directories named 'fzf' or 'delta' won't even be considered
+    # because os.walk only passes files to our detection logic
+    detected_paths = auto_detect_binary_paths(extract_dir, ["delta"])
+    assert detected_paths == [
+        "actual-delta",
+    ], "Should only find the actual binary, directories are never considered"
+
+    # Verify the directories exist but weren't considered
+    assert (extract_dir / "fzf").is_dir(), "Directory 'fzf' should exist"
+    assert (extract_dir / "bin" / "delta").is_dir(), "Directory 'bin/delta' should exist"
+
+
+def test_substring_matches_fallback(
+    tmp_path: Path,
+    mock_archive_substring_matches: Path,
+) -> None:
+    """Test that substring matches are used as fallback."""
+    extract_dir = tmp_path / "test_substring"
+    extract_dir.mkdir()
+
+    with zipfile.ZipFile(mock_archive_substring_matches, "r") as zipf:
+        zipf.extractall(path=extract_dir)
+
+    # Should find substring match
+    detected_paths = auto_detect_binary_paths(extract_dir, ["mytool"])
+    assert len(detected_paths) == 1
+    assert detected_paths[0] in [
+        "mytool-v1",
+        "other-mytool-bin",
+        "mytool.backup",
+    ], "Should find a substring match"
+
+
+def test_non_executable_exact_match(
+    tmp_path: Path,
+    mock_archive_non_executable_match: Path,
+) -> None:
+    """Test handling of exact name matches that aren't executable."""
+    extract_dir = tmp_path / "test_non_exec_match"
+    extract_dir.mkdir()
+
+    with zipfile.ZipFile(mock_archive_non_executable_match, "r") as zipf:
+        zipf.extractall(path=extract_dir)
+
+    detected_paths = auto_detect_binary_paths(extract_dir, ["mytool"])
+    assert detected_paths == ["mytool"], "Should find exact match even if not executable"
+
+
+def test_bin_directory_fallback(
+    tmp_path: Path,
+    mock_archive_bin_dir_fallback: Path,
+) -> None:
+    """Test bin directory matching logic with and without name matches."""
+    extract_dir = tmp_path / "test_bin_fallback"
+    extract_dir.mkdir()
+
+    with zipfile.ZipFile(mock_archive_bin_dir_fallback, "r") as zipf:
+        zipf.extractall(path=extract_dir)
+
+    # When no name matches in bin/, should take first bin/ match
+    detected_paths = auto_detect_binary_paths(extract_dir, ["mytool"])
+    assert detected_paths == [
+        "bin/completely-different",
+    ], "Should use first bin/ match when no named matches exist"
+
+    # Verify that other executables exist but weren't chosen
+    assert os.path.exists(extract_dir / "bin2" / "unrelated"), "Other bin match should exist"
+    assert os.path.exists(
+        extract_dir / "other" / "not-mytool",
+    ), "Non-bin match with name should exist"
