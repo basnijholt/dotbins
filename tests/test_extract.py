@@ -78,7 +78,8 @@ def compress_data(data: bytes, compressor: str) -> bytes:
         return bz2.compress(data)
     if compressor == "xz":
         return lzma.compress(data)
-    return data
+    msg = f"Unknown compressor: {compressor}"  # pragma: no cover
+    raise ValueError(msg)  # pragma: no cover
 
 
 @pytest.fixture
