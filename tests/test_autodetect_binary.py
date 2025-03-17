@@ -226,6 +226,33 @@ def mock_archive_non_executable_match(tmp_path: Path) -> Path:
     return archive_path
 
 
+@pytest.fixture
+def mock_archive_bin_dir_fallback(tmp_path: Path) -> Path:
+    """Create a mock archive with bin directory matches but no name matches."""
+    extract_dir = tmp_path / "extract_bin_fallback"
+    extract_dir.mkdir()
+
+    # Create executables in bin directories
+    bin_paths = [
+        "bin/completely-different",  # Will be found first due to bin/
+        "bin2/unrelated",  # Another bin match
+        "other/not-mytool",  # Non-bin match with name
+    ]
+
+    for path in bin_paths:
+        full_path = extract_dir / path
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+        full_path.touch()
+        os.chmod(full_path, 0o755)  # Make executable  # noqa: S103
+
+    archive_path = tmp_path / "bin_fallback.zip"
+    with zipfile.ZipFile(archive_path, "w") as zipf:
+        for path in bin_paths:
+            zipf.write(extract_dir / path, arcname=path)
+
+    return archive_path
+
+
 def test_auto_detect_binary_paths_simple(
     tmp_path: Path,
     mock_archive_simple: Path,
@@ -468,3 +495,27 @@ def test_non_executable_exact_match(
 
     detected_paths = auto_detect_binary_paths(extract_dir, ["mytool"])
     assert detected_paths == ["mytool"], "Should find exact match even if not executable"
+
+
+def test_bin_directory_fallback(
+    tmp_path: Path,
+    mock_archive_bin_dir_fallback: Path,
+) -> None:
+    """Test bin directory matching logic with and without name matches."""
+    extract_dir = tmp_path / "test_bin_fallback"
+    extract_dir.mkdir()
+
+    with zipfile.ZipFile(mock_archive_bin_dir_fallback, "r") as zipf:
+        zipf.extractall(path=extract_dir)
+
+    # When no name matches in bin/, should take first bin/ match
+    detected_paths = auto_detect_binary_paths(extract_dir, ["mytool"])
+    assert detected_paths == [
+        "bin/completely-different",
+    ], "Should use first bin/ match when no named matches exist"
+
+    # Verify that other executables exist but weren't chosen
+    assert os.path.exists(extract_dir / "bin2" / "unrelated"), "Other bin match should exist"
+    assert os.path.exists(
+        extract_dir / "other" / "not-mytool",
+    ), "Non-bin match with name should exist"
