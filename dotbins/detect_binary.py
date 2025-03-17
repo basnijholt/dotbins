@@ -44,10 +44,7 @@ def _is_exec(filename: str, mode: int) -> bool:
     return _is_likely_exec(filename)
 
 
-def _binary_chooser(name: str, is_dir: bool, mode: int, target_name: str) -> tuple[bool, bool]:
-    if is_dir:
-        return False, False
-
+def _binary_chooser(name: str, mode: int, target_name: str) -> tuple[bool, bool]:
     basename = Path(name).name
 
     is_direct = (
@@ -61,13 +58,9 @@ def _binary_chooser(name: str, is_dir: bool, mode: int, target_name: str) -> tup
 
 def _substring_chooser(
     name: str,
-    is_dir: bool,
     mode: int,  # noqa: ARG001
     substring: str,
 ) -> tuple[bool, bool]:
-    if is_dir:
-        return False, False
-
     basename = Path(name).name
     return False, substring.lower() in basename.lower()
 
@@ -87,7 +80,7 @@ def _find_best_binary_match(
             mode = file_path.stat().st_mode
 
             # Try exact match
-            is_match, _ = _binary_chooser(str(rel_path), False, mode, binary_name)
+            is_match, _ = _binary_chooser(str(rel_path), mode, binary_name)
             if is_match:
                 exact_matches.append(rel_path)
 
@@ -96,8 +89,8 @@ def _find_best_binary_match(
                 bin_dir_matches.append(rel_path)
 
             # Track substring matches
-            _, is_match = _substring_chooser(str(rel_path), False, mode, binary_name)
-            if is_match and _is_exec(str(rel_path), mode):
+            _, is_match = _substring_chooser(str(rel_path), mode, binary_name)
+            if is_match:
                 substring_matches.append(rel_path)
 
     # Return results in order of preference
