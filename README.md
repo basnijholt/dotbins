@@ -41,6 +41,7 @@ dotbins get junegunn/fzf  # Installs to ~/.local/bin
 - [:star2: Features](#star2-features)
 - [:books: Usage](#books-usage)
   - [Commands](#commands)
+  - [Quick Install with `dotbins get`](#quick-install-with-dotbins-get)
 - [:hammer_and_wrench: Installation](#hammer_and_wrench-installation)
 - [:gear: Configuration](#gear-configuration)
   - [Basic Configuration](#basic-configuration)
