@@ -11,9 +11,13 @@ from rich.markdown import Markdown
 
 from . import __version__
 from .analyze import analyze_tool
-from .config import Config
+from .config import Config, build_tool_config
 from .readme import generate_readme_content
-from .utils import log, print_shell_setup
+from .utils import (
+    current_platform,
+    log,
+    print_shell_setup,
+)
 
 
 def _list_tools(config: Config) -> None:
@@ -76,6 +80,44 @@ def _generate_readme(config: Config, print_content: bool = True, write_file: boo
         console.print(md)
 
     log("Generated README file with tool information", "success", "📝")
+
+
+def _get_tool(repo: str, dest_dir: str | Path, name: str | None = None) -> None:
+    """Get a specific tool from a GitHub repository and install it directly.
+
+    This command bypasses the configuration file and installs the tool directly
+    to the specified directory.
+
+    Args:
+        repo: GitHub repository in the format 'owner/repo'
+        dest_dir: Directory to install the binary to
+        name: Name to use for the tool (if different from repo name)
+
+    """
+    tool_name = name or repo.split("/")[-1]
+    platform, arch = current_platform()
+    log(f"Getting {tool_name} from {repo} for {platform}/{arch}...", "info", "🔍")
+    dest_dir_path = Path(dest_dir).expanduser()
+    config = Config(
+        tools_dir=dest_dir_path,
+        platforms={platform: [arch]},
+        tools={tool_name: build_tool_config(tool_name, {"repo": repo})},
+    )
+    config._bin_dir = dest_dir_path
+
+    try:
+        config.update_tools(
+            tools=[tool_name],
+            platform=platform,
+            architecture=arch,
+            current=False,
+            force=True,
+            generate_readme=False,
+        )
+        log(f"Successfully installed {tool_name}", "success", "🎉")
+    except Exception as e:
+        log(f"Error getting {tool_name}: {e}", "error", print_exception=True)
+        sys.exit(1)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -189,6 +231,25 @@ def create_parser() -> argparse.ArgumentParser:
         help="Don't write the README to a file",
     )
 
+    # Add get command
+    get_parser = subparsers.add_parser(
+        "get",
+        help="Download and install a tool directly without using a configuration file",
+    )
+    get_parser.add_argument(
+        "repo",
+        help="GitHub repository in the format 'owner/repo'",
+    )
+    get_parser.add_argument(
+        "--dest",
+        default="~/.local/bin",
+        help="Destination directory for the binary (default: ~/.local/bin)",
+    )
+    get_parser.add_argument(
+        "--name",
+        help="Name to use for the tool (default: derived from repo)",
+    )
+
     return parser
 
 
@@ -198,7 +259,9 @@ def main() -> None:  # pragma: no cover
     args = parser.parse_args()
 
     try:
-        # Create config
+        if args.command == "get":
+            _get_tool(args.repo, args.dest, args.name)
+            return
         config = Config.from_file(args.config_file)
 
         # Override tools directory if specified
