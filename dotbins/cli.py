@@ -92,7 +92,6 @@ def _get_tool(repo: str, dest_dir: str | Path, name: str | None = None) -> None:
     """
     tool_name = name or repo.split("/")[-1]
     platform, arch = current_platform()
-    log(f"Getting {tool_name} from {repo} for {platform}/{arch}...", "info", "🔍")
     dest_dir_path = Path(dest_dir).expanduser()
     config = Config(
         tools_dir=dest_dir_path,
@@ -100,20 +99,7 @@ def _get_tool(repo: str, dest_dir: str | Path, name: str | None = None) -> None:
         tools={tool_name: build_tool_config(tool_name, {"repo": repo})},
     )
     config._bin_dir = dest_dir_path
-
-    try:
-        config.update_tools(
-            tools=[tool_name],
-            platform=platform,
-            architecture=arch,
-            current=False,
-            force=True,
-            generate_readme=False,
-        )
-        log(f"Successfully installed {tool_name}", "success", "🎉")
-    except Exception as e:
-        log(f"Error getting {tool_name}: {e}", "error", print_exception=True)
-        sys.exit(1)
+    config.update_tools(tools=[tool_name], current=True, force=True, generate_readme=False)
 
 
 def create_parser() -> argparse.ArgumentParser:
