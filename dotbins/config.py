@@ -10,6 +10,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import TypedDict, TypeVar
 
+import requests
 import yaml
 
 from .detect_asset import create_system_detector
@@ -17,6 +18,11 @@ from .download import download_files_in_parallel, prepare_download_tasks, proces
 from .readme import generate_readme_content, write_readme_file
 from .utils import current_platform, latest_release_info, log
 from .versions import VersionStore
+
+if sys.version_info >= (3, 11):
+    from typing import Required
+else:  # pragma: no cover
+    from typing_extensions import Required
 
 DEFAULT_TOOLS_DIR = "~/.dotbins"
 DEFAULT_PLATFORMS = {
@@ -58,6 +64,16 @@ class Config:
     def from_file(cls, config_path: str | Path | None = None) -> Config:
         """Load configuration from YAML, or return defaults if no file found."""
         return config_from_file(config_path)
+
+    @classmethod
+    def from_url(cls, config_url: str) -> Config:
+        """Load configuration from a URL and return a Config object."""
+        return config_from_url(config_url)
+
+    @classmethod
+    def from_dict(cls, config_dict: RawConfigDict) -> Config:
+        """Load configuration from a dictionary and return a Config object."""
+        return _config_from_dict(config_dict)
 
     def make_binaries_executable(self: Config) -> None:
         """Make all binaries executable."""
@@ -243,10 +259,18 @@ class BinSpec:
         return False
 
 
+class RawConfigDict(TypedDict, total=False):
+    """TypedDict for raw data passed to config_from_dict."""
+
+    tools_dir: str
+    platforms: dict[str, list[str]]
+    tools: dict[str, RawToolConfigDict]
+
+
 class RawToolConfigDict(TypedDict, total=False):
     """TypedDict for raw data passed to build_tool_config."""
 
-    repo: str  # Repository in format "owner/repo"
+    repo: Required[str]  # Repository in format "owner/repo"
     extract_binary: bool  # Whether to extract binary from archive
     platform_map: dict[str, str]  # Map from system platform to tool's platform name
     arch_map: dict[str, str]  # Map from system architecture to tool's architecture name
@@ -313,7 +337,7 @@ def config_from_file(config_path: str | Path | None = None) -> Config:
 
     try:
         with open(path) as f:
-            data = yaml.safe_load(f) or {}
+            data: RawConfigDict = yaml.safe_load(f) or {}  # type: ignore[assignment]
     except FileNotFoundError:
         log(f"Configuration file not found: {path}", "warning")
         return Config()
@@ -329,7 +353,7 @@ def config_from_file(config_path: str | Path | None = None) -> Config:
     return cfg
 
 
-def _config_from_dict(data: dict) -> Config:
+def _config_from_dict(data: RawConfigDict) -> Config:
     tools_dir = data.get("tools_dir", DEFAULT_TOOLS_DIR)
     platforms = data.get("platforms", DEFAULT_PLATFORMS)
     raw_tools = data.get("tools", {})
@@ -343,6 +367,44 @@ def _config_from_dict(data: dict) -> Config:
     config_obj = Config(tools_dir=tools_dir_path, platforms=platforms, tools=tool_configs)
     config_obj.validate()
     return config_obj
+
+
+def _repo_url_to_raw_url(repo_url: str) -> str:
+    """Convert a GitHub repository URL to a raw URL."""
+    # e.g.,
+    # https://github.com/basnijholt/dotbins/blob/main/dotbins.yaml
+    # becomes
+    # https://raw.githubusercontent.com/basnijholt/dotbins/refs/heads/main/dotbins.yaml
+    if "github.com" not in repo_url:
+        return repo_url
+    return repo_url.replace(
+        "github.com",
+        "raw.githubusercontent.com",
+    ).replace(
+        "/blob/",
+        "/refs/heads/",
+    )
+
+
+def config_from_url(config_url: str) -> Config:
+    """Download a configuration file from a URL and return a Config object."""
+    from .config import Config
+
+    config_url = _repo_url_to_raw_url(config_url)
+    try:
+        response = requests.get(config_url, timeout=30)
+        response.raise_for_status()
+        yaml_data = yaml.safe_load(response.content)
+        return Config.from_dict(yaml_data)
+    except requests.RequestException as e:
+        log(f"Failed to download configuration: {e}", "error", print_exception=True)
+        sys.exit(1)
+    except yaml.YAMLError as e:
+        log(f"Invalid YAML configuration: {e}", "error", print_exception=True)
+        sys.exit(1)
+    except Exception as e:
+        log(f"Error processing tools from URL: {e}", "error", print_exception=True)
+        sys.exit(1)
 
 
 def _normalize_asset_patterns(

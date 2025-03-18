@@ -28,6 +28,9 @@ uvx dotbins get junegunn/fzf
 
 # Set up multiple tools with a config file
 uvx dotbins update
+
+# Bootstrap a collection of tools from a remote config
+uvx dotbins get https://raw.githubusercontent.com/username/dotbins-config/main/tools.yaml
 ```
 
 **See it in action:**
@@ -130,8 +133,8 @@ positional arguments:
     versions            Show installed tool versions and their last update
                         times
     readme              Generate README.md file with tool information
-    get                 Download and install a tool directly without using a
-                        configuration file
+    get                 Download and install a tool directly from GitHub or
+                        from a remote configuration
 
 options:
   -h, --help            show this help message and exit
@@ -156,7 +159,7 @@ options:
 
 ### Quick Install with `dotbins get`
 
-The `get` command allows you to quickly download and install tools directly from GitHub without setting up a configuration file:
+The `get` command allows you to quickly download and install tools directly from GitHub or from a remote configuration file:
 
 ```bash
 # Install fzf to the default location (~/.local/bin)
@@ -167,14 +170,19 @@ dotbins get BurntSushi/ripgrep --name rg
 
 # Install bat to a specific location
 dotbins get sharkdp/bat --dest ~/bin
+
+# Install multiple tools from a remote config URL
+dotbins get https://example.com/my-tools.yaml --dest ~/.local/bin
 ```
 
 This is perfect for:
 - Quickly installing tools on a new system
 - One-off installations without needing a configuration file
 - Adding tools to PATH in standard locations like `~/.local/bin`
+- Bootstrapping with a pre-configured set of tools using a remote configuration URL
 
-The `get` command automatically detects your current platform and architecture, finds the appropriate release asset, and installs it to the specified location.
+The `get` command automatically detects whether you're providing a GitHub repository or a configuration URL.
+When using a URL, it will download all tools defined in the configuration for your current platform and architecture.
 
 ## :hammer_and_wrench: Installation
 
@@ -451,6 +459,11 @@ dotbins update fzf bat
 Update tools for a specific platform/architecture:
 ```bash
 dotbins update -p macos -a arm64
+```
+
+Install tools from a remote configuration:
+```bash
+dotbins get https://raw.githubusercontent.com/username/dotbins-config/main/tools.yaml --dest ~/bin
 ```
 
 Analyze a GitHub repository to help configure a new tool:

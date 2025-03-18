@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import textwrap
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 from unittest.mock import patch
@@ -10,7 +12,7 @@ from unittest.mock import patch
 import pytest
 
 from dotbins.cli import _get_tool
-from dotbins.config import Config, _config_from_dict
+from dotbins.config import Config, RawConfigDict, RawToolConfigDict, _config_from_dict
 from dotbins.utils import current_platform, log
 
 
@@ -39,7 +41,7 @@ def _create_mock_release_info(
 
 def run_e2e_test(
     tools_dir: Path,
-    tool_configs: dict[str, dict[str, Any]],
+    tool_configs: dict[str, RawToolConfigDict],
     create_dummy_archive: Callable,
     platforms: dict[str, list[str]] | None = None,
     filter_tools: list[str] | None = None,
@@ -67,7 +69,11 @@ def run_e2e_test(
         platforms = {"linux": ["amd64"]}
 
     # Build the raw config dict
-    raw_config = {"tools_dir": str(tools_dir), "platforms": platforms, "tools": tool_configs}
+    raw_config: RawConfigDict = {
+        "tools_dir": str(tools_dir),
+        "platforms": platforms,
+        "tools": tool_configs,
+    }
 
     config = _config_from_dict(raw_config)
 
@@ -134,7 +140,7 @@ def test_simple_tool_update(
     create_dummy_archive: Callable,
 ) -> None:
     """Test updating a simple tool configuration."""
-    tool_configs = {
+    tool_configs: dict[str, RawToolConfigDict] = {
         "mytool": {
             "repo": "fakeuser/mytool",
             "extract_binary": True,
@@ -156,7 +162,7 @@ def test_multiple_tools_with_filtering(
     create_dummy_archive: Callable,
 ) -> None:
     """Test updating multiple tools with filtering."""
-    tool_configs = {
+    tool_configs: dict[str, RawToolConfigDict] = {
         "tool1": {
             "repo": "fakeuser/tool1",
             "extract_binary": True,
@@ -195,7 +201,7 @@ def test_auto_detect_binary(
     create_dummy_archive: Callable,
 ) -> None:
     """Test that the binary is auto-detected."""
-    tool_configs = {
+    tool_configs: dict[str, RawToolConfigDict] = {
         "mytool": {
             "repo": "fakeuser/mytool",
             "asset_patterns": "mytool-{version}-linux_{arch}.tar.gz",
@@ -214,7 +220,7 @@ def test_auto_detect_binary_and_asset_patterns(
     create_dummy_archive: Callable,
 ) -> None:
     """Test that the binary is auto-detected."""
-    tool_configs = {
+    tool_configs: dict[str, RawToolConfigDict] = {
         "mytool": {"repo": "fakeuser/mytool"},
     }
     config = run_e2e_test(
@@ -272,7 +278,7 @@ def test_auto_detect_binary_and_asset_patterns(
 )
 def test_e2e_update_tools(
     tmp_path: Path,
-    raw_config: dict,
+    raw_config: RawConfigDict,
     create_dummy_archive: Callable,
 ) -> None:
     """Shows an end-to-end test.
@@ -326,7 +332,7 @@ def test_e2e_update_tools_skip_up_to_date(tmp_path: Path) -> None:
     - We populate the VersionStore with the exact version returned by mocked GitHub releases.
     - The `config.update_tools` call should skip downloading or extracting anything.
     """
-    raw_config = {
+    raw_config: RawConfigDict = {
         "tools_dir": str(tmp_path),
         "platforms": {"linux": ["amd64"]},
         "tools": {
@@ -391,7 +397,7 @@ def test_e2e_update_tools_partial_skip_and_update(
     - 'mytool' is already up-to-date => skip
     - 'othertool' is on an older version => must update.
     """
-    raw_config = {
+    raw_config: RawConfigDict = {
         "tools_dir": str(tmp_path),
         "platforms": {"linux": ["amd64"]},
         "tools": {
@@ -488,7 +494,7 @@ def test_e2e_update_tools_force_re_download(tmp_path: Path, create_dummy_archive
     - 'mytool' is already up to date at version 1.2.3
     - We specify `force=True` => it MUST redownload
     """
-    raw_config = {
+    raw_config: RawConfigDict = {
         "tools_dir": str(tmp_path),
         "platforms": {"linux": ["amd64"]},
         "tools": {
@@ -558,7 +564,7 @@ def test_e2e_update_tools_specific_platform(tmp_path: Path, create_dummy_archive
     Scenario: We have a config with 'linux' & 'macos', but only request updates for 'macos'
     => Only macOS assets are fetched and placed in the correct bin dir.
     """
-    raw_config = {
+    raw_config: RawConfigDict = {
         "tools_dir": str(tmp_path),
         "platforms": {
             "linux": ["amd64", "arm64"],
@@ -570,7 +576,7 @@ def test_e2e_update_tools_specific_platform(tmp_path: Path, create_dummy_archive
                 "extract_binary": True,
                 "binary_name": "mybinary",
                 "binary_path": "mybinary",
-                "asset_patterns": {
+                "asset_patterns": {  # type: ignore[typeddict-item]
                     "linux": {
                         "amd64": "mytool-{version}-linux_amd64.tar.gz",
                         "arm64": "mytool-{version}-linux_arm64.tar.gz",
@@ -658,6 +664,82 @@ def test_get_tool_command(tmp_path: Path, create_dummy_archive: Callable) -> Non
         patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
         patch("dotbins.download.download_file", side_effect=mock_download_file),
     ):
-        _get_tool(repo="basnijholt/mytool", dest_dir=dest_dir)
+        _get_tool(source="basnijholt/mytool", dest_dir=dest_dir)
 
     assert (dest_dir / "mytool").exists()
+
+
+def test_get_tool_command_with_remote_config(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+) -> None:
+    """Test the 'get' command with a remote config URL.
+
+    This tests the functionality to download a YAML configuration from a URL
+    and install the tools defined in it.
+    """
+    dest_dir = tmp_path / "bin"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    platform, arch = current_platform()
+
+    # Sample YAML configuration that would be fetched from a URL
+    yaml_content = textwrap.dedent(
+        f"""\
+        tools_dir: {dest_dir!s}
+        platforms:
+            {platform}: [{arch}]
+        tools:
+            tool1:
+                repo: fakeuser/tool1
+            tool2:
+                repo: fakeuser/tool2
+        """,
+    )
+
+    # Create a mock response for requests.get
+    @dataclass
+    class MockResponse:
+        content: bytes
+        status_code: int = 200
+
+        def raise_for_status(self) -> None:
+            pass
+
+    def mock_requests_get(
+        url: str,
+        timeout: int | None = None,  # noqa: ARG001
+        **kwargs,  # noqa: ANN003, ARG001
+    ) -> MockResponse:
+        log(f"Mock HTTP GET for URL: {url}", "info")
+        return MockResponse(yaml_content.encode("utf-8"))
+
+    def mock_latest_release_info(repo: str) -> dict:
+        log(f"Getting release info for repo: {repo}", "info")
+        tool_name = repo.split("/")[-1]
+        return {
+            "tag_name": "v1.0.0",
+            "assets": [
+                {
+                    "name": f"{tool_name}-1.0.0-{platform}_{arch}.tar.gz",
+                    "browser_download_url": f"https://example.com/{tool_name}-1.0.0-{platform}_{arch}.tar.gz",
+                },
+            ],
+        }
+
+    def mock_download_file(url: str, destination: str) -> str:
+        log(f"Downloading from {url} to {destination}", "info")
+        tool_name = url.split("/")[-1].split("-")[0]
+        log(f"Creating archive for {tool_name}", "info")
+        create_dummy_archive(Path(destination), binary_names=tool_name)
+        return destination
+
+    with (
+        patch("requests.get", side_effect=mock_requests_get),
+        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
+        patch("dotbins.download.download_file", side_effect=mock_download_file),
+    ):
+        _get_tool(source="https://example.com/config.yaml", dest_dir=dest_dir)
+
+    # Verify that both tools from the config were installed
+    assert (dest_dir / "tool1").exists(), "tool1 should be installed"
+    assert (dest_dir / "tool2").exists(), "tool2 should be installed"

@@ -7,7 +7,12 @@ name = "dotbins"
 description = "Keep updated binaries in your dotfiles"
 dynamic = ["version"]
 authors = [{ name = "Bas Nijholt", email = "bas@nijho.lt" }]
-dependencies = ["requests", "pyyaml", "rich>=13.9.4"]
+dependencies = [
+    "requests",
+    "pyyaml",
+    "rich>=13.9.4",
+    "typing-extensions>=4.11.0; python_version < '3.11'",
+]
 requires-python = ">=3.9"
 
 [project.readme]

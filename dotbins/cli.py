@@ -78,28 +78,32 @@ def _generate_readme(config: Config, print_content: bool = True, write_file: boo
     log("Generated README file with tool information", "success", "📝")
 
 
-def _get_tool(repo: str, dest_dir: str | Path, name: str | None = None) -> None:
+def _get_tool(source: str, dest_dir: str | Path, name: str | None = None) -> None:
     """Get a specific tool from a GitHub repository and install it directly.
 
     This command bypasses the configuration file and installs the tool directly
     to the specified directory.
 
     Args:
-        repo: GitHub repository in the format 'owner/repo'
+        source: GitHub repository in the format 'owner/repo' or URL to a YAML configuration file
         dest_dir: Directory to install the binary to
         name: Name to use for the tool (if different from repo name)
 
     """
-    tool_name = name or repo.split("/")[-1]
     platform, arch = current_platform()
     dest_dir_path = Path(dest_dir).expanduser()
-    config = Config(
-        tools_dir=dest_dir_path,
-        platforms={platform: [arch]},
-        tools={tool_name: build_tool_config(tool_name, {"repo": repo})},
-    )
+    # Determine if source is a URL or a repo based on format
+    if "://" in source and source.endswith(".yaml"):
+        config = Config.from_url(source)
+    else:
+        tool_name = name or source.split("/")[-1]
+        config = Config(
+            tools_dir=dest_dir_path,
+            platforms={platform: [arch]},
+            tools={tool_name: build_tool_config(tool_name, {"repo": source})},
+        )
     config._bin_dir = dest_dir_path
-    config.update_tools(tools=[tool_name], current=True, force=True, generate_readme=False)
+    config.update_tools(current=True, force=True, generate_readme=False)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -216,11 +220,11 @@ def create_parser() -> argparse.ArgumentParser:
     # Add get command
     get_parser = subparsers.add_parser(
         "get",
-        help="Download and install a tool directly without using a configuration file",
+        help="Download and install a tool directly from GitHub or from a remote configuration",
     )
     get_parser.add_argument(
-        "repo",
-        help="GitHub repository in the format 'owner/repo'",
+        "source",
+        help="GitHub repository (owner/repo) or URL to a YAML configuration file",
     )
     get_parser.add_argument(
         "--dest",
@@ -229,7 +233,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
     get_parser.add_argument(
         "--name",
-        help="Name to use for the tool (default: derived from repo)",
+        help="Name to use for the tool when installing from a repository (ignored for config URLs)",
     )
 
     return parser
@@ -242,7 +246,7 @@ def main() -> None:  # pragma: no cover
 
     try:
         if args.command == "get":
-            _get_tool(args.repo, args.dest, args.name)
+            _get_tool(args.source, args.dest, args.name)
             return
         config = Config.from_file(args.config_file)
 
