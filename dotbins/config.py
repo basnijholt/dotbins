@@ -1,4 +1,4 @@
-"""Configuration management for dotbins."""
+"""Configuration for dotbins."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ import yaml
 
 from .detect_asset import create_system_detector
 from .download import download_files_in_parallel, prepare_download_tasks, process_downloaded_files
+from .readme import generate_readme_content, write_readme_file
 from .utils import current_platform, latest_release_info, log
 from .versions import VersionStore
 
@@ -31,6 +32,7 @@ class Config:
     tools_dir: Path = field(default=Path(os.path.expanduser(DEFAULT_TOOLS_DIR)))
     platforms: dict[str, list[str]] = field(default_factory=lambda: DEFAULT_PLATFORMS)
     tools: dict[str, ToolConfig] = field(default_factory=dict)
+    config_path: Path | None = field(default=None, init=False)
 
     def bin_dir(self, platform: str, arch: str, *, create: bool = False) -> Path:
         """Return the bin directory for a given platform and architecture."""
@@ -64,6 +66,21 @@ class Config:
                         if binary.is_file():
                             binary.chmod(binary.stat().st_mode | 0o755)
 
+    def generate_readme(self: Config, write_file: bool = True) -> None:
+        """Generate a README.md file in the tools directory with information about installed tools.
+
+        Args:
+            write_file: Whether to write the README to a file. If False, the README is only generated
+                but not written to disk.
+
+        """
+        # Import here to avoid circular imports
+        if write_file:
+            write_readme_file(self)
+        else:
+            # Just generate the content but don't do anything with it
+            generate_readme_content(self)
+
     def update_tools(
         self: Config,
         tools: list[str] | None = None,
@@ -71,6 +88,7 @@ class Config:
         architecture: str | None = None,
         current: bool = False,
         force: bool = False,
+        generate_readme: bool = True,
     ) -> None:
         """Update tools.
 
@@ -80,6 +98,7 @@ class Config:
             architecture: Architecture to update, if not provided, all architectures will be updated.
             current: Whether to update only the current platform and architecture. Overrides platform and architecture.
             force: Whether to force update.
+            generate_readme: Whether to generate a README.md file with tool information.
 
         """
         tools_to_update = _tools_to_update(self, tools)
@@ -99,6 +118,9 @@ class Config:
         success_count = process_downloaded_files(downloaded_tasks, self.version_store)
         self.make_binaries_executable()
         _print_completion_summary(success_count, total_count)
+
+        if generate_readme:
+            self.generate_readme()
 
 
 def _platforms_and_archs_to_update(
@@ -299,7 +321,9 @@ def config_from_file(config_path: str | Path | None = None) -> Config:
             print_exception=True,
         )
         return Config()
-    return _config_from_dict(data)
+    cfg = _config_from_dict(data)
+    cfg.config_path = path
+    return cfg
 
 
 def _config_from_dict(data: dict) -> Config:

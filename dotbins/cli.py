@@ -6,9 +6,13 @@ import argparse
 import sys
 from pathlib import Path
 
+from rich.console import Console
+from rich.markdown import Markdown
+
 from . import __version__
 from .analyze import analyze_tool
 from .config import Config
+from .readme import generate_readme_content
 from .utils import log, print_shell_setup
 
 
@@ -27,9 +31,10 @@ def _update_tools(
     current: bool,
     force: bool,
     shell_setup: bool,
+    generate_readme: bool = True,
 ) -> None:
     """Update tools based on command line arguments."""
-    config.update_tools(tools, platform, architecture, current, force)
+    config.update_tools(tools, platform, architecture, current, force, generate_readme)
     if shell_setup:
         print_shell_setup(config)
 
@@ -42,6 +47,35 @@ def _initialize(config: Config) -> None:
 
     log("dotbins initialized tools directory structure", "success", "🛠️")
     print_shell_setup(config)
+
+    # Generate README file with shell integration instructions
+    config.generate_readme()
+    log("Generated README file with shell integration instructions", "success", "📝")
+
+
+def _generate_readme(config: Config, print_content: bool = True, write_file: bool = True) -> None:
+    """Generate README file with tool information."""
+    # Generate the README content
+    readme_content = generate_readme_content(config)
+
+    # Write to file if requested
+    if write_file:
+        readme_path = config.tools_dir / "README.md"
+        try:
+            with open(readme_path, "w") as f:
+                f.write(readme_content)
+            log(f"Generated README at {readme_path}", "success", "📝")
+        except OSError as e:
+            log(f"Failed to write README: {e}", "error", print_exception=True)
+            return
+
+    # Print content if requested
+    if print_content:
+        console = Console()
+        md = Markdown(readme_content)
+        console.print(md)
+
+    log("Generated README file with tool information", "success", "📝")
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -110,6 +144,11 @@ def create_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print shell setup instructions",
     )
+    update_parser.add_argument(
+        "--no-readme",
+        action="store_true",
+        help="Skip generating README.md file",
+    )
 
     # init command
     _init_parser = subparsers.add_parser("init", help="Initialize directory structure")
@@ -132,6 +171,22 @@ def create_parser() -> argparse.ArgumentParser:
     _versions_parser = subparsers.add_parser(
         "versions",
         help="Show installed tool versions and their last update times",
+    )
+
+    # Add readme command
+    readme_parser = subparsers.add_parser(
+        "readme",
+        help="Generate README.md file with tool information",
+    )
+    readme_parser.add_argument(
+        "--no-print",
+        action="store_true",
+        help="Don't print the README content to the console",
+    )
+    readme_parser.add_argument(
+        "--no-file",
+        action="store_true",
+        help="Don't write the README to a file",
     )
 
     return parser
@@ -163,6 +218,13 @@ def main() -> None:  # pragma: no cover
                 args.current,
                 args.force,
                 args.shell_setup,
+                not args.no_readme,
+            )
+        elif args.command == "readme":
+            _generate_readme(
+                config,
+                not args.no_print,
+                not args.no_file,
             )
         elif args.command == "analyze":
             analyze_tool(args.repo, args.name)

@@ -69,3 +69,12 @@ tools:
   direnv:
     repo: direnv/direnv
     extract_binary: false
+
+  lazygit:
+    repo: jesseduffield/lazygit
+
+  fd:
+    repo: sharkdp/fd
+
+  duf:
+    repo: muesli/duf
