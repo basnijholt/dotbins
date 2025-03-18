@@ -62,7 +62,6 @@ uvx dotbins get https://raw.githubusercontent.com/username/dotbins-config/main/t
   - [Full Configuration Example](#full-configuration-example)
 - [:bulb: Examples](#bulb-examples)
 - [:computer: Shell Integration](#computer-shell-integration)
-- [:mag: Finding Tool Patterns](#mag-finding-tool-patterns)
 - [:heart: Support and Contributions](#heart-support-and-contributions)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
