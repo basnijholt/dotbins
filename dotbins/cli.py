@@ -13,11 +13,7 @@ from . import __version__
 from .analyze import analyze_tool
 from .config import Config, build_tool_config
 from .readme import generate_readme_content
-from .utils import (
-    current_platform,
-    log,
-    print_shell_setup,
-)
+from .utils import current_platform, log, print_shell_setup
 
 
 def _list_tools(config: Config) -> None:
