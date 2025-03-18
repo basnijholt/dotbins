@@ -16,7 +16,7 @@ import yaml
 from .detect_asset import create_system_detector
 from .download import download_files_in_parallel, prepare_download_tasks, process_downloaded_files
 from .readme import generate_readme_content, write_readme_file
-from .utils import current_platform, latest_release_info, log
+from .utils import current_platform, github_url_to_raw_url, latest_release_info, log
 from .versions import VersionStore
 
 if sys.version_info >= (3, 11):
@@ -338,7 +338,7 @@ def config_from_file(config_path: str | Path | None = None) -> Config:
     try:
         with open(path) as f:
             data: RawConfigDict = yaml.safe_load(f) or {}  # type: ignore[assignment]
-    except FileNotFoundError:
+    except FileNotFoundError:  # pragma: no cover
         log(f"Configuration file not found: {path}", "warning")
         return Config()
     except yaml.YAMLError:
@@ -369,40 +369,23 @@ def _config_from_dict(data: RawConfigDict) -> Config:
     return config_obj
 
 
-def _repo_url_to_raw_url(repo_url: str) -> str:
-    """Convert a GitHub repository URL to a raw URL."""
-    # e.g.,
-    # https://github.com/basnijholt/dotbins/blob/main/dotbins.yaml
-    # becomes
-    # https://raw.githubusercontent.com/basnijholt/dotbins/refs/heads/main/dotbins.yaml
-    if "github.com" not in repo_url:
-        return repo_url
-    return repo_url.replace(
-        "github.com",
-        "raw.githubusercontent.com",
-    ).replace(
-        "/blob/",
-        "/refs/heads/",
-    )
-
-
 def config_from_url(config_url: str) -> Config:
     """Download a configuration file from a URL and return a Config object."""
     from .config import Config
 
-    config_url = _repo_url_to_raw_url(config_url)
+    config_url = github_url_to_raw_url(config_url)
     try:
         response = requests.get(config_url, timeout=30)
         response.raise_for_status()
         yaml_data = yaml.safe_load(response.content)
         return Config.from_dict(yaml_data)
-    except requests.RequestException as e:
+    except requests.RequestException as e:  # pragma: no cover
         log(f"Failed to download configuration: {e}", "error", print_exception=True)
         sys.exit(1)
-    except yaml.YAMLError as e:
+    except yaml.YAMLError as e:  # pragma: no cover
         log(f"Invalid YAML configuration: {e}", "error", print_exception=True)
         sys.exit(1)
-    except Exception as e:
+    except Exception as e:  # pragma: no cover
         log(f"Error processing tools from URL: {e}", "error", print_exception=True)
         sys.exit(1)
 

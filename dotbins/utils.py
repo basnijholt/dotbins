@@ -30,7 +30,7 @@ def latest_release_info(repo: str) -> dict:
         response = requests.get(url, timeout=30)
         response.raise_for_status()
         return response.json()
-    except requests.RequestException as e:
+    except requests.RequestException as e:  # pragma: no cover
         log("Failed to fetch latest release.", "error", print_exception=True)
         msg = f"Failed to fetch latest release for {repo}: {e}"
         raise RuntimeError(msg) from e
@@ -46,7 +46,7 @@ def download_file(url: str, destination: str) -> str:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
         return destination
-    except requests.RequestException as e:
+    except requests.RequestException as e:  # pragma: no cover
         log(f"Download failed: {e}", "error", print_exception=True)
         msg = f"Failed to download {url}: {e}"
         raise RuntimeError(msg) from e
@@ -178,3 +178,20 @@ def extract_archive(archive_path: str | Path, dest_dir: str | Path) -> None:
     except Exception as e:
         log(f"Extraction failed: {e}", "error", print_exception=True)
         raise
+
+
+def github_url_to_raw_url(repo_url: str) -> str:
+    """Convert a GitHub repository URL to a raw URL."""
+    # e.g.,
+    # https://github.com/basnijholt/dotbins/blob/main/dotbins.yaml
+    # becomes
+    # https://raw.githubusercontent.com/basnijholt/dotbins/refs/heads/main/dotbins.yaml
+    if "github.com" not in repo_url or "/blob/" not in repo_url:
+        return repo_url
+    return repo_url.replace(
+        "github.com",
+        "raw.githubusercontent.com",
+    ).replace(
+        "/blob/",
+        "/refs/heads/",
+    )
