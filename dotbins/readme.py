@@ -303,6 +303,7 @@ def _generate_commands_section() -> list[str]:
         "dotbins readme         # Regenerate this README",
         "dotbins versions       # Show installed tool versions",
         "dotbins analyze REPO   # Analyze GitHub repo for new tool",
+        "dotbins get REPO       # Install tool directly to ~/.local/bin",
         "```",
         "</details>",
     ]
