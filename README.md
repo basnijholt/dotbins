@@ -17,12 +17,11 @@ No package manager, no sudo, no problem.
 
 ## :zap: Quick Start
 
-```bash
-# Install dotbins
-pip install dotbins
+Using the amazing [`uv`](https://docs.astral.sh/uv/):
 
+```bash
 # Download and install a tool directly
-dotbins get junegunn/fzf  # Installs to ~/.local/bin
+uvx dotbins get junegunn/fzf  # Installs to ~/.local/bin
 
 # Or set up a configuration file for managing multiple tools
 # See examples in the Configuration section
