@@ -17,7 +17,7 @@ No package manager, no sudo, no problem.
 
 ## :zap: Quick Start
 
-Using the amazing [`uv`](https://docs.astral.sh/uv/):
+Using the amazing [`uv`](https://docs.astral.sh/uv/) package manager:
 
 ```bash
 # Download and install a tool directly
