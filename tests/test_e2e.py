@@ -9,8 +9,9 @@ from unittest.mock import patch
 
 import pytest
 
+from dotbins.cli import _get_tool
 from dotbins.config import Config, _config_from_dict
-from dotbins.utils import log
+from dotbins.utils import current_platform, log
 
 
 def _create_mock_release_info(
@@ -630,3 +631,33 @@ def test_e2e_update_tools_specific_platform(tmp_path: Path, create_dummy_archive
     linux_bin_arm64 = config.bin_dir("linux", "arm64")
     assert not (linux_bin_amd64 / "mybinary").exists()
     assert not (linux_bin_arm64 / "mybinary").exists()
+
+
+def test_get_tool_command(tmp_path: Path, create_dummy_archive: Callable) -> None:
+    """Test the 'get' command."""
+    dest_dir = tmp_path / "bin"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    platform, arch = current_platform()
+
+    def mock_latest_release_info(repo: str) -> dict:  # noqa: ARG001
+        return {
+            "tag_name": "v1.0.0",
+            "assets": [
+                {
+                    "name": f"mytool-1.0.0-{platform}_{arch}.tar.gz",
+                    "browser_download_url": f"https://example.com/mytool-1.0.0-{platform}_{arch}.tar.gz",
+                },
+            ],
+        }
+
+    def mock_download_file(url: str, destination: str) -> str:  # noqa: ARG001
+        create_dummy_archive(Path(destination), binary_names="mytool")
+        return destination
+
+    with (
+        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
+        patch("dotbins.download.download_file", side_effect=mock_download_file),
+    ):
+        _get_tool(repo="basnijholt/mytool", dest_dir=dest_dir)
+
+    assert (dest_dir / "mytool").exists()

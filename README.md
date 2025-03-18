@@ -13,6 +13,21 @@ It downloads and organizes binaries for popular tools across multiple platforms 
 
 Whether you work across multiple machines or just want a version-controlled setup for your essential command-line tools, dotbins makes it easy to keep everything synchronized and updated. 🚀
 
+No package manager, no sudo, no problem.
+
+## :zap: Quick Start
+
+```bash
+# Install dotbins
+pip install dotbins
+
+# Download and install a tool directly
+dotbins get junegunn/fzf  # Installs to ~/.local/bin
+
+# Or set up a configuration file for managing multiple tools
+# See examples in the Configuration section
+```
+
 **See it in action:**
 
 [![asciicast](https://asciinema.org/a/707563.svg)](https://asciinema.org/a/707563)
@@ -64,6 +79,7 @@ It allows me to:
 
 Now when I clone my dotfiles on any new system, I get not just my configurations but also all the CLI tools I depend on for productivity
 No package manager, no sudo, no problem.
+
 
 ## :star2: Features
 
@@ -134,6 +150,29 @@ options:
 4. **analyze** - Analyze GitHub releases to help configure new tools
 5. **version** - Print version information
 6. **versions** - Show detailed information about installed tool versions
+7. **get** - Download and install a tool directly without using a configuration file
+
+### Quick Install with `dotbins get`
+
+The `get` command allows you to quickly download and install tools directly from GitHub without setting up a configuration file:
+
+```bash
+# Install fzf to the default location (~/.local/bin)
+dotbins get junegunn/fzf
+
+# Install ripgrep with a custom binary name
+dotbins get BurntSushi/ripgrep --name rg
+
+# Install bat to a specific location
+dotbins get sharkdp/bat --dest ~/bin
+```
+
+This is perfect for:
+- Quickly installing tools on a new system
+- One-off installations without needing a configuration file
+- Adding tools to PATH in standard locations like `~/.local/bin`
+
+The `get` command automatically detects your current platform and architecture, finds the appropriate release asset, and installs it to the specified location.
 
 ## :hammer_and_wrench: Installation
 
