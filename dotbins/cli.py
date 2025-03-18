@@ -10,7 +10,6 @@ from rich.console import Console
 from rich.markdown import Markdown
 
 from . import __version__
-from .analyze import analyze_tool
 from .config import Config, build_tool_config
 from .readme import generate_readme_content
 from .utils import current_platform, log, print_shell_setup
@@ -195,17 +194,6 @@ def create_parser() -> argparse.ArgumentParser:
     # init command
     _init_parser = subparsers.add_parser("init", help="Initialize directory structure")
 
-    # analyze command for discovering new tools
-    analyze_parser = subparsers.add_parser(
-        "analyze",
-        help="Analyze GitHub releases for a tool",
-    )
-    analyze_parser.add_argument(
-        "repo",
-        help="GitHub repository in the format 'owner/repo'",
-    )
-    analyze_parser.add_argument("--name", help="Name to use for the tool")
-
     # version command
     _version_parser = subparsers.add_parser("version", help="Print version information")
 
@@ -290,8 +278,6 @@ def main() -> None:  # pragma: no cover
                 not args.no_print,
                 not args.no_file,
             )
-        elif args.command == "analyze":
-            analyze_tool(args.repo, args.name)
         elif args.command == "versions":
             config.version_store.print()
         elif args.command == "version":

@@ -6,7 +6,6 @@ from typing import Any, Callable
 from unittest.mock import patch
 
 import pytest
-import yaml
 from _pytest.capture import CaptureFixture
 from _pytest.monkeypatch import MonkeyPatch
 
@@ -117,34 +116,6 @@ def test_update_tool(
 
     # Check if binary was installed
     assert (tmp_path / "tools" / "linux" / "amd64" / "bin" / "test-tool").exists()
-
-
-def test_analyze_tool(
-    capsys: CaptureFixture[str],
-    mock_github_api: Any,  # noqa: ARG001
-) -> None:
-    """Test analyzing a GitHub repo for release patterns."""
-    # Run analyze command
-    # We need to patch sys.exit to prevent it from actually exiting in the test
-    with (
-        patch.object(sys, "argv", ["dotbins", "analyze", "test/tool"]),
-        patch.object(sys, "exit"),
-    ):
-        cli.main()
-
-    # Check output
-    captured = capsys.readouterr()
-    assert "Analyzing releases for test/tool" in captured.out
-    assert "Suggested configuration for YAML tools file" in captured.out
-
-    # Check for proper YAML format
-    assert "tool:" in captured.out  # The key should be output
-    assert "repo: test/tool" in captured.out
-    assert "extract_binary: true" in captured.out
-
-    # Make sure the output is in valid YAML format
-    yaml_text = captured.out.split("Suggested configuration for YAML tools file:")[1].strip()
-    yaml.safe_load(yaml_text)
 
 
 def test_cli_no_command(capsys: CaptureFixture[str]) -> None:

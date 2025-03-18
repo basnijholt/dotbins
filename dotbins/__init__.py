@@ -15,11 +15,10 @@ from importlib.metadata import version
 __version__ = version("dotbins")
 
 # Re-export commonly used functions
-from . import analyze, cli, config, download, utils
+from . import cli, config, download, utils
 
 __all__ = [
     "__version__",
-    "analyze",
     "cli",
     "config",
     "download",
