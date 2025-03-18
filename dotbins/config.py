@@ -33,10 +33,13 @@ class Config:
     platforms: dict[str, list[str]] = field(default_factory=lambda: DEFAULT_PLATFORMS)
     tools: dict[str, ToolConfig] = field(default_factory=dict)
     config_path: Path | None = field(default=None, init=False)
+    _bin_dir: Path | None = field(default=None, init=False)
 
     def bin_dir(self, platform: str, arch: str, *, create: bool = False) -> Path:
         """Return the bin directory for a given platform and architecture."""
-        bin_dir = self.tools_dir / platform / arch / "bin"
+        bin_dir = (
+            self.tools_dir / platform / arch / "bin" if self._bin_dir is None else self._bin_dir
+        )
         if create:
             bin_dir.mkdir(parents=True, exist_ok=True)
         return bin_dir
