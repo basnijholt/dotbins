@@ -86,10 +86,11 @@ def test_update_tools_generates_readme(mock_print_shell: MagicMock) -> None:  # 
         force=False,
         shell_setup=False,
         generate_readme=True,
+        copy_config_file=False,
     )
 
     # Verify config.update_tools was called with generate_readme=True
-    config.update_tools.assert_called_with(["tool1"], "linux", "amd64", False, False, True)
+    config.update_tools.assert_called_with(["tool1"], "linux", "amd64", False, False, True, False)
 
 
 @patch("dotbins.cli.print_shell_setup")
@@ -108,10 +109,11 @@ def test_update_tools_skips_readme(mock_print_shell: MagicMock) -> None:  # noqa
         force=False,
         shell_setup=False,
         generate_readme=False,
+        copy_config_file=False,
     )
 
     # Verify config.update_tools was called with generate_readme=False
-    config.update_tools.assert_called_with(["tool1"], "linux", "amd64", False, False, False)
+    config.update_tools.assert_called_with(["tool1"], "linux", "amd64", False, False, False, False)
 
 
 @patch("dotbins.cli.print_shell_setup")
@@ -130,13 +132,14 @@ def test_update_tools_with_shell_setup(mock_print_shell: MagicMock) -> None:
         force=False,
         shell_setup=True,
         generate_readme=True,
+        copy_config_file=False,
     )
 
     # Verify print_shell_setup was called
     mock_print_shell.assert_called_once_with(config)
 
     # Verify config.update_tools was called
-    config.update_tools.assert_called_with(["tool1"], "linux", "amd64", False, False, True)
+    config.update_tools.assert_called_with(["tool1"], "linux", "amd64", False, False, True, False)
 
 
 def test_cli_argument_parsing() -> None:

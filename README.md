@@ -420,9 +420,6 @@ tools:
     repo: BurntSushi/ripgrep
     binary_name: rg
 
-  eget:
-    repo: zyedidia/eget
-
   direnv:
     repo: direnv/direnv
     extract_binary: false

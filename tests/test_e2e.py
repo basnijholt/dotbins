@@ -743,3 +743,74 @@ def test_get_tool_command_with_remote_config(
     # Verify that both tools from the config were installed
     assert (dest_dir / "tool1").exists(), "tool1 should be installed"
     assert (dest_dir / "tool2").exists(), "tool2 should be installed"
+
+
+@pytest.mark.parametrize("existing_config", [True, False])
+@pytest.mark.parametrize("existing_config_with_content", [True, False])
+def test_copy_config_file(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+    existing_config: bool,
+    existing_config_with_content: bool,
+) -> None:
+    """Test that the config file is copied to the tools directory."""
+    dest_dir = tmp_path
+    platform, arch = current_platform()
+    yaml_content = textwrap.dedent(
+        f"""\
+        tools_dir: {dest_dir!s}
+        platforms:
+            {platform}: [{arch}]
+        tools:
+            tool1:
+                repo: fakeuser/tool1
+            tool2:
+                repo: fakeuser/tool2
+        """,
+    )
+    cfg_path = dest_dir / "tmp" / "dotbins.yaml"
+    cfg_path.parent.mkdir(parents=True, exist_ok=True)
+    with cfg_path.open("w") as f:
+        f.write(yaml_content)
+
+    if existing_config:
+        # Create a fake config file with nothing
+        if existing_config_with_content:
+            (dest_dir / "dotbins.yaml").write_text(yaml_content)
+        else:
+            (dest_dir / "dotbins.yaml").touch()
+
+    config = Config.from_file(cfg_path)
+    assert config.tools_dir == dest_dir
+    assert config.platforms == {platform: [arch]}
+
+    def mock_latest_release_info(repo: str) -> dict:
+        log(f"Getting release info for repo: {repo}", "info")
+        tool_name = repo.split("/")[-1]
+        return {
+            "tag_name": "v1.0.0",
+            "assets": [
+                {
+                    "name": f"{tool_name}-1.0.0-{platform}_{arch}.tar.gz",
+                    "browser_download_url": f"https://example.com/{tool_name}-1.0.0-{platform}_{arch}.tar.gz",
+                },
+            ],
+        }
+
+    def mock_download_file(url: str, destination: str) -> str:
+        log(f"Downloading from {url} to {destination}", "info")
+        tool_name = url.split("/")[-1].split("-")[0]
+        log(f"Creating archive for {tool_name}", "info")
+        create_dummy_archive(Path(destination), binary_names=tool_name)
+        return destination
+
+    with (
+        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
+        patch("dotbins.download.download_file", side_effect=mock_download_file),
+    ):
+        config.update_tools(copy_config_file=True)
+
+    # Should have been copied to the tools directory
+    assert (dest_dir / "dotbins.yaml").exists()
+    with (dest_dir / "dotbins.yaml").open("r") as f:
+        assert f.read() == yaml_content

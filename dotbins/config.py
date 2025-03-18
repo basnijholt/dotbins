@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import sys
 from dataclasses import dataclass, field
 from functools import cached_property
@@ -108,6 +109,7 @@ class Config:
         current: bool = False,
         force: bool = False,
         generate_readme: bool = True,
+        copy_config_file: bool = False,
     ) -> None:
         """Update tools.
 
@@ -118,6 +120,7 @@ class Config:
             current: Whether to update only the current platform and architecture. Overrides platform and architecture.
             force: Whether to force update.
             generate_readme: Whether to generate a README.md file with tool information.
+            copy_config_file: Whether to write the config to the tools directory.
 
         """
         tools_to_update = _tools_to_update(self, tools)
@@ -140,6 +143,29 @@ class Config:
 
         if generate_readme:
             self.generate_readme()
+        _maybe_copy_config_file(copy_config_file, self.config_path, self.tools_dir)
+
+
+def _maybe_copy_config_file(
+    copy_config_file: bool,
+    config_path: Path | None,
+    tools_dir: Path,
+) -> None:
+    if not copy_config_file or config_path is None:
+        return
+    assert config_path.exists()
+    tools_config_path = tools_dir / "dotbins.yaml"
+    if tools_config_path.exists():
+        try:
+            cfg1 = yaml.safe_load(config_path.read_text())
+            cfg2 = yaml.safe_load(tools_config_path.read_text())
+        except Exception:  # pragma: no cover
+            return
+        is_same = cfg1 == cfg2
+        if is_same:
+            return
+    log("Copying config to tools directory as `dotbins.yaml`", "info")
+    shutil.copy(config_path, tools_config_path)
 
 
 def _platforms_and_archs_to_update(
@@ -341,7 +367,7 @@ def config_from_file(config_path: str | Path | None = None) -> Config:
     except FileNotFoundError:  # pragma: no cover
         log(f"Configuration file not found: {path}", "warning")
         return Config()
-    except yaml.YAMLError:
+    except yaml.YAMLError:  # pragma: no cover
         log(
             f"Invalid YAML in configuration file: {path}",
             "error",

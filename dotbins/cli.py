@@ -32,9 +32,18 @@ def _update_tools(
     force: bool,
     shell_setup: bool,
     generate_readme: bool = True,
+    copy_config_file: bool = True,
 ) -> None:
     """Update tools based on command line arguments."""
-    config.update_tools(tools, platform, architecture, current, force, generate_readme)
+    config.update_tools(
+        tools,
+        platform,
+        architecture,
+        current,
+        force,
+        generate_readme,
+        copy_config_file,
+    )
     if shell_setup:
         print_shell_setup(config)
 
@@ -103,7 +112,7 @@ def _get_tool(source: str, dest_dir: str | Path, name: str | None = None) -> Non
             tools={tool_name: build_tool_config(tool_name, {"repo": source})},
         )
     config._bin_dir = dest_dir_path
-    config.update_tools(current=True, force=True, generate_readme=False)
+    config.update_tools(current=True, force=True, generate_readme=False, copy_config_file=False)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -176,6 +185,11 @@ def create_parser() -> argparse.ArgumentParser:
         "--no-readme",
         action="store_true",
         help="Skip generating README.md file",
+    )
+    update_parser.add_argument(
+        "--no-copy-config-file",
+        action="store_true",
+        help="Skip writing the config file to the tools directory",
     )
 
     # init command
@@ -268,6 +282,7 @@ def main() -> None:  # pragma: no cover
                 args.force,
                 args.shell_setup,
                 not args.no_readme,
+                not args.no_copy_config_file,
             )
         elif args.command == "readme":
             _generate_readme(
