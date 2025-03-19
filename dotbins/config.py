@@ -94,17 +94,18 @@ class Config:
                         if binary.is_file():
                             binary.chmod(binary.stat().st_mode | 0o755)
 
-    def generate_readme(self: Config, write_file: bool = True) -> None:
+    def generate_readme(self: Config, write_file: bool = True, verbose: bool = False) -> None:
         """Generate a README.md file in the tools directory with information about installed tools.
 
         Args:
             write_file: Whether to write the README to a file. If False, the README is only generated
                 but not written to disk.
+            verbose: Whether to print verbose output.
 
         """
         # Import here to avoid circular imports
         if write_file:
-            write_readme_file(self)
+            write_readme_file(self, verbose=verbose)
         else:
             # Just generate the content but don't do anything with it
             generate_readme_content(self)
@@ -118,6 +119,7 @@ class Config:
         force: bool = False,
         generate_readme: bool = True,
         copy_config_file: bool = False,
+        verbose: bool = False,
     ) -> None:
         """Update tools.
 
@@ -129,6 +131,7 @@ class Config:
             force: Whether to force update.
             generate_readme: Whether to generate a README.md file with tool information.
             copy_config_file: Whether to write the config to the tools directory.
+            verbose: Whether to print verbose output.
 
         """
         tools_to_update = _tools_to_update(self, tools)
@@ -148,12 +151,14 @@ class Config:
             platforms_to_update,
             architecture,
             force,
+            verbose,
         )
-        downloaded_tasks = download_files_in_parallel(download_tasks)
+        downloaded_tasks = download_files_in_parallel(download_tasks, verbose)
         success_count = process_downloaded_files(
             downloaded_tasks,
             self.version_store,
             self._update_summary,
+            verbose,
         )
         self.make_binaries_executable()
 

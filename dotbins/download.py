@@ -21,6 +21,7 @@ def _extract_from_archive(
     archive_path: Path,
     destination_dir: Path,
     bin_spec: BinSpec,
+    verbose: bool,
 ) -> None:
     """Extract binaries from an archive."""
     log(f"Extracting from {archive_path} for {bin_spec.platform}", "info", "📦")
@@ -34,7 +35,7 @@ def _extract_from_archive(
         _process_binaries(temp_dir, destination_dir, binary_paths, bin_spec)
 
     except Exception as e:
-        log(f"Error extracting archive: {e}", "error", print_exception=True)
+        log(f"Error extracting archive: {e}", "error", print_exception=verbose)
         raise
     finally:
         shutil.rmtree(temp_dir)
@@ -175,6 +176,7 @@ def _prepare_download_task(
     arch: str,
     config: Config,
     force: bool,
+    verbose: bool,
 ) -> _DownloadTask | None:
     """Prepare a download task, checking if update is needed based on version."""
     try:
@@ -212,13 +214,13 @@ def _prepare_download_task(
         log(
             f"Error processing {tool_name} for {platform}/{arch}: {e!s}",
             "error",
-            print_exception=True,
+            print_exception=verbose,
         )
         config._update_summary.add_failed_tool(
             tool_name,
             platform,
             arch,
-            version=bin_spec.version,
+            version="Unknown",
             reason=f"Error preparing download: {e!s}",
         )
         return None
@@ -230,6 +232,7 @@ def prepare_download_tasks(
     platforms_to_update: list[str] | None,
     architecture: str | None,
     force: bool,
+    verbose: bool,
 ) -> tuple[list[_DownloadTask], int]:
     """Prepare download tasks for all tools and platforms."""
     download_tasks = []
@@ -266,14 +269,14 @@ def prepare_download_tasks(
 
             for arch in archs_to_update:
                 total_count += 1
-                task = _prepare_download_task(tool_name, platform, arch, config, force)
+                task = _prepare_download_task(tool_name, platform, arch, config, force, verbose)
                 if task:
                     download_tasks.append(task)
 
     return sorted(download_tasks, key=lambda t: t.asset_url), total_count
 
 
-def _download_task(task: _DownloadTask) -> tuple[_DownloadTask, bool]:
+def _download_task(task: _DownloadTask, verbose: bool) -> tuple[_DownloadTask, bool]:
     """Download a file for a DownloadTask."""
     try:
         log(
@@ -281,21 +284,22 @@ def _download_task(task: _DownloadTask) -> tuple[_DownloadTask, bool]:
             "info",
             "📥",
         )
-        download_file(task.asset_url, str(task.temp_path))
+        download_file(task.asset_url, str(task.temp_path), verbose)
         return task, True
     except Exception as e:
-        log(f"Error downloading {task.asset_name}: {e!s}", "error", print_exception=True)
+        log(f"Error downloading {task.asset_name}: {e!s}", "error", print_exception=verbose)
         return task, False
 
 
 def download_files_in_parallel(
     download_tasks: list[_DownloadTask],
+    verbose: bool,
 ) -> list[tuple[_DownloadTask, bool]]:
     """Download files in parallel using ThreadPoolExecutor."""
     log(f"Downloading {len(download_tasks)} tools in parallel...", "info", "🔄")
     downloaded_tasks = []
     with ThreadPoolExecutor(max_workers=min(16, len(download_tasks) or 1)) as ex:
-        future_to_task = {ex.submit(_download_task, task): task for task in download_tasks}
+        future_to_task = {ex.submit(_download_task, task, verbose): task for task in download_tasks}
         for future in as_completed(future_to_task):
             task, success = future.result()
             downloaded_tasks.append((task, success))
@@ -307,6 +311,7 @@ def _process_downloaded_task(
     success: bool,
     version_store: VersionStore,
     summary: UpdateSummary,
+    verbose: bool,
 ) -> bool:
     """Process a downloaded file."""
     if not success:
@@ -326,7 +331,7 @@ def _process_downloaded_task(
 
         task.destination_dir.mkdir(parents=True, exist_ok=True)
         if task.tool_config.extract_binary:
-            _extract_from_archive(task.temp_path, task.destination_dir, task.bin_spec)
+            _extract_from_archive(task.temp_path, task.destination_dir, task.bin_spec, verbose)
         else:
             binary_names = task.tool_config.binary_name
             if len(binary_names) != 1:
@@ -351,8 +356,7 @@ def _process_downloaded_task(
             error_prefix = "Auto-detect binary paths error"
         elif isinstance(e, FileNotFoundError):
             error_prefix = "Binary not found"
-
-        log(f"Error processing {task.tool_name}: {e!s}", "error", print_exception=True)
+        log(f"Error processing {task.tool_name}: {e!s}", "error", print_exception=verbose)
         summary.add_failed_tool(
             task.tool_name,
             task.platform,
@@ -362,6 +366,14 @@ def _process_downloaded_task(
         )
         return False
     else:
+        summary.add_updated_tool(
+            task.tool_name,
+            task.platform,
+            task.arch,
+            task.version,
+            old_version=version_store.get_tool_version(task.tool_name, task.platform, task.arch)
+            or "Unknown",
+        )
         version_store.update_tool_info(
             task.tool_name,
             task.platform,
@@ -374,13 +386,6 @@ def _process_downloaded_task(
             f"Successfully processed {task.tool_name} v{task.version} for {task.platform}/{task.arch}",
             "success",
         )
-        summary.add_updated_tool(
-            task.tool_name,
-            task.platform,
-            task.arch,
-            task.version,
-            old_version=task.version,
-        )
         return True
     finally:
         if task.temp_path.exists():
@@ -391,12 +396,13 @@ def process_downloaded_files(
     downloaded_tasks: list[tuple[_DownloadTask, bool]],
     version_store: VersionStore,
     summary: UpdateSummary,
+    verbose: bool,
 ) -> int:
     """Process downloaded files and return success count."""
     log(f"Processing {len(downloaded_tasks)} downloaded tools...", "info", "🔄")
     success_count = 0
     for task, download_success in downloaded_tasks:
-        if _process_downloaded_task(task, download_success, version_store, summary):
+        if _process_downloaded_task(task, download_success, version_store, summary, verbose):
             success_count += 1
     return success_count
 

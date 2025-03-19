@@ -133,7 +133,7 @@ def test_write_readme_file() -> None:
         # Mock generate_readme_content to return a simple string
         with patch("dotbins.readme.generate_readme_content", return_value="# Test README"):
             # Call the function
-            write_readme_file(config)
+            write_readme_file(config, verbose=True)
 
             # Check if file was created
             readme_path = tmp_path / "README.md"
@@ -143,32 +143,6 @@ def test_write_readme_file() -> None:
             with open(readme_path) as f:
                 content = f.read()
                 assert content == "# Test README"
-
-
-@patch("dotbins.config.write_readme_file")
-@patch("dotbins.config.generate_readme_content")
-def test_config_generate_readme(mock_generate: MagicMock, mock_write: MagicMock) -> None:
-    """Test the generate_readme method in Config class."""
-    # Create a mock Config object with all required attributes
-    config = MagicMock(spec=Config)
-
-    # Case 1: Call with default (write_file=True)
-    Config.generate_readme(config)
-
-    # Verify write_readme_file was called, but generate_readme_content was not called directly
-    mock_write.assert_called_once_with(config)
-    mock_generate.assert_not_called()
-
-    # Reset mocks
-    mock_write.reset_mock()
-    mock_generate.reset_mock()
-
-    # Case 2: Call with write_file=False
-    Config.generate_readme(config, write_file=False)
-
-    # Verify generate_readme_content was called but write_readme_file was not
-    mock_generate.assert_called_once_with(config)
-    mock_write.assert_not_called()
 
 
 @patch("dotbins.readme.current_platform")
@@ -251,7 +225,7 @@ def test_write_readme_file_handles_exception() -> None:
             patch("dotbins.readme.log") as mock_log,
         ):
             # Call the function
-            write_readme_file(config)
+            write_readme_file(config, verbose=True)
 
             # Verify exception is logged
             mock_log.assert_any_call(

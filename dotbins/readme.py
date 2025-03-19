@@ -410,7 +410,7 @@ def generate_readme_content(config: Config) -> str:
     return "\n".join(content)
 
 
-def write_readme_file(config: Config) -> None:
+def write_readme_file(config: Config, verbose: bool) -> None:
     """Generate and write a README.md file to the tools directory."""
     readme_content = generate_readme_content(config)
     readme_path = config.tools_dir / "README.md"
@@ -420,6 +420,6 @@ def write_readme_file(config: Config) -> None:
             f.write(readme_content)
         log(f"Generated README at {readme_path}", "success", "📝")
     except OSError as e:
-        log(f"Failed to write README: {e}", "error", print_exception=True)
+        log(f"Failed to write README: {e}", "error", print_exception=verbose)
     except Exception as e:  # pragma: no cover
-        log(f"Unexpected error writing README: {e}", "error", print_exception=True)
+        log(f"Unexpected error writing README: {e}", "error", print_exception=verbose)

@@ -139,7 +139,7 @@ def test_download_file(requests_mock: MockFixture, tmp_path: Path) -> None:
 
     # Call the function
     dest_path = str(tmp_path / "downloaded.tar.gz")
-    result = dotbins.download.download_file(url, dest_path)
+    result = dotbins.download.download_file(url, dest_path, verbose=True)
 
     # Verify the file was downloaded correctly
     assert result == dest_path
@@ -177,6 +177,7 @@ def test_extract_from_archive_tar(tmp_path: Path, create_dummy_archive: Callable
             arch="amd64",
             platform="linux",
         ),
+        verbose=True,
     )
 
     # Verify the binary was extracted and renamed correctly
@@ -220,6 +221,7 @@ def test_extract_from_archive_zip(tmp_path: Path, create_dummy_archive: Callable
             arch="amd64",
             platform="linux",
         ),
+        verbose=True,
     )
 
     # Verify the binary was extracted and renamed correctly
@@ -263,6 +265,7 @@ def test_extract_from_archive_nested(tmp_path: Path, create_dummy_archive: Calla
             arch="amd64",
             platform="linux",
         ),
+        verbose=True,
     )
 
     # Verify the binary was extracted and renamed correctly
@@ -352,6 +355,7 @@ def test_download_tool_already_exists(tmp_path: Path) -> None:
             "amd64",
             config,
             force=False,
+            verbose=True,
         )
 
     # Should return None (skip download) since file exists
@@ -401,6 +405,7 @@ def test_download_tool_asset_not_found(
             "amd64",
             config,
             force=False,
+            verbose=True,
         )
 
         # Should return None since asset wasn't found
@@ -439,6 +444,7 @@ def test_extract_from_archive_unknown_type(tmp_path: Path) -> None:
                 arch="amd64",
                 platform="linux",
             ),
+            verbose=True,
         )
 
 
@@ -480,6 +486,7 @@ def test_extract_from_archive_missing_binary(tmp_path: Path) -> None:
                 arch="amd64",
                 platform="linux",
             ),
+            verbose=True,
         )
 
 
@@ -520,6 +527,7 @@ def test_extract_from_archive_multiple_binaries(
             arch="amd64",
             platform="linux",
         ),
+        verbose=True,
     )
 
     # Verify both binaries were extracted and renamed correctly

@@ -10,6 +10,7 @@ from typing import Any, Callable, NoReturn
 from unittest.mock import patch
 
 import pytest
+import requests
 
 from dotbins.cli import _get_tool
 from dotbins.config import Config, RawConfigDict, RawToolConfigDict, _config_from_dict
@@ -77,11 +78,11 @@ def run_e2e_test(
 
     config = _config_from_dict(raw_config)
 
-    def mock_latest_release(repo: str) -> dict[str, Any]:
+    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
         tool_name = repo.split("/")[-1]
         return _create_mock_release_info(tool_name)
 
-    def mock_download_func(url: str, destination: str) -> str:
+    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
         # Extract tool name from URL
         parts = url.split("/")[-1].split("-")
         tool_name = parts[0]
@@ -91,8 +92,8 @@ def run_e2e_test(
         return destination
 
     with (
-        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release),
-        patch("dotbins.download.download_file", side_effect=mock_download_func),
+        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
+        patch("dotbins.download.download_file", side_effect=mock_download_file),
     ):
         # Run the update
         config.update_tools(
@@ -293,7 +294,7 @@ def test_e2e_update_tools(
     config = _config_from_dict(raw_config)
     config.tools_dir = tmp_path
 
-    def mock_latest_release_info(repo: str) -> dict:
+    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
         tool_name = repo.split("/")[-1]
         return {
             "tag_name": "v1.2.3",
@@ -309,7 +310,7 @@ def test_e2e_update_tools(
             ],
         }
 
-    def mock_download_file(url: str, destination: str) -> str:
+    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
         log(f"MOCKED download_file from {url} -> {destination}", "info")
         if "mytool" in url:
             create_dummy_archive(Path(destination), binary_names="mybinary")
@@ -357,7 +358,7 @@ def test_e2e_update_tools_skip_up_to_date(tmp_path: Path) -> None:
         version="1.2.3",
     )
 
-    def mock_latest_release_info(repo: str) -> dict:  # noqa: ARG001
+    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
         return {
             "tag_name": "v1.2.3",
             "assets": [
@@ -368,7 +369,7 @@ def test_e2e_update_tools_skip_up_to_date(tmp_path: Path) -> None:
             ],
         }
 
-    def mock_download_file(url: str, destination: str) -> str:
+    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
         # This won't be called at all if the skip logic works
         log(f"MOCK download_file from {url} -> {destination}", "error")
         msg = "This should never be called if skip is working."
@@ -437,7 +438,7 @@ def test_e2e_update_tools_partial_skip_and_update(
         version="1.0.0",
     )
 
-    def mock_latest_release_info(repo: str) -> dict:
+    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
         if "mytool" in repo:
             return {
                 "tag_name": "v2.0.0",
@@ -458,7 +459,7 @@ def test_e2e_update_tools_partial_skip_and_update(
             ],
         }
 
-    def mock_download_file(url: str, destination: str) -> str:
+    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
         # Only called for 'othertool' if skip for 'mytool' works
         if "mytool" in url:
             msg = "Should not download mytool if up-to-date!"
@@ -485,6 +486,10 @@ def test_e2e_update_tools_partial_skip_and_update(
     other_bin = config.bin_dir("linux", "amd64") / "otherbin"
     assert other_bin.exists()
     assert os.access(other_bin, os.X_OK)
+
+    # Check old version is recorded
+    assert config._update_summary.updated[0].old_version == "1.0.0"
+    assert config._update_summary.updated[0].version == "2.0.0"
 
 
 def test_e2e_update_tools_force_re_download(tmp_path: Path, create_dummy_archive: Callable) -> None:
@@ -516,7 +521,7 @@ def test_e2e_update_tools_force_re_download(tmp_path: Path, create_dummy_archive
     original_updated_at = tool_info["updated_at"]
 
     # Mock release & download
-    def mock_latest_release_info(repo: str) -> dict:  # noqa: ARG001
+    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
         return {
             "tag_name": "v1.2.3",
             "assets": [
@@ -529,7 +534,7 @@ def test_e2e_update_tools_force_re_download(tmp_path: Path, create_dummy_archive
 
     downloaded_urls = []
 
-    def mock_download_file(url: str, destination: str) -> str:
+    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
         downloaded_urls.append(url)
         create_dummy_archive(Path(destination), binary_names="mybinary")
         return destination
@@ -590,7 +595,7 @@ def test_e2e_update_tools_specific_platform(tmp_path: Path, create_dummy_archive
     }
     config = _config_from_dict(raw_config)
 
-    def mock_latest_release_info(repo: str) -> dict:  # noqa: ARG001
+    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
         return {
             "tag_name": "v1.0.0",
             "assets": [
@@ -611,7 +616,7 @@ def test_e2e_update_tools_specific_platform(tmp_path: Path, create_dummy_archive
 
     downloaded_files = []
 
-    def mock_download_file(url: str, destination: str) -> str:
+    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
         downloaded_files.append(url)
         # Each call uses the same tar generation but with different binary content
         create_dummy_archive(Path(destination), binary_names="mybinary")
@@ -645,7 +650,7 @@ def test_get_tool_command(tmp_path: Path, create_dummy_archive: Callable) -> Non
     dest_dir.mkdir(parents=True, exist_ok=True)
     platform, arch = current_platform()
 
-    def mock_latest_release_info(repo: str) -> dict:  # noqa: ARG001
+    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
         return {
             "tag_name": "v1.0.0",
             "assets": [
@@ -656,7 +661,7 @@ def test_get_tool_command(tmp_path: Path, create_dummy_archive: Callable) -> Non
             ],
         }
 
-    def mock_download_file(url: str, destination: str) -> str:  # noqa: ARG001
+    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
         create_dummy_archive(Path(destination), binary_names="mytool")
         return destination
 
@@ -713,7 +718,7 @@ def test_get_tool_command_with_remote_config(
         log(f"Mock HTTP GET for URL: {url}", "info")
         return MockResponse(yaml_content.encode("utf-8"))
 
-    def mock_latest_release_info(repo: str) -> dict:
+    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
         log(f"Getting release info for repo: {repo}", "info")
         tool_name = repo.split("/")[-1]
         return {
@@ -726,7 +731,7 @@ def test_get_tool_command_with_remote_config(
             ],
         }
 
-    def mock_download_file(url: str, destination: str) -> str:
+    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
         log(f"Downloading from {url} to {destination}", "info")
         tool_name = url.split("/")[-1].split("-")[0]
         log(f"Creating archive for {tool_name}", "info")
@@ -734,7 +739,7 @@ def test_get_tool_command_with_remote_config(
         return destination
 
     with (
-        patch("requests.get", side_effect=mock_requests_get),
+        patch("dotbins.utils.requests.get", side_effect=mock_requests_get),
         patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
         patch("dotbins.download.download_file", side_effect=mock_download_file),
     ):
@@ -784,7 +789,7 @@ def test_copy_config_file(
     assert config.tools_dir == dest_dir
     assert config.platforms == {platform: [arch]}
 
-    def mock_latest_release_info(repo: str) -> dict:
+    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
         log(f"Getting release info for repo: {repo}", "info")
         tool_name = repo.split("/")[-1]
         return {
@@ -797,7 +802,7 @@ def test_copy_config_file(
             ],
         }
 
-    def mock_download_file(url: str, destination: str) -> str:
+    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
         log(f"Downloading from {url} to {destination}", "info")
         tool_name = url.split("/")[-1].split("-")[0]
         log(f"Creating archive for {tool_name}", "info")
@@ -876,7 +881,7 @@ def test_non_extract_with_multiple_binary_names(
     )
     config = Config.from_file(config_path)
 
-    def mock_latest_release_info(repo: str) -> dict:
+    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
         log(f"Getting release info for repo: {repo}", "info")
         return {
             "tag_name": "v1.0.0",
@@ -888,7 +893,7 @@ def test_non_extract_with_multiple_binary_names(
             ],
         }
 
-    def mock_download_file(url: str, destination: str) -> str:  # noqa: ARG001
+    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
         # Create a dummy file - this would normally be a binary file
         Path(destination).write_text("dummy binary content")
         return destination
@@ -948,7 +953,7 @@ def test_non_extract_single_binary_copy(
     )
     config = Config.from_file(config_path)
 
-    def mock_latest_release_info(repo: str) -> dict:
+    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
         log(f"Getting release info for repo: {repo}", "info")
         return {
             "tag_name": "v1.0.0",
@@ -960,7 +965,7 @@ def test_non_extract_single_binary_copy(
             ],
         }
 
-    def mock_download_file(url: str, destination: str) -> str:  # noqa: ARG001
+    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
         # Create a dummy binary file with executable content
         Path(destination).write_text("#!/bin/sh\necho 'Hello from tool-binary'")
         return destination
@@ -1030,7 +1035,7 @@ def test_error_preparing_download(
             return_value={"tag_name": "v1.0.0", "assets": []},
         ),
     ):
-        config.update_tools()
+        config.update_tools(verbose=True)
 
     # Capture the output
     captured = capsys.readouterr()
@@ -1091,7 +1096,7 @@ def test_binary_not_found_error_handling(
         },
     )
 
-    def mock_latest_release_info(repo: str) -> dict:
+    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
         log(f"Getting release info for repo: {repo}", "info")
         return {
             "tag_name": "v1.0.0",
@@ -1103,7 +1108,7 @@ def test_binary_not_found_error_handling(
             ],
         }
 
-    def mock_download_file(url: str, destination: str) -> str:  # noqa: ARG001
+    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
         # Create a dummy archive but WITHOUT the expected binary path
         create_dummy_archive(Path(destination), binary_names="different-binary-name")
         return destination
@@ -1172,7 +1177,7 @@ def test_auto_detect_binary_paths_error(
         },
     )
 
-    def mock_latest_release_info(repo: str) -> dict:
+    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
         log(f"Getting release info for repo: {repo}", "info")
         return {
             "tag_name": "v1.0.0",
@@ -1184,7 +1189,7 @@ def test_auto_detect_binary_paths_error(
             ],
         }
 
-    def mock_download_file(url: str, destination: str) -> str:  # noqa: ARG001
+    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
         # Create a dummy archive with a binary that won't match the expected name
         create_dummy_archive(Path(destination), binary_names="different-binary-name")
         return destination
@@ -1221,3 +1226,80 @@ def test_auto_detect_binary_paths_error(
     # Verify that no files were created in the destination directory
     bin_dir = config.bin_dir("linux", "amd64")
     assert not (bin_dir / "expected-binary").exists()
+
+
+def test_download_file_request_exception(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test error handling when a requests.RequestException occurs during download.
+
+    This tests the error path where:
+    - A requests.RequestException occurs during the HTTP request
+    - The error should be handled by download_file and propagated as a RuntimeError
+    """
+    # Setup basic config file
+    config = Config.from_dict(
+        {
+            "tools_dir": str(tmp_path),
+            "platforms": {"linux": ["amd64"]},
+            "tools": {
+                "download-error-tool": {
+                    "repo": "owner/download-error-tool",
+                    "binary_name": "download-error-tool",
+                },
+            },
+        },
+    )
+
+    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
+        return {
+            "tag_name": "v1.0.0",
+            "assets": [
+                {
+                    "name": "download-error-tool-1.0.0-linux_amd64.tar.gz",
+                    "browser_download_url": "https://example.com/download-error-tool-1.0.0-linux_amd64.tar.gz",
+                },
+            ],
+        }
+
+    def mock_requests_get(*args, **kwargs) -> NoReturn:  # noqa: ANN002, ANN003, ARG001
+        # Simulate a network error during the request
+        err_msg = "Connection refused"
+        raise requests.RequestException(err_msg)
+
+    with (
+        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
+        patch("dotbins.utils.requests.get", side_effect=mock_requests_get),
+    ):
+        config.update_tools(verbose=False)  # Turn off verbose to reduce processing
+
+    # Capture the output
+    captured = capsys.readouterr()
+
+    # Verify error message in the log output
+    assert "Download failed: Connection refused" in captured.out
+
+    # Direct inspection of the update summary object
+    failed_entries = config._update_summary.failed
+    assert len(failed_entries) > 0
+
+    # Find the entry for our tool
+    tool_entry = next(
+        (entry for entry in failed_entries if entry.tool == "download-error-tool"),
+        None,
+    )
+    assert tool_entry is not None
+
+    # Verify the details of the failure
+    assert tool_entry.platform == "linux"
+    assert tool_entry.arch == "amd64"
+    assert "Download failed" in tool_entry.reason
+
+    # Verify that no files were downloaded
+    bin_dir = config.bin_dir("linux", "amd64")
+    assert not bin_dir.exists() or not any(bin_dir.iterdir())
+
+    # Verify version store doesn't have an entry for this tool
+    tool_info = config.version_store.get_tool_info("download-error-tool", "linux", "amd64")
+    assert tool_info is None

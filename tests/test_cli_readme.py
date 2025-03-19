@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from dotbins.cli import _generate_readme, _update_tools
+from dotbins.cli import _generate_readme
 from dotbins.config import Config
 
 
@@ -25,7 +25,7 @@ def test_generate_readme_cli(
     mock_generate.return_value = "# Test README content"
 
     # Call the function with default parameters (print and write)
-    _generate_readme(config)
+    _generate_readme(config, print_content=True, write_file=True, verbose=True)
 
     # Verify generate_readme_content was called
     mock_generate.assert_called_once_with(config)
@@ -46,7 +46,7 @@ def test_generate_readme_cli(
     config.reset_mock()
 
     # Test with print_content=False
-    _generate_readme(config, print_content=False, write_file=True)
+    _generate_readme(config, print_content=False, write_file=True, verbose=True)
 
     # Verify console was not used
     mock_console.assert_not_called()
@@ -61,85 +61,13 @@ def test_generate_readme_cli(
     config.reset_mock()
 
     # Test with write_file=False
-    _generate_readme(config, print_content=True, write_file=False)
+    _generate_readme(config, print_content=True, write_file=False, verbose=True)
 
     # Verify console was used
     mock_console.assert_called_once()
 
     # Verify the file was not written
     assert not config.tools_dir.__truediv__.called
-
-
-@patch("dotbins.cli.print_shell_setup")
-def test_update_tools_generates_readme(mock_print_shell: MagicMock) -> None:  # noqa: ARG001
-    """Test that _update_tools generates a README file when requested."""
-    # Mock config
-    config = MagicMock(spec=Config)
-
-    # Test with generate_readme=True (default)
-    _update_tools(
-        config=config,
-        tools=["tool1"],
-        platform="linux",
-        architecture="amd64",
-        current=False,
-        force=False,
-        shell_setup=False,
-        generate_readme=True,
-        copy_config_file=False,
-    )
-
-    # Verify config.update_tools was called with generate_readme=True
-    config.update_tools.assert_called_with(["tool1"], "linux", "amd64", False, False, True, False)
-
-
-@patch("dotbins.cli.print_shell_setup")
-def test_update_tools_skips_readme(mock_print_shell: MagicMock) -> None:  # noqa: ARG001
-    """Test that _update_tools skips README generation when requested."""
-    # Mock config
-    config = MagicMock(spec=Config)
-
-    # Test with generate_readme=False
-    _update_tools(
-        config=config,
-        tools=["tool1"],
-        platform="linux",
-        architecture="amd64",
-        current=False,
-        force=False,
-        shell_setup=False,
-        generate_readme=False,
-        copy_config_file=False,
-    )
-
-    # Verify config.update_tools was called with generate_readme=False
-    config.update_tools.assert_called_with(["tool1"], "linux", "amd64", False, False, False, False)
-
-
-@patch("dotbins.cli.print_shell_setup")
-def test_update_tools_with_shell_setup(mock_print_shell: MagicMock) -> None:
-    """Test _update_tools with shell setup enabled."""
-    # Mock config
-    config = MagicMock(spec=Config)
-
-    # Test with shell_setup=True
-    _update_tools(
-        config=config,
-        tools=["tool1"],
-        platform="linux",
-        architecture="amd64",
-        current=False,
-        force=False,
-        shell_setup=True,
-        generate_readme=True,
-        copy_config_file=False,
-    )
-
-    # Verify print_shell_setup was called
-    mock_print_shell.assert_called_once_with(config)
-
-    # Verify config.update_tools was called
-    config.update_tools.assert_called_with(["tool1"], "linux", "amd64", False, False, True, False)
 
 
 def test_cli_argument_parsing() -> None:

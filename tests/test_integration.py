@@ -96,7 +96,7 @@ def test_update_tool(
     )
 
     # Mock the download_file function to use our fixture
-    def mock_download_file(_url: str, destination: str) -> str:
+    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
         create_dummy_archive(dest_path=Path(destination), binary_names="test-tool")
         return destination
 
@@ -112,6 +112,9 @@ def test_update_tool(
         current=False,
         force=False,
         shell_setup=False,
+        generate_readme=True,
+        copy_config_file=True,
+        verbose=True,
     )
 
     # Check if binary was installed

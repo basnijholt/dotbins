@@ -340,6 +340,7 @@ def test_extract_from_archive_with_auto_detection(
                 arch="amd64",
                 platform="linux",
             ),
+            verbose=True,
         )
 
     # Check that the binary was copied correctly
@@ -389,6 +390,7 @@ def test_extract_from_archive_auto_detection_failure(
                 arch="amd64",
                 platform="linux",
             ),
+            verbose=True,
         )
 
 

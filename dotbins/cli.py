@@ -30,8 +30,9 @@ def _update_tools(
     current: bool,
     force: bool,
     shell_setup: bool,
-    generate_readme: bool = True,
-    copy_config_file: bool = True,
+    generate_readme: bool,
+    copy_config_file: bool,
+    verbose: bool,
 ) -> None:
     """Update tools based on command line arguments."""
     config.update_tools(
@@ -42,6 +43,7 @@ def _update_tools(
         force,
         generate_readme,
         copy_config_file,
+        verbose,
     )
     if shell_setup:
         print_shell_setup(config)
@@ -61,7 +63,12 @@ def _initialize(config: Config) -> None:
     log("Generated README file with shell integration instructions", "success", "📝")
 
 
-def _generate_readme(config: Config, print_content: bool = True, write_file: bool = True) -> None:
+def _generate_readme(
+    config: Config,
+    print_content: bool,
+    write_file: bool,
+    verbose: bool,
+) -> None:
     """Generate README file with tool information."""
     # Generate the README content
     readme_content = generate_readme_content(config)
@@ -74,7 +81,7 @@ def _generate_readme(config: Config, print_content: bool = True, write_file: boo
                 f.write(readme_content)
             log(f"Generated README at {readme_path}", "success", "📝")
         except OSError as e:
-            log(f"Failed to write README: {e}", "error", print_exception=True)
+            log(f"Failed to write README: {e}", "error", print_exception=verbose)
             return
 
     # Print content if requested
@@ -271,12 +278,14 @@ def main() -> None:  # pragma: no cover
                 args.shell_setup,
                 not args.no_readme,
                 not args.no_copy_config_file,
+                args.verbose,
             )
         elif args.command == "readme":
             _generate_readme(
                 config,
                 not args.no_print,
                 not args.no_file,
+                args.verbose,
             )
         elif args.command == "versions":
             config.version_store.print()
