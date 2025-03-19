@@ -40,6 +40,10 @@ def _extract_from_archive(
         shutil.rmtree(temp_dir)
 
 
+class AutoDetectBinaryPathsError(Exception):
+    """Error raised when auto-detecting binary paths fails."""
+
+
 def _detect_binary_paths(temp_dir: Path, tool_config: ToolConfig) -> list[str]:
     """Auto-detect binary paths if not specified in configuration."""
     if tool_config.binary_path:
@@ -49,7 +53,8 @@ def _detect_binary_paths(temp_dir: Path, tool_config: ToolConfig) -> list[str]:
     binary_paths = auto_detect_binary_paths(temp_dir, binary_names)
     if not binary_paths:
         msg = f"Could not auto-detect binary paths for {', '.join(binary_names)}. Please specify binary_path in config."
-        raise ValueError(msg)
+        log(msg, "error")
+        raise AutoDetectBinaryPathsError(msg)
     log(f"Auto-detected binary paths: {binary_paths}", "success")
     return binary_paths
 
@@ -209,6 +214,13 @@ def _prepare_download_task(
             "error",
             print_exception=True,
         )
+        config._update_summary.add_failed_tool(
+            tool_name,
+            platform,
+            arch,
+            version=bin_spec.version,
+            reason=f"Error preparing download: {e!s}",
+        )
         return None
 
 
@@ -306,6 +318,7 @@ def _process_downloaded_task(
             reason="Download failed",
         )
         return False
+
     try:
         # Calculate SHA256 hash before extraction
         sha256_hash = calculate_sha256(task.temp_path)
@@ -330,11 +343,25 @@ def _process_downloaded_task(
                 )
                 return False
             binary_name = binary_names[0]
+            _copy_binary_to_destination(task.temp_path, task.destination_dir, binary_name)
+    except Exception as e:
+        # Differentiate error types for better reporting
+        error_prefix = "Error processing"
+        if isinstance(e, AutoDetectBinaryPathsError):
+            error_prefix = "Auto-detect binary paths error"
+        elif isinstance(e, FileNotFoundError):
+            error_prefix = "Binary not found"
 
-            shutil.copy2(task.temp_path, task.destination_dir / binary_name)
-            dest_file = task.destination_dir / binary_name
-            dest_file.chmod(dest_file.stat().st_mode | 0o755)
-
+        log(f"Error processing {task.tool_name}: {e!s}", "error", print_exception=True)
+        summary.add_failed_tool(
+            task.tool_name,
+            task.platform,
+            task.arch,
+            task.version,
+            reason=f"{error_prefix}: {e!s}",
+        )
+        return False
+    else:
         version_store.update_tool_info(
             task.tool_name,
             task.platform,
@@ -355,16 +382,6 @@ def _process_downloaded_task(
             old_version=task.version,
         )
         return True
-    except Exception as e:
-        log(f"Error processing {task.tool_name}: {e!s}", "error", print_exception=True)
-        summary.add_failed_tool(
-            task.tool_name,
-            task.platform,
-            task.arch,
-            task.version,
-            reason=f"Error processing: {e!s}",
-        )
-        return False
     finally:
         if task.temp_path.exists():
             task.temp_path.unlink()

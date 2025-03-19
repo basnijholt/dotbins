@@ -75,3 +75,6 @@ tools:
 
   duf:
     repo: muesli/duf
+
+  yazi:
+    repo: sxyazi/yazi

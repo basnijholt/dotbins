@@ -6,7 +6,7 @@ import os
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, NoReturn
 from unittest.mock import patch
 
 import pytest
@@ -483,8 +483,8 @@ def test_e2e_update_tools_partial_skip_and_update(
     assert other_info["version"] == "2.0.0"
     # And the binary should now exist:
     other_bin = config.bin_dir("linux", "amd64") / "otherbin"
-    assert other_bin.exists(), "otherbin was not downloaded/extracted correctly."
-    assert os.access(other_bin, os.X_OK), "otherbin should be executable."
+    assert other_bin.exists()
+    assert os.access(other_bin, os.X_OK)
 
 
 def test_e2e_update_tools_force_re_download(tmp_path: Path, create_dummy_archive: Callable) -> None:
@@ -547,7 +547,7 @@ def test_e2e_update_tools_force_re_download(tmp_path: Path, create_dummy_archive
         )
 
     # Verify that the download actually happened (1 item in the list)
-    assert len(downloaded_urls) == 1, "Expected exactly one forced download."
+    assert len(downloaded_urls) == 1
     assert "mytool-1.2.3-linux_amd64.tar.gz" in downloaded_urls[0]
 
     # The version store should remain '1.2.3', but `updated_at` changes
@@ -630,7 +630,7 @@ def test_e2e_update_tools_specific_platform(tmp_path: Path, create_dummy_archive
 
     # Check bin existence
     macos_bin = config.bin_dir("macos", "arm64")
-    assert (macos_bin / "mybinary").exists(), "mybinary should be in macos/arm64/bin"
+    assert (macos_bin / "mybinary").exists()
 
     # Meanwhile the linux bins should NOT exist
     linux_bin_amd64 = config.bin_dir("linux", "amd64")
@@ -741,8 +741,8 @@ def test_get_tool_command_with_remote_config(
         _get_tool(source="https://example.com/config.yaml", dest_dir=dest_dir)
 
     # Verify that both tools from the config were installed
-    assert (dest_dir / "tool1").exists(), "tool1 should be installed"
-    assert (dest_dir / "tool2").exists(), "tool2 should be installed"
+    assert (dest_dir / "tool1").exists()
+    assert (dest_dir / "tool2").exists()
 
 
 @pytest.mark.parametrize("existing_config", [True, False])
@@ -814,3 +814,410 @@ def test_copy_config_file(
     assert (dest_dir / "dotbins.yaml").exists()
     with (dest_dir / "dotbins.yaml").open("r") as f:
         assert f.read() == yaml_content
+
+
+def test_update_nonexistent_platform(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Test that updating a non-existent platform results in skipped entries in summary."""
+    # Setup basic config file
+    config_path = tmp_path / "dotbins.yaml"
+    config_path.write_text(
+        textwrap.dedent(
+            f"""\
+            tools_dir: {tmp_path!s}
+            platforms:
+                linux: ["amd64", "arm64"]
+                macos: ["arm64"]
+            tools:
+                test-tool:
+                    repo: owner/test-repo
+                    binary_name: test-tool
+            """,
+        ),
+    )
+    config = Config.from_file(config_path)
+
+    config.update_tools(platform="windows")
+    captured = capsys.readouterr()
+    assert "Skipping unknown platform: windows" in captured.out
+
+    config.update_tools(architecture="nonexistent")
+    captured = capsys.readouterr()
+    assert "Skipping unknown architecture: nonexistent" in captured.out
+
+
+def test_non_extract_with_multiple_binary_names(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test error handling when a non-extractable binary has multiple binary names specified.
+
+    This tests the error path where:
+    - extract_binary is set to False (use download directly)
+    - More than one binary name is specified
+    - The update should fail with a specific error in the summary
+    """
+    # Setup config with a tool that has extract_binary=False but multiple binary names
+    config_path = tmp_path / "dotbins.yaml"
+    config_path.write_text(
+        textwrap.dedent(
+            f"""\
+            tools_dir: {tmp_path!s}
+            platforms:
+                linux: ["amd64"]
+            tools:
+                multi-bin-tool:
+                    repo: owner/multi-bin-tool
+                    extract_binary: false
+                    binary_name:
+                      - tool-bin1
+                      - tool-bin2
+            """,
+        ),
+    )
+    config = Config.from_file(config_path)
+
+    def mock_latest_release_info(repo: str) -> dict:
+        log(f"Getting release info for repo: {repo}", "info")
+        return {
+            "tag_name": "v1.0.0",
+            "assets": [
+                {
+                    "name": "multi-bin-tool-1.0.0-linux_amd64.zip",
+                    "browser_download_url": "https://example.com/multi-bin-tool-1.0.0-linux_amd64.zip",
+                },
+            ],
+        }
+
+    def mock_download_file(url: str, destination: str) -> str:  # noqa: ARG001
+        # Create a dummy file - this would normally be a binary file
+        Path(destination).write_text("dummy binary content")
+        return destination
+
+    with (
+        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
+        patch("dotbins.download.download_file", side_effect=mock_download_file),
+    ):
+        # Run the update which should fail for the multi-bin tool
+        config.update_tools()
+
+    # Capture the output
+    captured = capsys.readouterr()
+
+    # Verify that the appropriate error message was logged
+    expected_error = "Expected exactly one binary name for multi-bin-tool, got 2"
+    assert expected_error in captured.out
+
+    # Check for the error message in the console output
+    # The summary will be displayed at the end of the update process
+    assert "Expected exactly one binary name" in captured.out
+    assert "multi-bin-tool" in captured.out
+    assert "linux/amd64" in captured.out
+
+    # Verify that no binary files were created
+    bin_dir = config.bin_dir("linux", "amd64")
+    assert not (bin_dir / "tool-bin1").exists()
+    assert not (bin_dir / "tool-bin2").exists()
+
+
+def test_non_extract_single_binary_copy(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test successful handling of a non-extractable binary with a single binary name.
+
+    This tests the success path where:
+    - extract_binary is set to False (direct copy of downloaded file)
+    - Exactly one binary name is specified
+    - The binary should be copied directly to the destination
+    """
+    # Setup config with a tool that has extract_binary=False and a single binary name
+    config_path = tmp_path / "dotbins.yaml"
+    config_path.write_text(
+        textwrap.dedent(
+            f"""\
+            tools_dir: {tmp_path!s}
+            platforms:
+                linux: ["amd64"]
+            tools:
+                single-bin-tool:
+                    repo: owner/single-bin-tool
+                    extract_binary: false
+                    binary_name: tool-binary
+            """,
+        ),
+    )
+    config = Config.from_file(config_path)
+
+    def mock_latest_release_info(repo: str) -> dict:
+        log(f"Getting release info for repo: {repo}", "info")
+        return {
+            "tag_name": "v1.0.0",
+            "assets": [
+                {
+                    "name": "single-bin-tool-1.0.0-linux_amd64",
+                    "browser_download_url": "https://example.com/single-bin-tool-1.0.0-linux_amd64",
+                },
+            ],
+        }
+
+    def mock_download_file(url: str, destination: str) -> str:  # noqa: ARG001
+        # Create a dummy binary file with executable content
+        Path(destination).write_text("#!/bin/sh\necho 'Hello from tool-binary'")
+        return destination
+
+    with (
+        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
+        patch("dotbins.download.download_file", side_effect=mock_download_file),
+    ):
+        # Run the update which should succeed for the single binary tool
+        config.update_tools()
+
+    # Capture the output
+    captured = capsys.readouterr()
+
+    # Verify successful messages in the output
+    assert "Successfully processed single-bin-tool" in captured.out
+
+    # Verify that the binary file was created with the correct name
+    bin_dir = config.bin_dir("linux", "amd64")
+    binary_path = bin_dir / "tool-binary"
+    assert binary_path.exists()
+
+    # Verify that the binary is executable
+    assert os.access(binary_path, os.X_OK)
+
+    # Verify the content was copied correctly
+    assert "Hello from tool-binary" in binary_path.read_text()
+
+    # Verify the version store was updated
+    tool_info = config.version_store.get_tool_info("single-bin-tool", "linux", "amd64")
+    assert tool_info is not None
+    assert tool_info["version"] == "1.0.0"
+
+
+def test_error_preparing_download(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test error handling when an exception occurs during download preparation.
+
+    This tests the error path where:
+    - An exception occurs while preparing the download task
+    - The error should be logged and the update summary should be updated
+    """
+    # Setup basic config file
+
+    config = Config.from_dict(
+        {
+            "tools_dir": str(tmp_path),
+            "platforms": {"linux": ["amd64"]},
+            "tools": {
+                "error-tool": {"repo": "owner/error-tool", "binary_name": "error-tool"},
+            },
+        },
+    )
+
+    # Create a BinSpec.matching_asset method that raises an exception
+    def mock_matching_asset(self) -> NoReturn:  # noqa: ANN001, ARG001
+        msg = "Simulated error in matching asset"
+        raise RuntimeError(msg)
+
+    # Use patch to inject our exception
+    with (
+        patch("dotbins.config.BinSpec.matching_asset", mock_matching_asset),
+        patch(
+            "dotbins.config.latest_release_info",
+            return_value={"tag_name": "v1.0.0", "assets": []},
+        ),
+    ):
+        config.update_tools()
+
+    # Capture the output
+    captured = capsys.readouterr()
+
+    # Verify error message in the log output
+    assert "Error processing error-tool for linux/amd64" in captured.out
+    assert "Simulated error in matching asset" in captured.out
+
+    # Direct inspection of the update summary object
+    failed_entries = config._update_summary.failed
+    assert len(failed_entries) > 0
+
+    # Find the entry for our tool
+    tool_entry = next((entry for entry in failed_entries if entry.tool == "error-tool"), None)
+    assert tool_entry is not None
+
+    # Verify the details of the failure
+    assert tool_entry.platform == "linux"
+    assert tool_entry.arch == "amd64"
+    assert "Error preparing download" in tool_entry.reason
+    assert "Simulated error in matching asset" in tool_entry.reason
+
+    # Verify that no files were downloaded
+    bin_dir = config.bin_dir("linux", "amd64")
+    assert not bin_dir.exists() or not any(bin_dir.iterdir())
+
+    # Verify version store doesn't have an entry for this tool
+    tool_info = config.version_store.get_tool_info("error-tool", "linux", "amd64")
+    assert tool_info is None
+
+
+def test_binary_not_found_error_handling(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test error handling when binary extraction fails with FileNotFoundError.
+
+    This tests the error path where:
+    - The download succeeds
+    - The extraction succeeds
+    - But the binary can't be found in the extracted files
+    - The error should be properly categorized as 'Binary not found'
+    """
+    # Setup config with incorrect binary path
+    config = Config.from_dict(
+        {
+            "tools_dir": str(tmp_path),
+            "platforms": {"linux": ["amd64"]},
+            "tools": {
+                "extraction-error-tool": {
+                    "repo": "owner/extraction-error-tool",
+                    "binary_name": "tool-binary",
+                    "binary_path": "nonexistent/path/tool-binary",
+                    "extract_binary": True,
+                },
+            },
+        },
+    )
+
+    def mock_latest_release_info(repo: str) -> dict:
+        log(f"Getting release info for repo: {repo}", "info")
+        return {
+            "tag_name": "v1.0.0",
+            "assets": [
+                {
+                    "name": "extraction-error-tool-1.0.0-linux_amd64.tar.gz",
+                    "browser_download_url": "https://example.com/extraction-error-tool-1.0.0-linux_amd64.tar.gz",
+                },
+            ],
+        }
+
+    def mock_download_file(url: str, destination: str) -> str:  # noqa: ARG001
+        # Create a dummy archive but WITHOUT the expected binary path
+        create_dummy_archive(Path(destination), binary_names="different-binary-name")
+        return destination
+
+    with (
+        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
+        patch("dotbins.download.download_file", side_effect=mock_download_file),
+    ):
+        config.update_tools()
+
+    # Capture the output
+    captured = capsys.readouterr()
+
+    # Verify error message in the log output
+    assert "Error processing extraction-error-tool" in captured.out
+    assert "not found" in captured.out.lower()
+
+    # Direct inspection of the update summary object
+    failed_entries = config._update_summary.failed
+    assert len(failed_entries) > 0
+
+    # Find the entry for our tool
+    tool_entry = next(
+        (entry for entry in failed_entries if entry.tool == "extraction-error-tool"),
+        None,
+    )
+    assert tool_entry is not None
+
+    # Verify the details of the failure - specifically check for "Binary not found" prefix
+    assert tool_entry.platform == "linux"
+    assert tool_entry.arch == "amd64"
+    assert "Binary not found" in tool_entry.reason
+
+    # Verify that no files were created in the destination directory
+    bin_dir = config.bin_dir("linux", "amd64")
+    assert not (bin_dir / "tool-binary").exists()
+
+
+def test_auto_detect_binary_paths_error(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test error handling when auto-detection of binary paths fails.
+
+    This tests the error path where:
+    - The download succeeds
+    - The extraction succeeds
+    - The tool has no binary_path specified, so auto-detection is used
+    - Auto-detection fails because no binary matches the expected name
+    - The error should be properly categorized as 'Auto-detect binary paths error'
+    """
+    # Setup config without binary_path - will trigger auto-detection
+    config = Config.from_dict(
+        {
+            "tools_dir": str(tmp_path),
+            "platforms": {"linux": ["amd64"]},
+            "tools": {
+                "auto-detect-error-tool": {
+                    "repo": "owner/auto-detect-error-tool",
+                    "binary_name": "expected-binary",  # This name won't match anything in the archive
+                    "extract_binary": True,
+                    # No binary_path specified - will use auto-detection
+                },
+            },
+        },
+    )
+
+    def mock_latest_release_info(repo: str) -> dict:
+        log(f"Getting release info for repo: {repo}", "info")
+        return {
+            "tag_name": "v1.0.0",
+            "assets": [
+                {
+                    "name": "auto-detect-error-tool-1.0.0-linux_amd64.tar.gz",
+                    "browser_download_url": "https://example.com/auto-detect-error-tool-1.0.0-linux_amd64.tar.gz",
+                },
+            ],
+        }
+
+    def mock_download_file(url: str, destination: str) -> str:  # noqa: ARG001
+        # Create a dummy archive with a binary that won't match the expected name
+        create_dummy_archive(Path(destination), binary_names="different-binary-name")
+        return destination
+
+    with (
+        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
+        patch("dotbins.download.download_file", side_effect=mock_download_file),
+    ):
+        config.update_tools()
+
+    # Capture the output
+    captured = capsys.readouterr()
+
+    # Verify error message in the log output
+    assert "Error processing auto-detect-error-tool" in captured.out
+    assert "auto-detect" in captured.out.lower()
+
+    # Direct inspection of the update summary object
+    failed_entries = config._update_summary.failed
+    assert len(failed_entries) > 0
+
+    # Find the entry for our tool
+    tool_entry = next(
+        (entry for entry in failed_entries if entry.tool == "auto-detect-error-tool"),
+        None,
+    )
+    assert tool_entry is not None
+
+    # Verify the details of the failure - specifically check for "Auto-detect binary paths error" prefix
+    assert tool_entry.platform == "linux"
+    assert tool_entry.arch == "amd64"
+    assert "Auto-detect binary paths error" in tool_entry.reason
+
+    # Verify that no files were created in the destination directory
+    bin_dir = config.bin_dir("linux", "amd64")
+    assert not (bin_dir / "expected-binary").exists()

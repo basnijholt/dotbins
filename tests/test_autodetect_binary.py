@@ -11,7 +11,7 @@ import pytest
 
 from dotbins.config import BinSpec, build_tool_config
 from dotbins.detect_binary import auto_detect_binary_paths
-from dotbins.download import _extract_from_archive
+from dotbins.download import AutoDetectBinaryPathsError, _extract_from_archive
 
 
 @pytest.fixture
@@ -378,7 +378,7 @@ def test_extract_from_archive_auto_detection_failure(
 
     with (
         patch("dotbins.utils.console", mock_console),
-        pytest.raises(ValueError, match="Could not auto-detect binary paths"),
+        pytest.raises(AutoDetectBinaryPathsError, match="Could not auto-detect binary paths"),
     ):
         _extract_from_archive(
             mock_archive_no_match,

@@ -428,6 +428,9 @@ tools:
 
   duf:
     repo: muesli/duf
+
+  yazi:
+    repo: sxyazi/yazi
 ```
 
 <!-- OUTPUT:END -->
