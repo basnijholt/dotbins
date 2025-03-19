@@ -200,11 +200,11 @@ def _prepare_download_task(
 
 def prepare_download_tasks(
     config: Config,
-    tools_to_update: list[str] | None = None,
-    platforms_to_update: list[str] | None = None,
-    architecture: str | None = None,
-    force: bool = False,
-    summary: UpdateSummary | None = None,
+    tools_to_update: list[str] | None,
+    platforms_to_update: list[str] | None,
+    architecture: str | None,
+    force: bool,
+    summary: UpdateSummary | None,
 ) -> tuple[list[_DownloadTask], int]:
     """Prepare download tasks for all tools and platforms."""
     download_tasks = []
@@ -217,11 +217,28 @@ def prepare_download_tasks(
     for tool_name in tools_to_update:
         for platform in platforms_to_update:
             if platform not in config.platforms:
+                if summary:
+                    summary.add_skipped_tool(
+                        tool_name,
+                        platform,
+                        architecture if architecture else "Unknown",
+                        version="Unknown",
+                        reason="Platform not configured",
+                    )
                 log(f"Skipping unknown platform: {platform}", "warning")
                 continue
 
             archs_to_update = _determine_architectures(platform, architecture, config)
             if not archs_to_update:
+                if summary:
+                    summary.add_skipped_tool(
+                        tool_name,
+                        platform,
+                        architecture if architecture else "Unknown",
+                        version="Unknown",
+                        reason="No architectures configured",
+                    )
+                log(f"Skipping unknown architecture: {architecture}", "warning")
                 continue
 
             for arch in archs_to_update:
@@ -266,9 +283,17 @@ def _process_downloaded_task(
     task: _DownloadTask,
     success: bool,
     version_store: VersionStore,
+    summary: UpdateSummary,
 ) -> bool:
     """Process a downloaded file."""
     if not success:
+        summary.add_failed_tool(
+            task.tool_name,
+            task.platform,
+            task.arch,
+            task.version,
+            reason="Download failed",
+        )
         return False
     try:
         # Calculate SHA256 hash before extraction
@@ -284,6 +309,13 @@ def _process_downloaded_task(
                 log(
                     f"Expected exactly one binary name for {task.tool_name}, got {len(binary_names)}",
                     "error",
+                )
+                summary.add_failed_tool(
+                    task.tool_name,
+                    task.platform,
+                    task.arch,
+                    task.version,
+                    reason="Expected exactly one binary name",
                 )
                 return False
             binary_name = binary_names[0]
@@ -304,9 +336,23 @@ def _process_downloaded_task(
             f"Successfully processed {task.tool_name} v{task.version} for {task.platform}/{task.arch}",
             "success",
         )
+        summary.add_updated_tool(
+            task.tool_name,
+            task.platform,
+            task.arch,
+            task.version,
+            old_version=task.version,
+        )
         return True
     except Exception as e:
         log(f"Error processing {task.tool_name}: {e!s}", "error", print_exception=True)
+        summary.add_failed_tool(
+            task.tool_name,
+            task.platform,
+            task.arch,
+            task.version,
+            reason=f"Error processing: {e!s}",
+        )
         return False
     finally:
         if task.temp_path.exists():
@@ -322,7 +368,7 @@ def process_downloaded_files(
     log(f"Processing {len(downloaded_tasks)} downloaded tools...", "info", "🔄")
     success_count = 0
     for task, download_success in downloaded_tasks:
-        if _process_downloaded_task(task, download_success, version_store):
+        if _process_downloaded_task(task, download_success, version_store, summary):
             success_count += 1
     return success_count
 
