@@ -42,6 +42,7 @@ class Config:
     tools: dict[str, ToolConfig] = field(default_factory=dict)
     config_path: Path | None = field(default=None, init=False)
     _bin_dir: Path | None = field(default=None, init=False)
+    _update_summary: UpdateSummary = field(default_factory=UpdateSummary, init=False)
 
     def bin_dir(self, platform: str, arch: str, *, create: bool = False) -> Path:
         """Return the bin directory for a given platform and architecture."""
@@ -124,9 +125,6 @@ class Config:
             copy_config_file: Whether to write the config to the tools directory.
 
         """
-        # Create summary object
-        summary = UpdateSummary()
-
         tools_to_update = _tools_to_update(self, tools)
         platforms_to_update, architecture = _platforms_and_archs_to_update(
             platform,
@@ -139,18 +137,17 @@ class Config:
             platforms_to_update,
             architecture,
             force,
-            summary=summary,
         )
         downloaded_tasks = download_files_in_parallel(download_tasks)
         success_count = process_downloaded_files(
             downloaded_tasks,
             self.version_store,
-            summary=summary,
+            self._update_summary,
         )
         self.make_binaries_executable()
 
         # Display the summary
-        display_update_summary(summary)
+        display_update_summary(self._update_summary)
 
         _print_completion_summary(success_count, total_count)
 

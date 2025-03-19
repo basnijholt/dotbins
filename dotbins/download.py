@@ -176,9 +176,23 @@ def _prepare_download_task(
         tool_config = config.tools[tool_name]
         bin_spec = tool_config.bin_spec(arch, platform)
         if bin_spec.skip_download(config, force):
+            config._update_summary.add_skipped_tool(
+                tool_name,
+                platform,
+                arch,
+                version="Unknown",
+                reason="Already up-to-date",
+            )
             return None
         asset = bin_spec.matching_asset()
         if asset is None:
+            config._update_summary.add_failed_tool(
+                tool_name,
+                platform,
+                arch,
+                version="Unknown",
+                reason="No matching asset found",
+            )
             return None
         tmp_dir = Path(tempfile.gettempdir())
         temp_path = tmp_dir / asset["browser_download_url"].split("/")[-1]
@@ -204,7 +218,6 @@ def prepare_download_tasks(
     platforms_to_update: list[str] | None,
     architecture: str | None,
     force: bool,
-    summary: UpdateSummary | None,
 ) -> tuple[list[_DownloadTask], int]:
     """Prepare download tasks for all tools and platforms."""
     download_tasks = []
@@ -217,27 +230,25 @@ def prepare_download_tasks(
     for tool_name in tools_to_update:
         for platform in platforms_to_update:
             if platform not in config.platforms:
-                if summary:
-                    summary.add_skipped_tool(
-                        tool_name,
-                        platform,
-                        architecture if architecture else "Unknown",
-                        version="Unknown",
-                        reason="Platform not configured",
-                    )
+                config._update_summary.add_skipped_tool(
+                    tool_name,
+                    platform,
+                    architecture if architecture else "Unknown",
+                    version="Unknown",
+                    reason="Platform not configured",
+                )
                 log(f"Skipping unknown platform: {platform}", "warning")
                 continue
 
             archs_to_update = _determine_architectures(platform, architecture, config)
             if not archs_to_update:
-                if summary:
-                    summary.add_skipped_tool(
-                        tool_name,
-                        platform,
-                        architecture if architecture else "Unknown",
-                        version="Unknown",
-                        reason="No architectures configured",
-                    )
+                config._update_summary.add_skipped_tool(
+                    tool_name,
+                    platform,
+                    architecture if architecture else "Unknown",
+                    version="Unknown",
+                    reason="No architectures configured",
+                )
                 log(f"Skipping unknown architecture: {architecture}", "warning")
                 continue
 
