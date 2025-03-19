@@ -180,7 +180,7 @@ def _prepare_download_task(
                 tool_name,
                 platform,
                 arch,
-                version="Unknown",
+                version=bin_spec.version,
                 reason="Already up-to-date",
             )
             return None
@@ -190,7 +190,7 @@ def _prepare_download_task(
                 tool_name,
                 platform,
                 arch,
-                version="Unknown",
+                version=bin_spec.version,
                 reason="No matching asset found",
             )
             return None
