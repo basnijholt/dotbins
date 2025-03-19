@@ -17,6 +17,7 @@ import yaml
 from .detect_asset import create_system_detector
 from .download import download_files_in_parallel, prepare_download_tasks, process_downloaded_files
 from .readme import generate_readme_content, write_readme_file
+from .summary import UpdateSummary, display_update_summary
 from .utils import current_platform, github_url_to_raw_url, latest_release_info, log
 from .versions import VersionStore
 
@@ -123,6 +124,9 @@ class Config:
             copy_config_file: Whether to write the config to the tools directory.
 
         """
+        # Create summary object
+        summary = UpdateSummary()
+
         tools_to_update = _tools_to_update(self, tools)
         platforms_to_update, architecture = _platforms_and_archs_to_update(
             platform,
@@ -135,10 +139,19 @@ class Config:
             platforms_to_update,
             architecture,
             force,
+            summary=summary,
         )
         downloaded_tasks = download_files_in_parallel(download_tasks)
-        success_count = process_downloaded_files(downloaded_tasks, self.version_store)
+        success_count = process_downloaded_files(
+            downloaded_tasks,
+            self.version_store,
+            summary=summary,
+        )
         self.make_binaries_executable()
+
+        # Display the summary
+        display_update_summary(summary)
+
         _print_completion_summary(success_count, total_count)
 
         if generate_readme:

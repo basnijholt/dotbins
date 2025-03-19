@@ -13,6 +13,7 @@ from .utils import calculate_sha256, download_file, extract_archive, log
 
 if TYPE_CHECKING:
     from .config import BinSpec, Config, ToolConfig
+    from .summary import UpdateSummary
     from .versions import VersionStore
 
 
@@ -203,6 +204,7 @@ def prepare_download_tasks(
     platforms_to_update: list[str] | None = None,
     architecture: str | None = None,
     force: bool = False,
+    summary: UpdateSummary | None = None,
 ) -> tuple[list[_DownloadTask], int]:
     """Prepare download tasks for all tools and platforms."""
     download_tasks = []
@@ -314,6 +316,7 @@ def _process_downloaded_task(
 def process_downloaded_files(
     downloaded_tasks: list[tuple[_DownloadTask, bool]],
     version_store: VersionStore,
+    summary: UpdateSummary,
 ) -> int:
     """Process downloaded files and return success count."""
     log(f"Processing {len(downloaded_tasks)} downloaded tools...", "info", "🔄")
