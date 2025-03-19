@@ -32,7 +32,7 @@ def _format_size(size_bytes: float) -> str:
         return "0 B"
 
     size_names = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
-    i = int(math.floor(math.log(size_bytes, 1024)))
+    i = math.floor(math.log(size_bytes, 1024))
     # Handle potential out of range index
     i = min(i, len(size_names) - 1)
     p = math.pow(1024, i)

@@ -427,7 +427,7 @@ def _normalize_asset_patterns(
     """
     # Start by initializing empty patterns for each platform/arch
     normalized: dict[str, dict[str, str | None]] = {
-        platform: {arch: None for arch in arch_list} for platform, arch_list in platforms.items()
+        platform: dict.fromkeys(arch_list) for platform, arch_list in platforms.items()
     }
     if not patterns:
         return normalized
