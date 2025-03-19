@@ -15,7 +15,12 @@ import requests
 import yaml
 
 from .detect_asset import create_system_detector
-from .download import download_files_in_parallel, prepare_download_tasks, process_downloaded_files
+from .download import (
+    _determine_architectures,
+    download_files_in_parallel,
+    prepare_download_tasks,
+    process_downloaded_files,
+)
 from .readme import generate_readme_content, write_readme_file
 from .utils import current_platform, github_url_to_raw_url, latest_release_info, log
 from .versions import VersionStore
@@ -123,27 +128,156 @@ class Config:
             copy_config_file: Whether to write the config to the tools directory.
 
         """
+        # Try to import rich for fancy tables
+        try:
+            from rich.console import Console  # noqa: F401
+            from rich.table import Table  # noqa: F401
+
+            rich_available = True
+        except ImportError:
+            rich_available = False
+
         tools_to_update = _tools_to_update(self, tools)
         platforms_to_update, architecture = _platforms_and_archs_to_update(
             platform,
             architecture,
             current,
         )
-        download_tasks, total_count = prepare_download_tasks(
+
+        # Get download tasks, already skipped tools, and failed tools from prepare_download_tasks
+        download_tasks, total_count, skipped_tools, failed_tools = prepare_download_tasks(
             self,
             tools_to_update,
             platforms_to_update,
             architecture,
             force,
         )
+
+        # Additional check for tools explicitly requested but not going to be downloaded
+        if tools_to_update:
+            requested_tools = set(tools_to_update)
+            processing_tools = {task.tool_name for task in download_tasks}
+            processed_tools = set()
+
+            # Add tools that have already been processed as skipped or failed
+            for info in skipped_tools:
+                processed_tools.add(info["tool"])
+            for info in failed_tools:
+                processed_tools.add(info["tool"])
+
+            # Check for any remaining requested tools not being processed
+            for tool in requested_tools - processing_tools - processed_tools:
+                for platform_name in platforms_to_update or list(self.platforms):
+                    archs = _determine_architectures(platform_name, architecture, self)
+                    for arch in archs:
+                        tool_info = self.version_store.get_tool_info(tool, platform_name, arch)
+                        if tool_info:
+                            skipped_tools.append(
+                                {
+                                    "tool": tool,
+                                    "platform": platform_name,
+                                    "arch": arch,
+                                    "version": tool_info.get("version", "Unknown"),
+                                    "reason": "Already up-to-date",
+                                },
+                            )
+
         downloaded_tasks = download_files_in_parallel(download_tasks)
-        success_count = process_downloaded_files(downloaded_tasks, self.version_store)
+        success_count, summary = process_downloaded_files(downloaded_tasks, self.version_store)
+
+        # Add skipped and failed tools to summary
+        summary["skipped"] = skipped_tools
+        summary["failed"] = failed_tools
+
         self.make_binaries_executable()
         _print_completion_summary(success_count, total_count)
+
+        # Display rich summary table if rich is available
+        if rich_available:
+            _display_update_summary(summary)
 
         if generate_readme:
             self.generate_readme()
         _maybe_copy_config_file(copy_config_file, self.config_path, self.tools_dir)
+
+
+def _display_update_summary(summary: dict[str, list[dict[str, str]]]) -> None:
+    """Display a summary table of the update results using Rich.
+
+    Args:
+        summary: A dictionary with lists of tool information categorized as "updated", "failed", and "skipped"
+
+    """
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+
+    console.print("\n[bold]📊 Update Summary[/bold]\n")
+
+    # Table for updated tools
+    if summary["updated"]:
+        table = Table(title="✅ Updated Tools")
+        table.add_column("Tool", style="cyan")
+        table.add_column("Platform", style="blue")
+        table.add_column("Architecture", style="blue")
+        table.add_column("Old Version", style="yellow")
+        table.add_column("New Version", style="green")
+
+        for item in summary["updated"]:
+            table.add_row(
+                item["tool"],
+                item["platform"],
+                item["arch"],
+                item["old_version"],
+                item["version"],
+            )
+
+        console.print(table)
+        console.print("")
+
+    # Table for failed tools
+    if summary["failed"]:
+        table = Table(title="❌ Failed Updates")
+        table.add_column("Tool", style="cyan")
+        table.add_column("Platform", style="blue")
+        table.add_column("Architecture", style="blue")
+        table.add_column("Version", style="yellow")
+        table.add_column("Reason", style="red")
+
+        for item in summary["failed"]:
+            table.add_row(
+                item["tool"],
+                item["platform"],
+                item["arch"],
+                item["version"],
+                item.get("reason", "Unknown error"),
+            )
+
+        console.print(table)
+        console.print("")
+
+    # Table for skipped tools
+    if summary["skipped"]:
+        table = Table(title="⏭️ Skipped Tools")
+        table.add_column("Tool", style="cyan")
+        table.add_column("Platform", style="blue")
+        table.add_column("Architecture", style="blue")
+        table.add_column("Version", style="green")
+        table.add_column("Reason", style="yellow")
+
+        for item in summary["skipped"]:
+            table.add_row(
+                item["tool"],
+                item["platform"],
+                item["arch"],
+                item["version"],
+                item.get("reason", "Already up-to-date"),
+            )
+
+        console.print(table)
+
+    console.print("")
 
 
 def _maybe_copy_config_file(

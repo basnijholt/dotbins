@@ -76,8 +76,11 @@ def test_update_tools_generates_readme(mock_print_shell: MagicMock) -> None:  # 
     # Mock config
     config = MagicMock(spec=Config)
 
+    # Mock update_tools to return a count and summary
+    config.update_tools.return_value = (1, {"updated": [], "skipped": [], "failed": []})
+
     # Test with generate_readme=True (default)
-    _update_tools(
+    updated_count, summary = _update_tools(
         config=config,
         tools=["tool1"],
         platform="linux",
@@ -92,6 +95,12 @@ def test_update_tools_generates_readme(mock_print_shell: MagicMock) -> None:  # 
     # Verify config.update_tools was called with generate_readme=True
     config.update_tools.assert_called_with(["tool1"], "linux", "amd64", False, False, True, False)
 
+    # Verify the return values
+    assert updated_count == 1
+    assert "updated" in summary
+    assert "skipped" in summary
+    assert "failed" in summary
+
 
 @patch("dotbins.cli.print_shell_setup")
 def test_update_tools_skips_readme(mock_print_shell: MagicMock) -> None:  # noqa: ARG001
@@ -99,8 +108,11 @@ def test_update_tools_skips_readme(mock_print_shell: MagicMock) -> None:  # noqa
     # Mock config
     config = MagicMock(spec=Config)
 
+    # Mock update_tools to return a count and summary
+    config.update_tools.return_value = (0, {"updated": [], "skipped": [], "failed": []})
+
     # Test with generate_readme=False
-    _update_tools(
+    updated_count, summary = _update_tools(
         config=config,
         tools=["tool1"],
         platform="linux",
@@ -115,6 +127,12 @@ def test_update_tools_skips_readme(mock_print_shell: MagicMock) -> None:  # noqa
     # Verify config.update_tools was called with generate_readme=False
     config.update_tools.assert_called_with(["tool1"], "linux", "amd64", False, False, False, False)
 
+    # Verify the return values
+    assert updated_count == 0
+    assert "updated" in summary
+    assert "skipped" in summary
+    assert "failed" in summary
+
 
 @patch("dotbins.cli.print_shell_setup")
 def test_update_tools_with_shell_setup(mock_print_shell: MagicMock) -> None:
@@ -122,8 +140,11 @@ def test_update_tools_with_shell_setup(mock_print_shell: MagicMock) -> None:
     # Mock config
     config = MagicMock(spec=Config)
 
+    # Mock update_tools to return a count and summary
+    config.update_tools.return_value = (1, {"updated": [], "skipped": [], "failed": []})
+
     # Test with shell_setup=True
-    _update_tools(
+    updated_count, summary = _update_tools(
         config=config,
         tools=["tool1"],
         platform="linux",
@@ -140,6 +161,12 @@ def test_update_tools_with_shell_setup(mock_print_shell: MagicMock) -> None:
 
     # Verify config.update_tools was called
     config.update_tools.assert_called_with(["tool1"], "linux", "amd64", False, False, True, False)
+
+    # Verify the return values
+    assert updated_count == 1
+    assert "updated" in summary
+    assert "skipped" in summary
+    assert "failed" in summary
 
 
 def test_cli_argument_parsing() -> None:

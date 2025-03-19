@@ -32,9 +32,9 @@ def _update_tools(
     shell_setup: bool,
     generate_readme: bool = True,
     copy_config_file: bool = True,
-) -> None:
+) -> tuple[int, dict[str, list[dict[str, str]]]]:
     """Update tools based on command line arguments."""
-    config.update_tools(
+    updated_count, summary = config.update_tools(
         tools,
         platform,
         architecture,
@@ -45,6 +45,8 @@ def _update_tools(
     )
     if shell_setup:
         print_shell_setup(config)
+
+    return updated_count, summary
 
 
 def _initialize(config: Config) -> None:

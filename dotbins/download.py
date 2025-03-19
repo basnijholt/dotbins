@@ -169,32 +169,64 @@ def _prepare_download_task(
     arch: str,
     config: Config,
     force: bool,
-) -> _DownloadTask | None:
-    """Prepare a download task, checking if update is needed based on version."""
+) -> tuple[_DownloadTask | None, dict[str, str] | None]:
+    """Prepare a download task, checking if update is needed based on version.
+
+    Returns:
+        A tuple containing:
+        - The download task, or None if no download is needed
+        - A dictionary with info about a skipped tool, or None if not skipped
+
+    """
     try:
         tool_config = config.tools[tool_name]
         bin_spec = tool_config.bin_spec(arch, platform)
+
+        # Check if we should skip this download
         if bin_spec.skip_download(config, force):
-            return None
+            # Return info about the skipped tool
+            tool_info = config.version_store.get_tool_info(tool_name, platform, arch)
+            return None, {
+                "tool": tool_name,
+                "platform": platform,
+                "arch": arch,
+                "version": tool_info.get("version", "Unknown") if tool_info else "Unknown",
+                "reason": "Already up-to-date",
+            }
+
         asset = bin_spec.matching_asset()
         if asset is None:
-            return None
+            # Track this as a failed tool
+            return None, {
+                "tool": tool_name,
+                "platform": platform,
+                "arch": arch,
+                "version": bin_spec.version,
+                "reason": "No suitable asset found",
+            }
+
         tmp_dir = Path(tempfile.gettempdir())
         temp_path = tmp_dir / asset["browser_download_url"].split("/")[-1]
-        return _DownloadTask(
-            bin_spec=bin_spec,
-            asset_url=asset["browser_download_url"],
-            asset_name=asset["name"],
-            destination_dir=config.bin_dir(platform, arch),
-            temp_path=temp_path,
+        return (
+            _DownloadTask(
+                bin_spec=bin_spec,
+                asset_url=asset["browser_download_url"],
+                asset_name=asset["name"],
+                destination_dir=config.bin_dir(platform, arch),
+                temp_path=temp_path,
+            ),
+            None,
         )
     except Exception as e:
-        log(
-            f"Error processing {tool_name} for {platform}/{arch}: {e!s}",
-            "error",
-            print_exception=True,
-        )
-        return None
+        # Track exceptions as failures too
+        error_message = str(e).strip() or "Unknown error"
+        return None, {
+            "tool": tool_name,
+            "platform": platform,
+            "arch": arch,
+            "version": "Unknown",
+            "reason": f"Error: {error_message}",
+        }
 
 
 def prepare_download_tasks(
@@ -203,9 +235,20 @@ def prepare_download_tasks(
     platforms_to_update: list[str] | None = None,
     architecture: str | None = None,
     force: bool = False,
-) -> tuple[list[_DownloadTask], int]:
-    """Prepare download tasks for all tools and platforms."""
+) -> tuple[list[_DownloadTask], int, list[dict[str, str]], list[dict[str, str]]]:
+    """Prepare download tasks for all tools and platforms.
+
+    Returns:
+        A tuple containing:
+        - List of download tasks
+        - Total count of tools checked
+        - List of skipped tools with their details
+        - List of failed tools with their details
+
+    """
     download_tasks = []
+    skipped_tools = []
+    failed_tools = []
     total_count = 0
     if tools_to_update is None:
         tools_to_update = list(config.tools)
@@ -224,11 +267,29 @@ def prepare_download_tasks(
 
             for arch in archs_to_update:
                 total_count += 1
-                task = _prepare_download_task(tool_name, platform, arch, config, force)
+                task, result_info = _prepare_download_task(tool_name, platform, arch, config, force)
+
                 if task:
                     download_tasks.append(task)
+                elif result_info:
+                    # Categorize the result as a skip or a failure
+                    if result_info.get("reason", "").startswith("Already up-to-date"):
+                        skipped_tools.append(result_info)
+                    else:
+                        # If not "Already up-to-date", it's considered a failure
+                        failed_tools.append(result_info)
+                        # Also log the failure
+                        log(
+                            f"Error processing {tool_name} for {platform}/{arch}: {result_info.get('reason')}",
+                            "error",
+                        )
 
-    return sorted(download_tasks, key=lambda t: t.asset_url), total_count
+    return (
+        sorted(download_tasks, key=lambda t: t.asset_url),
+        total_count,
+        skipped_tools,
+        failed_tools,
+    )
 
 
 def _download_task(task: _DownloadTask) -> tuple[_DownloadTask, bool]:
@@ -314,14 +375,62 @@ def _process_downloaded_task(
 def process_downloaded_files(
     downloaded_tasks: list[tuple[_DownloadTask, bool]],
     version_store: VersionStore,
-) -> int:
-    """Process downloaded files and return success count."""
+) -> tuple[int, dict[str, list[dict[str, str]]]]:
+    """Process downloaded files and return success count and summary data.
+
+    Returns:
+        A tuple containing:
+        - The number of tools successfully updated
+        - A dictionary with summary information categorized as "updated", "failed", and "skipped"
+
+    """
     log(f"Processing {len(downloaded_tasks)} downloaded tools...", "info", "🔄")
     success_count = 0
+
+    # Track results for summary table
+    summary = {
+        "updated": [],
+        "failed": [],
+        "skipped": [],
+    }
+
     for task, download_success in downloaded_tasks:
-        if _process_downloaded_task(task, download_success, version_store):
-            success_count += 1
-    return success_count
+        tool_info = {
+            "tool": task.tool_name,
+            "platform": task.platform,
+            "arch": task.arch,
+            "version": task.version,
+        }
+
+        if download_success:
+            # Get previous version info if available
+            old_info = version_store.get_tool_info(task.tool_name, task.platform, task.arch)
+            old_version = old_info.get("version", "none") if old_info else "none"
+
+            if _process_downloaded_task(task, download_success, version_store):
+                success_count += 1
+                summary["updated"].append(
+                    {
+                        **tool_info,
+                        "old_version": old_version,
+                    },
+                )
+            else:
+                summary["failed"].append(
+                    {
+                        **tool_info,
+                        "reason": "Processing failed",
+                    },
+                )
+        else:
+            summary["failed"].append(
+                {
+                    **tool_info,
+                    "reason": "Download failed",
+                },
+            )
+
+    return success_count, summary
 
 
 def _determine_architectures(

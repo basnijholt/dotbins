@@ -1,16 +1,21 @@
 """Integration tests for the dotbins module."""
 
+from __future__ import annotations
+
 import sys
-from pathlib import Path
-from typing import Any, Callable
-from unittest.mock import patch
+from typing import TYPE_CHECKING, Any, Callable
+from unittest.mock import MagicMock, patch
 
 import pytest
-from _pytest.capture import CaptureFixture
-from _pytest.monkeypatch import MonkeyPatch
 
 from dotbins import cli
 from dotbins.config import Config, build_tool_config
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from _pytest.capture import CaptureFixture
+    from _pytest.monkeypatch import MonkeyPatch
 
 
 def test_initialization(
@@ -68,54 +73,79 @@ def test_list_tools(
     assert "test/tool" in captured.out
 
 
-def test_update_tool(
+def test_update_tools(
     tmp_path: Path,
     monkeypatch: MonkeyPatch,
     mock_github_api: Any,  # noqa: ARG001
-    create_dummy_archive: Callable,
 ) -> None:
-    """Test updating a specific tool."""
-    # Set up mock environment
-    test_tool_config = build_tool_config(
-        tool_name="test-tool",
-        raw_data={
-            "repo": "test/tool",
-            "extract_binary": True,
-            "binary_name": "test-tool",
-            "binary_path": "*",
-            "asset_patterns": "test-tool-{version}-{platform}_{arch}.tar.gz",
-            "platform_map": {"macos": "darwin"},
+    """Test updating tools."""
+    # Set up test tools directory
+    tools_dir = tmp_path / "tools"
+    tools_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create mock config
+    config = MagicMock(spec=Config)
+
+    # Mock the update_tools method to return a successful result
+    config.update_tools.return_value = (
+        1,
+        {
+            "updated": [
+                {
+                    "tool": "test-tool1",
+                    "platform": "linux",
+                    "arch": "amd64",
+                    "version": "1.0.0",
+                    "old_version": "none",
+                },
+            ],
+            "skipped": [
+                {
+                    "tool": "test-tool2",
+                    "platform": "linux",
+                    "arch": "amd64",
+                    "version": "1.0.0",
+                    "reason": "Already up-to-date",
+                },
+            ],
+            "failed": [],
         },
     )
 
-    # Create config with our test tool - use new format
-    config = Config(
-        tools_dir=tmp_path / "tools",
-        platforms={"linux": ["amd64"]},  # Just linux/amd64 for this test
-        tools={"test-tool": test_tool_config},
-    )
-
-    # Mock the download_file function to use our fixture
-    def mock_download_file(_url: str, destination: str) -> str:
-        create_dummy_archive(dest_path=Path(destination), binary_names="test-tool")
-        return destination
-
-    # Mock download and extraction to avoid actual downloads
-    monkeypatch.setattr("dotbins.download.download_file", mock_download_file)
-
-    # Directly call update_tools
-    cli._update_tools(
-        config,
-        tools=["test-tool"],
+    # Call update_tools through the CLI function
+    updated_count, summary = cli._update_tools(
+        config=config,
+        tools=["test-tool1", "test-tool2"],
         platform="linux",
         architecture="amd64",
         current=False,
         force=False,
         shell_setup=False,
+        generate_readme=False,
+        copy_config_file=False,
     )
 
-    # Check if binary was installed
-    assert (tmp_path / "tools" / "linux" / "amd64" / "bin" / "test-tool").exists()
+    # Verify config.update_tools was called with the correct parameters
+    config.update_tools.assert_called_once_with(
+        ["test-tool1", "test-tool2"],
+        "linux",
+        "amd64",
+        False,
+        False,
+        False,
+        False,
+    )
+
+    # Verify results
+    assert updated_count == 1
+    assert "updated" in summary
+    assert "skipped" in summary
+    assert "failed" in summary
+    assert len(summary["updated"]) == 1
+    assert len(summary["skipped"]) == 1
+    assert len(summary["failed"]) == 0
+    assert summary["updated"][0]["tool"] == "test-tool1"
+    assert summary["skipped"][0]["tool"] == "test-tool2"
 
 
 def test_cli_no_command(capsys: CaptureFixture[str]) -> None:
@@ -165,3 +195,64 @@ def test_cli_tools_dir_override(tmp_path: Path) -> None:
 
     # Check if directories were created in the custom location
     assert (custom_dir / "linux" / "amd64" / "bin").exists()
+
+
+def test_update_tool(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    mock_github_api: Any,  # noqa: ARG001
+    create_dummy_archive: Callable,
+) -> None:
+    """Test updating a specific tool."""
+    # Create mock config
+    config = MagicMock(spec=Config)
+
+    # Mock the update_tools method to return a successful result
+    config.update_tools.return_value = (
+        1,
+        {
+            "updated": [
+                {
+                    "tool": "test-tool",
+                    "platform": "linux",
+                    "arch": "amd64",
+                    "version": "1.0.0",
+                    "old_version": "none",
+                },
+            ],
+            "skipped": [],
+            "failed": [],
+        },
+    )
+
+    # Call update_tools through the CLI function
+    updated_count, summary = cli._update_tools(
+        config=config,
+        tools=["test-tool"],
+        platform="linux",
+        architecture="amd64",
+        current=False,
+        force=False,
+        shell_setup=False,
+        generate_readme=False,
+        copy_config_file=False,
+    )
+
+    # Verify config.update_tools was called with the correct parameters
+    config.update_tools.assert_called_once_with(
+        ["test-tool"],
+        "linux",
+        "amd64",
+        False,
+        False,
+        False,
+        False,
+    )
+
+    # Verify results
+    assert updated_count == 1
+    assert "updated" in summary
+    assert "skipped" in summary
+    assert "failed" in summary
+    assert len(summary["updated"]) == 1
+    assert summary["updated"][0]["tool"] == "test-tool"

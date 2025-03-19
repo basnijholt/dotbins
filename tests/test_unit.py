@@ -342,8 +342,8 @@ def test_download_tool_already_exists(tmp_path: Path) -> None:
     with patch("dotbins.utils.latest_release_info") as mock_release:
         mock_release.return_value = {"tag_name": "v1.0.0", "assets": []}
 
-        # With prepare_download_task, it should return None if file exists
-        result = dotbins.download._prepare_download_task(
+        # With prepare_download_task, it should return (None, skipped_info) if file exists
+        task, skipped_info = dotbins.download._prepare_download_task(
             "test-tool",
             "linux",
             "amd64",
@@ -351,8 +351,15 @@ def test_download_tool_already_exists(tmp_path: Path) -> None:
             force=False,
         )
 
-    # Should return None (skip download) since file exists
-    assert result is None
+    # Should return None for the task (skip download) since file exists
+    assert task is None
+    # Should return skipped_info with details
+    assert skipped_info is not None
+    assert skipped_info["tool"] == "test-tool"
+    assert skipped_info["platform"] == "linux"
+    assert skipped_info["arch"] == "amd64"
+    assert skipped_info["version"] == "1.0.0"
+    assert "Already up-to-date" in skipped_info["reason"]
 
 
 def test_download_tool_asset_not_found(
@@ -392,7 +399,7 @@ def test_download_tool_asset_not_found(
         mock_release.return_value = {"tag_name": "v1.0.0", "assets": []}
 
         # Call the function
-        result = dotbins.download._prepare_download_task(
+        task, failed_info = dotbins.download._prepare_download_task(
             "test-tool",
             "linux",
             "amd64",
@@ -400,8 +407,14 @@ def test_download_tool_asset_not_found(
             force=False,
         )
 
-        # Should return None since asset wasn't found
-        assert result is None
+    # Should return None for the task since asset not found
+    assert task is None
+    # Should provide failure information
+    assert failed_info is not None
+    assert failed_info["tool"] == "test-tool"
+    assert failed_info["platform"] == "linux"
+    assert failed_info["arch"] == "amd64"
+    assert "No suitable asset found" in failed_info["reason"] or "Error" in failed_info["reason"]
 
 
 def test_extract_from_archive_unknown_type(tmp_path: Path) -> None:
