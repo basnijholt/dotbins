@@ -15,7 +15,7 @@ def test_validate_unknown_architecture() -> None:
                     "repo": "test/repo",
                     "binary_name": "test-tool",
                     "binary_path": "test-tool",
-                    "asset_patterns": {
+                    "asset_patterns": {  # type: ignore[typeddict-item]
                         "linux": {"unknown_arch": "test-{version}-linux_unknown.tar.gz"},
                     },
                 },

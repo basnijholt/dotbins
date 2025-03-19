@@ -18,7 +18,13 @@ from .detect_asset import create_system_detector
 from .download import download_files_in_parallel, prepare_download_tasks, process_downloaded_files
 from .readme import generate_readme_content, write_readme_file
 from .summary import UpdateSummary, display_update_summary
-from .utils import current_platform, github_url_to_raw_url, latest_release_info, log
+from .utils import (
+    current_platform,
+    fetch_releases_in_parallel,
+    github_url_to_raw_url,
+    latest_release_info,
+    log,
+)
 from .versions import VersionStore
 
 if sys.version_info >= (3, 11):
@@ -126,6 +132,11 @@ class Config:
 
         """
         tools_to_update = _tools_to_update(self, tools)
+        repos = [
+            self.tools[tool].repo
+            for tool in (tools_to_update if tools_to_update is not None else self.tools)
+        ]
+        _ = fetch_releases_in_parallel(repos)  # populates cache
         platforms_to_update, architecture = _platforms_and_archs_to_update(
             platform,
             architecture,

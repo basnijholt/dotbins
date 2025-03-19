@@ -157,6 +157,7 @@ def test_extract_from_archive_tar(tmp_path: Path, create_dummy_archive: Callable
     tool_config = build_tool_config(
         tool_name="test-tool",
         raw_data={
+            "repo": "test/tool",
             "binary_name": "test-tool",
             "binary_path": "test-bin",
         },
@@ -199,6 +200,7 @@ def test_extract_from_archive_zip(tmp_path: Path, create_dummy_archive: Callable
     tool_config = build_tool_config(
         tool_name="test-tool",
         raw_data={
+            "repo": "test/tool",
             "binary_name": "test-tool",
             "binary_path": "test-bin",
         },
@@ -241,6 +243,7 @@ def test_extract_from_archive_nested(tmp_path: Path, create_dummy_archive: Calla
     tool_config = build_tool_config(
         tool_name="test-tool",
         raw_data={
+            "repo": "test/tool",
             "binary_name": "test-tool",
             "binary_path": "nested/dir/test-bin",
         },

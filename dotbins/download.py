@@ -294,7 +294,7 @@ def download_files_in_parallel(
     """Download files in parallel using ThreadPoolExecutor."""
     log(f"Downloading {len(download_tasks)} tools in parallel...", "info", "🔄")
     downloaded_tasks = []
-    with ThreadPoolExecutor(max_workers=min(8, len(download_tasks) or 1)) as ex:
+    with ThreadPoolExecutor(max_workers=min(16, len(download_tasks) or 1)) as ex:
         future_to_task = {ex.submit(_download_task, task): task for task in download_tasks}
         for future in as_completed(future_to_task):
             task, success = future.result()

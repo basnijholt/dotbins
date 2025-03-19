@@ -8,6 +8,7 @@ import os
 import sys
 import tarfile
 import zipfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -22,7 +23,7 @@ console = Console()
 
 @functools.cache
 def latest_release_info(repo: str) -> dict:
-    """Get the latest release information from GitHub."""
+    """Fetch release information from GitHub for a single repository."""
     url = f"https://api.github.com/repos/{repo}/releases/latest"
     log(f"Fetching latest release from {url}", "info", "🔍")
 
@@ -34,6 +35,37 @@ def latest_release_info(repo: str) -> dict:
         log("Failed to fetch latest release.", "error", print_exception=True)
         msg = f"Failed to fetch latest release for {repo}: {e}"
         raise RuntimeError(msg) from e
+
+
+def _try_fetch_release_info(repo: str) -> dict | None:
+    """Try to fetch release information from GitHub for a single repository."""
+    try:
+        return latest_release_info(repo)
+    except Exception:
+        return None
+
+
+def fetch_releases_in_parallel(repos: list[str]) -> dict[str, dict]:
+    """Fetch release information for multiple repositories in parallel.
+
+    Args:
+        repos: List of repository names in format 'owner/repo'
+
+    Returns:
+        Dictionary mapping repository names to their release information
+
+    """
+    results: dict[str, dict] = {}
+    with ThreadPoolExecutor(max_workers=min(16, len(repos) or 1)) as ex:
+        future_to_repo = {ex.submit(_try_fetch_release_info, repo): repo for repo in repos}
+        for future in as_completed(future_to_repo):
+            repo = future_to_repo[future]
+            try:
+                results[repo] = future.result()  # type: ignore[assignment]
+            except Exception as e:
+                log(f"Error fetching release for {repo}: {e}", "error", print_exception=True)
+                results[repo] = {}
+    return results
 
 
 def download_file(url: str, destination: str) -> str:
