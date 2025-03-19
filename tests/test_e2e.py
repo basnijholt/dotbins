@@ -486,6 +486,10 @@ def test_e2e_update_tools_partial_skip_and_update(
     assert other_bin.exists()
     assert os.access(other_bin, os.X_OK)
 
+    # Check old version is recorded
+    assert config._update_summary.updated[0].old_version == "1.0.0"
+    assert config._update_summary.updated[0].version == "2.0.0"
+
 
 def test_e2e_update_tools_force_re_download(tmp_path: Path, create_dummy_archive: Callable) -> None:
     """Force a re-download.

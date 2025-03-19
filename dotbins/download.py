@@ -362,6 +362,14 @@ def _process_downloaded_task(
         )
         return False
     else:
+        summary.add_updated_tool(
+            task.tool_name,
+            task.platform,
+            task.arch,
+            task.version,
+            old_version=version_store.get_tool_version(task.tool_name, task.platform, task.arch)
+            or "Unknown",
+        )
         version_store.update_tool_info(
             task.tool_name,
             task.platform,
@@ -373,13 +381,6 @@ def _process_downloaded_task(
         log(
             f"Successfully processed {task.tool_name} v{task.version} for {task.platform}/{task.arch}",
             "success",
-        )
-        summary.add_updated_tool(
-            task.tool_name,
-            task.platform,
-            task.arch,
-            task.version,
-            old_version=task.version,
         )
         return True
     finally:

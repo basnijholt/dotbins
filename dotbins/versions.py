@@ -46,15 +46,15 @@ class VersionStore:
             sorted_versions = dict(sorted(self.versions.items()))
             json.dump(sorted_versions, f, indent=2)
 
-    def get_tool_info(
-        self,
-        tool: str,
-        platform: str,
-        arch: str,
-    ) -> dict[str, Any] | None:
+    def get_tool_info(self, tool: str, platform: str, arch: str) -> dict[str, Any] | None:
         """Get version info for a specific tool/platform/arch combination."""
         key = f"{tool}/{platform}/{arch}"
         return self.versions.get(key)
+
+    def get_tool_version(self, tool: str, platform: str, arch: str) -> str | None:
+        """Get version info for a specific tool/platform/arch combination."""
+        info = self.get_tool_info(tool, platform, arch)
+        return info["version"] if info else None
 
     def update_tool_info(
         self,
