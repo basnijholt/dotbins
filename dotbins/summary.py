@@ -131,6 +131,27 @@ def display_update_summary(summary: UpdateSummary) -> None:
 
     console.print("\n[bold]📊 Update Summary[/bold]\n")
 
+    # Table for skipped tools
+    if summary.skipped:
+        table = Table(title="⏭️ Skipped Tools")
+        table.add_column("Tool", style="cyan")
+        table.add_column("Platform", style="blue")
+        table.add_column("Architecture", style="blue")
+        table.add_column("Version", style="green")
+        table.add_column("Reason", style="yellow")
+
+        for skipped_item in summary.skipped:
+            table.add_row(
+                skipped_item.tool,
+                skipped_item.platform,
+                skipped_item.arch,
+                skipped_item.version,
+                skipped_item.reason,
+            )
+
+        console.print(table)
+        console.print("")
+
     # Table for updated tools
     if summary.updated:
         table = Table(title="✅ Updated Tools")
@@ -172,25 +193,3 @@ def display_update_summary(summary: UpdateSummary) -> None:
 
         console.print(table)
         console.print("")
-
-    # Table for skipped tools
-    if summary.skipped:
-        table = Table(title="⏭️ Skipped Tools")
-        table.add_column("Tool", style="cyan")
-        table.add_column("Platform", style="blue")
-        table.add_column("Architecture", style="blue")
-        table.add_column("Version", style="green")
-        table.add_column("Reason", style="yellow")
-
-        for skipped_item in summary.skipped:
-            table.add_row(
-                skipped_item.tool,
-                skipped_item.platform,
-                skipped_item.arch,
-                skipped_item.version,
-                skipped_item.reason,
-            )
-
-        console.print(table)
-
-    console.print("")
