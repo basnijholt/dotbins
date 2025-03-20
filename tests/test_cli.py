@@ -164,3 +164,22 @@ def test_cli_tools_dir_override(tmp_path: Path) -> None:
 
     # Check if directories were created in the custom location
     assert (custom_dir / "linux" / "amd64" / "bin").exists()
+
+
+def test_cli_argument_parsing() -> None:
+    """Test CLI argument parsing for readme and no-readme options."""
+    parser = cli.create_parser()
+
+    # Test readme command
+    args = parser.parse_args(["readme"])
+    assert args.command == "readme"
+
+    # Test update with --no-readme
+    args = parser.parse_args(["update", "--no-readme"])
+    assert args.command == "update"
+    assert args.no_readme is True
+
+    # Test update without --no-readme (default)
+    args = parser.parse_args(["update"])
+    assert args.command == "update"
+    assert args.no_readme is False
