@@ -4,9 +4,7 @@ import bz2
 import gzip
 import lzma
 import os
-import shutil
 import tarfile
-import tempfile
 import zipfile
 from pathlib import Path
 
@@ -26,24 +24,19 @@ def test_github_url_to_raw_url() -> None:
 
 
 @pytest.fixture
-def archive_dirs() -> tuple[Path, Path, Path]:
+def archive_dirs(tmp_path: Path) -> tuple[Path, Path, Path]:
     """Set up test directories and create a test binary file."""
-    temp_dir = Path(tempfile.mkdtemp())
-    dest_dir = Path(tempfile.mkdtemp())
+    temp_dir = tmp_path / "temp"
+    dest_dir = tmp_path / "dest"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    dest_dir.mkdir(parents=True, exist_ok=True)
 
     # Create a test file to include in archives
     test_file = temp_dir / "test_binary"
     test_file.write_text("#!/bin/sh\necho 'Hello, world!'\n")
     test_file.chmod(0o755)  # Make executable
 
-    yield temp_dir, dest_dir, test_file
-
-    # Clean up
-    try:
-        shutil.rmtree(temp_dir)
-        shutil.rmtree(dest_dir)
-    except Exception:  # noqa: S110
-        pass  # Intentionally ignore cleanup errors - test resources will be garbage collected
+    return temp_dir, dest_dir, test_file
 
 
 def verify_extraction(
