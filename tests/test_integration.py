@@ -7,7 +7,6 @@ from unittest.mock import patch
 
 import pytest
 from _pytest.capture import CaptureFixture
-from _pytest.monkeypatch import MonkeyPatch
 
 from dotbins import cli
 from dotbins.config import Config, build_tool_config
@@ -70,7 +69,6 @@ def test_list_tools(
 
 def test_update_tool(
     tmp_path: Path,
-    monkeypatch: MonkeyPatch,
     mock_github_api: Any,  # noqa: ARG001
     create_dummy_archive: Callable,
 ) -> None:
@@ -100,22 +98,20 @@ def test_update_tool(
         create_dummy_archive(dest_path=Path(destination), binary_names="test-tool")
         return destination
 
-    # Mock download and extraction to avoid actual downloads
-    monkeypatch.setattr("dotbins.download.download_file", mock_download_file)
-
     # Directly call update_tools
-    cli._update_tools(
-        config,
-        tools=["test-tool"],
-        platform="linux",
-        architecture="amd64",
-        current=False,
-        force=False,
-        shell_setup=True,
-        generate_readme=True,
-        copy_config_file=True,
-        verbose=True,
-    )
+    with patch("dotbins.download.download_file", mock_download_file):
+        cli._update_tools(
+            config,
+            tools=["test-tool"],
+            platform="linux",
+            architecture="amd64",
+            current=False,
+            force=False,
+            shell_setup=True,
+            generate_readme=True,
+            copy_config_file=True,
+            verbose=True,
+        )
 
     # Check if binary was installed
     assert (tmp_path / "tools" / "linux" / "amd64" / "bin" / "test-tool").exists()

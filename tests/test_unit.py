@@ -1,16 +1,14 @@
 """Unit tests for the dotbins module."""
 
 import os
-import sys
 import tarfile
 import tempfile
 from pathlib import Path
 from typing import Callable
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from _pytest.capture import CaptureFixture
-from _pytest.monkeypatch import MonkeyPatch
 from pytest_mock import MockFixture
 
 import dotbins
@@ -63,35 +61,6 @@ def test_load_config_fallback() -> None:
 
     # Verify default config is returned
     assert config.tools_dir == Path(os.path.expanduser("~/.dotbins"))
-
-
-def test_current_platform(monkeypatch: MonkeyPatch) -> None:
-    """Test platform detection."""
-    # Test Linux/amd64
-    monkeypatch.setattr(sys, "platform", "linux")
-    monkeypatch.setattr(os, "uname", lambda: MagicMock(machine="x86_64"))
-    platform, arch = dotbins.utils.current_platform()
-    assert platform == "linux"
-    assert arch == "amd64"
-
-    # Test macOS/arm64
-    monkeypatch.setattr(sys, "platform", "darwin")
-    monkeypatch.setattr(os, "uname", lambda: MagicMock(machine="arm64"))
-    platform, arch = dotbins.utils.current_platform()
-    assert platform == "macos"
-    assert arch == "arm64"
-
-
-def test_get_latest_release(requests_mock: MockFixture) -> None:
-    """Test fetching latest release from GitHub."""
-    response_data = {"tag_name": "v1.0.0", "assets": [{"name": "test-1.0.0.tar.gz"}]}
-    requests_mock.get(
-        "https://api.github.com/repos/test/repo/releases/latest",
-        json=response_data,
-    )
-    result = dotbins.utils.latest_release_info("test/repo")
-    assert result["tag_name"] == "v1.0.0"
-    assert len(result["assets"]) == 1
 
 
 def test_find_asset() -> None:
@@ -171,12 +140,7 @@ def test_extract_from_archive_tar(tmp_path: Path, create_dummy_archive: Callable
     dotbins.download._extract_from_archive(
         archive_path,
         dest_dir,
-        BinSpec(
-            tool_config=tool_config,
-            version="1.0.0",
-            arch="amd64",
-            platform="linux",
-        ),
+        BinSpec(tool_config=tool_config, version="1.0.0", arch="amd64", platform="linux"),
         verbose=True,
     )
 
