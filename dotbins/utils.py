@@ -103,15 +103,17 @@ def current_platform() -> tuple[str, str]:
 
     """
     # Detect platform
-    platform = "linux"
-    if sys.platform == "darwin":
-        platform = "macos"
+    platform = sys.platform
+    platform = {
+        "darwin": "macos",
+    }.get(platform, platform)
 
     # Detect architecture
-    arch = "amd64"
     machine = os.uname().machine.lower()
-    if machine in ["arm64", "aarch64"]:
-        arch = "arm64"
+    arch = {
+        "aarch64": "arm64",
+        "x86_64": "amd64",
+    }.get(machine, machine)
 
     return platform, arch
 
