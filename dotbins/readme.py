@@ -415,8 +415,8 @@ def generate_readme_content(config: Config) -> str:
 
 def write_readme_file(
     config: Config,
-    print_content: bool = False,
     write_file: bool = True,
+    print_content: bool = False,
     verbose: bool = False,
 ) -> None:
     """Generate and write a README.md file to the tools directory."""
