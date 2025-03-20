@@ -11,6 +11,7 @@ dependencies = [
     "requests",
     "pyyaml",
     "rich>=13.9.4",
+    "rich-argparse",
     "typing-extensions>=4.11.0; python_version < '3.11'",
 ]
 requires-python = ">=3.9"

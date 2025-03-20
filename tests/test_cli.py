@@ -124,7 +124,7 @@ def test_cli_no_command(capsys: CaptureFixture[str]) -> None:
 
     # Should show help
     captured = capsys.readouterr()
-    assert "usage: dotbins" in captured.out
+    assert "Usage: dotbins" in captured.out
 
 
 def test_cli_unknown_tool() -> None:
