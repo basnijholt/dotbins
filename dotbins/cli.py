@@ -6,12 +6,9 @@ import argparse
 import sys
 from pathlib import Path
 
-from rich.console import Console
-from rich.markdown import Markdown
-
 from . import __version__
 from .config import Config, build_tool_config
-from .readme import generate_readme_content
+from .readme import write_readme_file
 from .utils import current_platform, log, print_shell_setup
 
 
@@ -61,36 +58,6 @@ def _initialize(config: Config) -> None:
     # Generate README file with shell integration instructions
     config.generate_readme()
     log("Generated README file with shell integration instructions", "success", "📝")
-
-
-def _generate_readme(
-    config: Config,
-    print_content: bool,
-    write_file: bool,
-    verbose: bool,
-) -> None:
-    """Generate README file with tool information."""
-    # Generate the README content
-    readme_content = generate_readme_content(config)
-
-    # Write to file if requested
-    if write_file:
-        readme_path = config.tools_dir / "README.md"
-        try:
-            with open(readme_path, "w") as f:
-                f.write(readme_content)
-            log(f"Generated README at {readme_path}", "success", "📝")
-        except OSError as e:
-            log(f"Failed to write README: {e}", "error", print_exception=verbose)
-            return
-
-    # Print content if requested
-    if print_content:
-        console = Console()
-        md = Markdown(readme_content)
-        console.print(md)
-
-    log("Generated README file with tool information", "success", "📝")
 
 
 def _get_tool(source: str, dest_dir: str | Path, name: str | None = None) -> None:
@@ -281,7 +248,7 @@ def main() -> None:  # pragma: no cover
                 args.verbose,
             )
         elif args.command == "readme":
-            _generate_readme(
+            write_readme_file(
                 config,
                 not args.no_print,
                 not args.no_file,

@@ -7,6 +7,9 @@ import math
 import os
 from typing import TYPE_CHECKING, Any, NamedTuple
 
+from rich.console import Console
+from rich.markdown import Markdown
+
 from dotbins import __version__
 
 from .utils import current_platform, log
@@ -410,16 +413,27 @@ def generate_readme_content(config: Config) -> str:
     return "\n".join(content)
 
 
-def write_readme_file(config: Config, verbose: bool) -> None:
+def write_readme_file(
+    config: Config,
+    print_content: bool = False,
+    write_file: bool = True,
+    verbose: bool = False,
+) -> None:
     """Generate and write a README.md file to the tools directory."""
     readme_content = generate_readme_content(config)
     readme_path = config.tools_dir / "README.md"
 
-    try:
-        with open(readme_path, "w") as f:
-            f.write(readme_content)
-        log(f"Generated README at {readme_path}", "success", "📝")
-    except OSError as e:
-        log(f"Failed to write README: {e}", "error", print_exception=verbose)
-    except Exception as e:  # pragma: no cover
-        log(f"Unexpected error writing README: {e}", "error", print_exception=verbose)
+    if write_file:
+        try:
+            with open(readme_path, "w") as f:
+                f.write(readme_content)
+            log(f"Generated README at {readme_path}", "success", "📝")
+        except OSError as e:
+            log(f"Failed to write README: {e}", "error", print_exception=verbose)
+        except Exception as e:  # pragma: no cover
+            log(f"Unexpected error writing README: {e}", "error", print_exception=verbose)
+
+    if print_content:
+        console = Console()
+        md = Markdown(readme_content)
+        console.print(md)
