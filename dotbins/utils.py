@@ -195,16 +195,6 @@ def calculate_sha256(file_path: str | Path) -> str:
     return sha256_hash.hexdigest()
 
 
-def _is_tar_archive(file_path: str | Path) -> bool:
-    """Check if a file is a tar archive based on its magic header."""
-    try:
-        with open(file_path, "rb") as f:
-            header = f.read(512)  # Standard tar header size
-            return header[257:263] == b"ustar\x00" or header[257:263] == b"ustar "
-    except OSError:
-        return False
-
-
 def extract_archive(
     archive_path: str | Path,
     dest_dir: str | Path,
@@ -248,32 +238,23 @@ def extract_archive(
             header = f.read(6)
 
         # Helper function for single-file decompression
-        def extract_compressed(
-            open_func: Callable[[Path, str], Any],
-            match_condition: bool,
-        ) -> bool:
-            if match_condition:
-                output_path = dest_dir / archive_path.stem
-                with open_func(archive_path, "rb") as f_in, open(output_path, "wb") as f_out:
-                    shutil.copyfileobj(f_in, f_out)
-                output_path.chmod(output_path.stat().st_mode | 0o755)
-                return True
-            return False
+        def extract_compressed(open_func: Callable[[Path, str], Any]) -> None:
+            output_path = dest_dir / archive_path.stem
+            with open_func(archive_path, "rb") as f_in, open(output_path, "wb") as f_out:
+                shutil.copyfileobj(f_in, f_out)
+            output_path.chmod(output_path.stat().st_mode | 0o755)
 
-        # Try each compression format
-        if extract_compressed(
-            gzip.open,
-            filename.endswith(".gz") or header.startswith(b"\x1f\x8b"),
-        ):
+        # Try each compression format based on extension or file header
+        if filename.endswith(".gz") or header.startswith(b"\x1f\x8b"):
+            extract_compressed(gzip.open)
             return
 
-        if extract_compressed(bz2.open, filename.endswith(".bz2") or header.startswith(b"BZh")):
+        if filename.endswith(".bz2") or header.startswith(b"BZh"):
+            extract_compressed(bz2.open)
             return
 
-        if extract_compressed(
-            lzma.open,
-            filename.endswith((".xz", ".lzma")) or header.startswith(b"\xfd\x37\x7a\x58\x5a\x00"),
-        ):
+        if filename.endswith((".xz", ".lzma")) or header.startswith(b"\xfd\x37\x7a\x58\x5a\x00"):
+            extract_compressed(lzma.open)
             return
 
         # Unsupported format
