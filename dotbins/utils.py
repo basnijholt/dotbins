@@ -195,10 +195,7 @@ def calculate_sha256(file_path: str | Path) -> str:
     return sha256_hash.hexdigest()
 
 
-def extract_archive(
-    archive_path: str | Path,
-    dest_dir: str | Path,
-) -> None:
+def extract_archive(archive_path: str | Path, dest_dir: str | Path) -> None:
     """Extract an archive to a destination directory.
 
     Supports zip, tar, tar.gz, tar.bz2, tar.xz, gz, bz2, and xz formats.

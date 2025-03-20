@@ -16,7 +16,7 @@ import yaml
 
 from .detect_asset import create_system_detector
 from .download import download_files_in_parallel, prepare_download_tasks, process_downloaded_files
-from .readme import generate_readme_content, write_readme_file
+from .readme import write_readme_file
 from .summary import UpdateSummary, display_update_summary
 from .utils import (
     current_platform,
@@ -103,12 +103,8 @@ class Config:
             verbose: Whether to print verbose output.
 
         """
-        # Import here to avoid circular imports
         if write_file:
             write_readme_file(self, verbose=verbose)
-        else:
-            # Just generate the content but don't do anything with it
-            generate_readme_content(self)
 
     def update_tools(
         self: Config,
@@ -168,7 +164,7 @@ class Config:
         _print_completion_summary(success_count, total_count)
 
         if generate_readme:
-            self.generate_readme()
+            self.generate_readme(verbose=verbose)
         _maybe_copy_config_file(copy_config_file, self.config_path, self.tools_dir)
 
 
