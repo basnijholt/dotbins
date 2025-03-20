@@ -226,10 +226,15 @@ def main() -> None:  # pragma: no cover
         if args.command == "get":
             _get_tool(args.source, args.dest, args.name)
             return
-        config = Config.from_file(args.config_file)
+        if args.command is None:
+            parser.print_help()
+            return
+        if args.command == "version":
+            log(f"[yellow]dotbins[/] [bold]v{__version__}[/]")
+            return
 
-        # Override tools directory if specified
-        if args.tools_dir is not None:
+        config = Config.from_file(args.config_file)
+        if args.tools_dir is not None:  # Override tools directory if specified
             config.tools_dir = Path(args.tools_dir)
 
         if args.command == "init":
@@ -258,10 +263,6 @@ def main() -> None:  # pragma: no cover
             )
         elif args.command == "versions":
             config.version_store.print()
-        elif args.command == "version":
-            log(f"[yellow]dotbins[/] [bold]v{__version__}[/]")
-        else:
-            parser.print_help()
 
     except Exception as e:
         log(f"Error: {e!s}", "error", print_exception=True)
