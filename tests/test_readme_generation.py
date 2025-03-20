@@ -133,7 +133,7 @@ def test_write_readme_file() -> None:
         # Mock generate_readme_content to return a simple string
         with patch("dotbins.readme.generate_readme_content", return_value="# Test README"):
             # Call the function
-            write_readme_file(config, verbose=True)
+            write_readme_file(config, print_content=True, write_file=True, verbose=True)
 
             # Check if file was created
             readme_path = tmp_path / "README.md"
