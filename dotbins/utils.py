@@ -14,6 +14,7 @@ import tarfile
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from typing import Any, Callable
 
 import requests
 from rich.console import Console
@@ -224,47 +225,58 @@ def extract_archive(
                 zip_file.extractall(path=dest_dir)
             return
 
-        # Handle tar-based archives
-        for ext, mode in [
-            (".tar", "r"),
-            ((".tar.gz", ".tgz"), "r:gz"),
-            ((".tar.bz2", ".tbz2"), "r:bz2"),
-            ((".tar.xz", ".txz"), "r:xz"),
-        ]:
-            if (
-                isinstance(ext, tuple) and any(filename.endswith(e) for e in ext)
-            ) or filename.endswith(ext):  # type: ignore[arg-type]
+        # Define mappings for tar-based archives
+        tar_formats = {
+            ".tar": "r",
+            ".tar.gz": "r:gz",
+            ".tgz": "r:gz",
+            ".tar.bz2": "r:bz2",
+            ".tbz2": "r:bz2",
+            ".tar.xz": "r:xz",
+            ".txz": "r:xz",
+        }
+
+        # Handle tar archives
+        for ext, mode in tar_formats.items():
+            if filename.endswith(ext):
                 with tarfile.open(archive_path, mode=mode) as tar:
                     tar.extractall(path=dest_dir)
                 return
 
-        # Check file headers for compression type
+        # Get file magic header for compression detection
         with open(archive_path, "rb") as f:
             header = f.read(6)
 
-        # Handle single-file compression formats
-        if filename.endswith(".gz") or header.startswith(b"\x1f\x8b"):
-            output_path = dest_dir / archive_path.stem
-            with gzip.open(archive_path, "rb") as f_in, open(output_path, "wb") as f_out:
-                shutil.copyfileobj(f_in, f_out)
-            output_path.chmod(output_path.stat().st_mode | 0o755)
+        # Helper function for single-file decompression
+        def extract_compressed(
+            open_func: Callable[[Path, str], Any],
+            match_condition: bool,
+        ) -> bool:
+            if match_condition:
+                output_path = dest_dir / archive_path.stem
+                with open_func(archive_path, "rb") as f_in, open(output_path, "wb") as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+                output_path.chmod(output_path.stat().st_mode | 0o755)
+                return True
+            return False
+
+        # Try each compression format
+        if extract_compressed(
+            gzip.open,
+            filename.endswith(".gz") or header.startswith(b"\x1f\x8b"),
+        ):
             return
 
-        if filename.endswith(".bz2") or header.startswith(b"BZh"):
-            output_path = dest_dir / archive_path.stem
-            with bz2.open(archive_path, "rb") as f_in, open(output_path, "wb") as f_out:
-                shutil.copyfileobj(f_in, f_out)
-            output_path.chmod(output_path.stat().st_mode | 0o755)
+        if extract_compressed(bz2.open, filename.endswith(".bz2") or header.startswith(b"BZh")):
             return
 
-        if filename.endswith((".xz", ".lzma")) or header.startswith(b"\xfd\x37\x7a\x58\x5a\x00"):
-            output_path = dest_dir / archive_path.stem
-            with lzma.open(archive_path, "rb") as f_in, open(output_path, "wb") as f_out:
-                shutil.copyfileobj(f_in, f_out)
-            output_path.chmod(output_path.stat().st_mode | 0o755)
+        if extract_compressed(
+            lzma.open,
+            filename.endswith((".xz", ".lzma")) or header.startswith(b"\xfd\x37\x7a\x58\x5a\x00"),
+        ):
             return
 
-        # If we've reached here, we don't know how to handle this file
+        # Unsupported format
         msg = f"Unsupported archive format: {archive_path}"
         raise ValueError(msg)  # noqa: TRY301
 
