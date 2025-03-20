@@ -6,6 +6,8 @@ import argparse
 import sys
 from pathlib import Path
 
+from rich_argparse import RichHelpFormatter
+
 from . import __version__
 from .config import Config, build_tool_config
 from .readme import write_readme_file
@@ -92,7 +94,7 @@ def create_parser() -> argparse.ArgumentParser:
     """Create command-line argument parser."""
     parser = argparse.ArgumentParser(
         description="dotbins - Manage CLI tool binaries in your dotfiles repository",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        formatter_class=RichHelpFormatter,
     )
 
     parser.add_argument(
