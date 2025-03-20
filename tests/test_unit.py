@@ -505,3 +505,35 @@ def test_extract_from_archive_multiple_binaries(
         with open(dest_dir / bin_name, "rb") as f:
             content = f.read()
         assert content.strip()
+
+
+def test_build_tool_config_skips_unknown_platforms() -> None:
+    """Test that build_tool_config correctly skips unknown platforms in asset_patterns."""
+    # Define a tool config with both valid and unknown platforms in asset_patterns
+    raw_data = {
+        "repo": "test/repo",
+        "binary_name": "tool",
+        "binary_path": "tool",
+        "asset_patterns": {
+            "linux": {  # Valid platform
+                "amd64": "tool-{version}-linux_{arch}.tar.gz",
+                "arm64": "tool-{version}-linux_{arch}.tar.gz",
+            },
+            "windows": {  # Unknown platform (not in default Config.platforms)
+                "amd64": "tool-{version}-windows_{arch}.zip",
+            },
+            "macos": {  # Valid platform
+                "amd64": "tool-{version}-darwin_{arch}.tar.gz",
+            },
+        },
+    }
+
+    # Build the tool config
+    tool_config = build_tool_config(tool_name="tool", raw_data=raw_data)  # type: ignore[arg-type]
+    assert tool_config.asset_patterns == {
+        "linux": {
+            "amd64": "tool-{version}-linux_{arch}.tar.gz",
+            "arm64": "tool-{version}-linux_{arch}.tar.gz",
+        },
+        "macos": {"arm64": None},
+    }
