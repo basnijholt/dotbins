@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import datetime
 import math
-import os
 from typing import TYPE_CHECKING, Any, NamedTuple
 
 from rich.console import Console
@@ -12,9 +11,11 @@ from rich.markdown import Markdown
 
 from dotbins import __version__
 
-from .utils import current_platform, log
+from .utils import current_platform, log, replace_home_in_path
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from .config import Config
 
 
@@ -213,59 +214,33 @@ def _generate_stats_table(
     return content
 
 
-def _generate_shell_integration(tools_dir_with_home: str) -> list[str]:
+def _generate_shell_integration(tools_dir: Path) -> list[str]:
     """Generate shell integration section content."""
+    tools_dir_str = replace_home_in_path(tools_dir)
     return [
         "## 💻 Shell Integration",
         "",
         "Add one of the following snippets to your shell configuration file to use the platform-specific binaries:",
         "",
-        "<details>",
-        "<summary><b>Bash/Zsh</b> (Click to expand)</summary>",
-        "",
+        "For **Bash**:",
         "```bash",
-        "# dotbins - Add platform-specific binaries to PATH",
-        "_os=$(uname -s | tr '[:upper:]' '[:lower:]')",
-        '[[ "$_os" == "darwin" ]] && _os="macos"',
-        "",
-        "_arch=$(uname -m)",
-        '[[ "$_arch" == "x86_64" ]] && _arch="amd64"',
-        '[[ "$_arch" == "aarch64" || "$_arch" == "arm64" ]] && _arch="arm64"',
-        "",
-        f'export PATH="{tools_dir_with_home}/$_os/$_arch/bin:$PATH"',
+        f"source {tools_dir_str}/shell/bash.sh",
         "```",
-        "</details>",
         "",
-        "<details>",
-        "<summary><b>Fish</b> (Click to expand)</summary>",
+        "For **Zsh**:",
+        "```bash",
+        f"source {tools_dir_str}/shell/zsh.sh",
+        "```",
         "",
+        "For **Fish**:",
         "```fish",
-        "# dotbins - Add platform-specific binaries to PATH",
-        "set -l _os (uname -s | tr '[:upper:]' '[:lower:]')",
-        'test "$_os" = "darwin"; and set _os "macos"',
-        "",
-        "set -l _arch (uname -m)",
-        'test "$_arch" = "x86_64"; and set _arch "amd64"',
-        'test "$_arch" = "aarch64" -o "$_arch" = "arm64"; and set _arch "arm64"',
-        "",
-        f"fish_add_path {tools_dir_with_home}/$_os/$_arch/bin",
+        f"source {tools_dir_str}/shell/fish.fish",
         "```",
-        "</details>",
         "",
-        "<details>",
-        "<summary><b>Nushell</b> (Click to expand)</summary>",
-        "",
+        "For **Nushell**:",
         "```nu",
-        "# dotbins - Add platform-specific binaries to PATH",
-        "let _os = (sys).host.name | str downcase",
-        'let _os = if $_os == "darwin" { "macos" } else { $_os }',
-        "",
-        "let _arch = (sys).host.arch",
-        'let _arch = if $_arch == "x86_64" { "amd64" } else if $_arch in ["aarch64", "arm64"] { "arm64" } else { $_arch }',
-        "",
-        f'$env.PATH = [$"{tools_dir_with_home}/$_os/$_arch/bin", ...$env.PATH]',
+        f"source {tools_dir_str}/shell/nushell.nu",
         "```",
-        "</details>",
     ]
 
 
@@ -351,10 +326,6 @@ def _generate_additional_info() -> list[str]:
 
 def generate_readme_content(config: Config) -> str:
     """Generate a markdown README file for the tools directory."""
-    # Convert tools_dir path to use $HOME instead of absolute path
-    tools_dir = str(config.tools_dir.absolute())
-    tools_dir_with_home = tools_dir.replace(os.path.expanduser("~"), "$HOME")
-
     # Gather tool information and statistics
     data = _gather_tool_data(config)
 
@@ -397,7 +368,7 @@ def generate_readme_content(config: Config) -> str:
         ),
     )
     content.append("")
-    content.extend(_generate_shell_integration(tools_dir_with_home))
+    content.extend(_generate_shell_integration(config.tools_dir))
     content.append("")
     content.extend(_generate_updating_section())
     content.append("")
@@ -409,7 +380,6 @@ def generate_readme_content(config: Config) -> str:
 
     # Convert all content items to strings (important for tests with MagicMock objects)
     content = [str(item) for item in content]
-
     return "\n".join(content)
 
 

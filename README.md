@@ -477,21 +477,13 @@ Add this to your shell configuration file (e.g., .bashrc, .zshrc) to use the pla
 ```bash
 ✅ Loading configuration from: /home/runner/work/dotbins/dotbins/dotbins.yaml
 🛠️ dotbins initialized tools directory structure
-
-# Add this to your shell configuration file (e.g., .bashrc, .zshrc):
-
-# dotbins - Add platform-specific binaries to PATH
-_os=$(uname -s | tr '[:upper:]' '[:lower:]')
-[[ "$_os" == "darwin" ]] && _os="macos"
-
-_arch=$(uname -m)
-[[ "$_arch" == "x86_64" ]] && _arch="amd64"
-[[ "$_arch" == "aarch64" || "$_arch" == "arm64" ]] && _arch="arm64"
-
-export PATH="$HOME/.dotbins/$_os/$_arch/bin:$PATH"
-
+📝 Generated shell scripts in $HOME/.dotbins/shell/
+🔍 Add this to your shell config:
+👉   Bash:    source $HOME/.dotbins/shell/bash.sh
+👉   Zsh:     source $HOME/.dotbins/shell/zsh.sh
+👉   Fish:    source $HOME/.dotbins/shell/fish.fish
+👉   Nushell: source $HOME/.dotbins/shell/nushell.nu
 📝 Generated README at /home/runner/.dotbins/README.md
-📝 Generated README file with shell integration instructions
 ```
 
 <!-- OUTPUT:END -->

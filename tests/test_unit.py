@@ -4,7 +4,7 @@ import os
 import tarfile
 import tempfile
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Literal
 from unittest.mock import patch
 
 import pytest
@@ -263,14 +263,17 @@ def test_make_binaries_executable(tmp_path: Path) -> None:
     assert mode & 0o100 != 0, f"File should be executable, mode={mode:o}"
 
 
-def test_print_shell_setup(capsys: CaptureFixture[str]) -> None:
+@pytest.mark.parametrize("shell", ["bash", "zsh", "fish", "nushell"])
+def test_print_shell_setup(
+    capsys: CaptureFixture[str],
+    shell: Literal["bash", "zsh", "fish", "nushell"],
+) -> None:
     """Test printing shell setup instructions."""
     config = Config()
-    dotbins.utils.print_shell_setup(config.tools_dir)
+    dotbins.utils.print_shell_setup(config.tools_dir, shell)
     assert config.tools_dir == Path(os.path.expanduser("~/.dotbins"))
     captured = capsys.readouterr()
-    assert "Add this to your shell configuration file" in captured.out
-    assert 'export PATH="$HOME/.dotbins/$_os/$_arch/bin:$PATH"' in captured.out
+    assert f"Add this to your {shell} configuration file" in captured.out
 
 
 def test_download_tool_already_exists(tmp_path: Path) -> None:

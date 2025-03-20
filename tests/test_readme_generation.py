@@ -89,9 +89,10 @@ def test_generate_readme_content(mock_current_platform: MagicMock, mock_config: 
     )  # Check for new table header
     assert "| :--- | :-------- | :------------------------ |" in content
     assert "## 💻 Shell Integration" in content
-    assert "<summary><b>Bash/Zsh</b>" in content
-    assert "<summary><b>Fish</b>" in content
-    assert "<summary><b>Nushell</b>" in content
+    assert "For **Bash**:" in content
+    assert "For **Zsh**:" in content
+    assert "For **Fish**:" in content
+    assert "For **Nushell**:" in content
     assert "## 🔄 Updating Tools" in content
     assert "## 🚀 Quick Commands" in content
     assert "## 📁 Configuration File" in content
@@ -104,12 +105,7 @@ def test_generate_readme_content(mock_current_platform: MagicMock, mock_config: 
     assert "user/tool2" in content
     assert "1.0.0" in content
 
-    # Look for shell paths with environment variables
-    assert "$_os" in content
-    assert "$_arch" in content
-
     # Verify home directory replacement
-    assert "$HOME" in content
     assert "/home/user" not in content
 
     # Check platform information

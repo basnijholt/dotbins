@@ -24,6 +24,7 @@ from .utils import (
     github_url_to_raw_url,
     latest_release_info,
     log,
+    write_shell_scripts,
 )
 from .versions import VersionStore
 
@@ -166,6 +167,14 @@ class Config:
         if generate_readme:
             self.generate_readme(verbose=verbose)
         _maybe_copy_config_file(copy_config_file, self.config_path, self.tools_dir)
+
+    def generate_shell_scripts(self: Config) -> None:
+        """Generate shell script files for different shells.
+
+        Creates shell scripts in the tools_dir/shell directory that users
+        can source in their shell configuration files.
+        """
+        write_shell_scripts(self.tools_dir)
 
 
 def _maybe_copy_config_file(

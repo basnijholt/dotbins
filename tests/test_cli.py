@@ -107,9 +107,9 @@ def test_update_tool(
             architecture="amd64",
             current=False,
             force=False,
-            shell_setup=True,
             generate_readme=True,
             copy_config_file=True,
+            generate_shell_scripts=True,
             verbose=True,
         )
 

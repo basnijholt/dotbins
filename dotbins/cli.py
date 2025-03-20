@@ -11,7 +11,7 @@ from rich_argparse import RichHelpFormatter
 from . import __version__
 from .config import Config, build_tool_config
 from .readme import write_readme_file
-from .utils import current_platform, log, print_shell_setup
+from .utils import current_platform, log
 
 
 def _list_tools(config: Config) -> None:
@@ -28,9 +28,9 @@ def _update_tools(
     architecture: str | None,
     current: bool,
     force: bool,
-    shell_setup: bool,
     generate_readme: bool,
     copy_config_file: bool,
+    generate_shell_scripts: bool,
     verbose: bool,
 ) -> None:
     """Update tools based on command line arguments."""
@@ -44,8 +44,8 @@ def _update_tools(
         copy_config_file,
         verbose,
     )
-    if shell_setup:
-        print_shell_setup(config.tools_dir)
+    if generate_shell_scripts:
+        config.generate_shell_scripts()
 
 
 def _initialize(config: Config) -> None:
@@ -53,13 +53,9 @@ def _initialize(config: Config) -> None:
     for platform, architectures in config.platforms.items():
         for arch in architectures:
             config.bin_dir(platform, arch, create=True)
-
     log("dotbins initialized tools directory structure", "success", "🛠️")
-    print_shell_setup(config.tools_dir)
-
-    # Generate README file with shell integration instructions
+    config.generate_shell_scripts()
     config.generate_readme()
-    log("Generated README file with shell integration instructions", "success", "📝")
 
 
 def _get_tool(source: str, dest_dir: str | Path, name: str | None = None) -> None:
@@ -158,10 +154,9 @@ def create_parser() -> argparse.ArgumentParser:
         help="Only update for the current platform and architecture",
     )
     update_parser.add_argument(
-        "-s",
-        "--shell-setup",
+        "--no-shell-scripts",
         action="store_true",
-        help="Print shell setup instructions",
+        help="Skip generating shell scripts that can be sourced in shell configuration files",
     )
     update_parser.add_argument(
         "--no-readme",
@@ -264,9 +259,9 @@ def main() -> None:  # pragma: no cover
                 args.architecture,
                 args.current,
                 args.force,
-                args.shell_setup,
                 not args.no_readme,
                 not args.no_copy_config_file,
+                not args.no_shell_scripts,
                 args.verbose,
             )
         elif args.command == "readme":
