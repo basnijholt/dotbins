@@ -194,7 +194,20 @@ def calculate_sha256(file_path: str | Path) -> str:
     return sha256_hash.hexdigest()
 
 
-def extract_archive(archive_path: str | Path, dest_dir: str | Path) -> None:  # noqa: PLR0911
+def _is_tar_archive(file_path: str | Path) -> bool:
+    """Check if a file is a tar archive based on its magic header."""
+    try:
+        with open(file_path, "rb") as f:
+            header = f.read(512)  # Standard tar header size
+            return header[257:263] == b"ustar\x00" or header[257:263] == b"ustar "
+    except OSError:
+        return False
+
+
+def extract_archive(
+    archive_path: str | Path,
+    dest_dir: str | Path,
+) -> None:
     """Extract an archive to a destination directory."""
     archive_path = Path(archive_path)
     dest_dir = Path(dest_dir)
@@ -209,49 +222,115 @@ def extract_archive(archive_path: str | Path, dest_dir: str | Path) -> None:  # 
         # Get the file extension for fallback detection
         filename = archive_path.name.lower()
 
-        # Handle tar archives with various compressions
-        if is_gzip or filename.endswith((".tar.gz", ".tgz")):
-            with tarfile.open(archive_path, mode="r:gz") as tar:
-                tar.extractall(path=dest_dir)
-            return
-        if is_bzip2 or filename.endswith((".tar.bz2", ".tbz2")):
-            with tarfile.open(archive_path, mode="r:bz2") as tar:
-                tar.extractall(path=dest_dir)
-            return
-        if is_xz or filename.endswith((".tar.xz", ".txz")):
-            with tarfile.open(archive_path, mode="r:xz") as tar:
-                tar.extractall(path=dest_dir)
-            return
-        if filename.endswith(".tar"):
-            with tarfile.open(archive_path, mode="r:") as tar:
-                tar.extractall(path=dest_dir)
-            return
+        # Handle .zip files
         if filename.endswith(".zip"):
             with zipfile.ZipFile(archive_path) as zip_file:
                 zip_file.extractall(path=dest_dir)
             return
-        if is_gzip or filename.endswith(".gz"):
-            # For single gzipped files (not tar.gz)
-            output_path = dest_dir / archive_path.stem
-            with gzip.open(archive_path, "rb") as f_in, open(output_path, "wb") as f_out:
-                shutil.copyfileobj(f_in, f_out)
-            # Make sure the output file is executable
-            output_path.chmod(output_path.stat().st_mode | 0o755)
+
+        # Handle standard tar files
+        if filename.endswith(".tar"):
+            with tarfile.open(archive_path, mode="r:") as tar:
+                tar.extractall(path=dest_dir)
             return
-        if is_bzip2 or filename.endswith(".bz2"):
-            # For single bzip2 files (not tar.bz2)
-            output_path = dest_dir / archive_path.stem
-            with bz2.open(archive_path, "rb") as f_in, open(output_path, "wb") as f_out:
-                shutil.copyfileobj(f_in, f_out)
-            output_path.chmod(output_path.stat().st_mode | 0o755)
-            return
-        if is_xz or filename.endswith((".xz", ".lzma")):
-            # For single xz/lzma files (not tar.xz)
-            output_path = dest_dir / archive_path.stem
-            with lzma.open(archive_path, "rb") as f_in, open(output_path, "wb") as f_out:
-                shutil.copyfileobj(f_in, f_out)
-            output_path.chmod(output_path.stat().st_mode | 0o755)
-            return
+
+        # Handle gzip files - either tar.gz or simple .gz
+        if is_gzip or filename.endswith((".tar.gz", ".tgz", ".gz")):
+            # Check if it's specifically a tar.gz/tgz file
+            if filename.endswith((".tar.gz", ".tgz")):
+                try:
+                    with tarfile.open(archive_path, mode="r:gz") as tar:
+                        tar.extractall(path=dest_dir)
+                    return
+                except tarfile.ReadError as err:
+                    msg = f"Invalid tar.gz archive: {archive_path}"
+                    raise ValueError(msg) from err
+
+            # Try as tar.gz if it has a tar header
+            if _is_tar_archive(archive_path):
+                try:
+                    with tarfile.open(archive_path, mode="r:gz") as tar:
+                        tar.extractall(path=dest_dir)
+                    return
+                except tarfile.ReadError:
+                    pass  # Fall through to simple gz handling
+
+            # Handle as simple gz file
+            try:
+                output_path = dest_dir / archive_path.stem
+                with gzip.open(archive_path, "rb") as f_in, open(output_path, "wb") as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+                output_path.chmod(output_path.stat().st_mode | 0o755)
+                return
+            except Exception as e:
+                msg = f"Failed to extract gzip file: {e}"
+                raise ValueError(msg) from e
+
+        # Handle bzip2 files - either tar.bz2 or simple .bz2
+        if is_bzip2 or filename.endswith((".tar.bz2", ".tbz2", ".bz2")):
+            # Check if it's specifically a tar.bz2/tbz2 file
+            if filename.endswith((".tar.bz2", ".tbz2")):
+                try:
+                    with tarfile.open(archive_path, mode="r:bz2") as tar:
+                        tar.extractall(path=dest_dir)
+                    return
+                except tarfile.ReadError as err:
+                    msg = f"Invalid tar.bz2 archive: {archive_path}"
+                    raise ValueError(msg) from err
+
+            # Try as tar.bz2 if it has a tar header
+            if _is_tar_archive(archive_path):
+                try:
+                    with tarfile.open(archive_path, mode="r:bz2") as tar:
+                        tar.extractall(path=dest_dir)
+                    return
+                except tarfile.ReadError:
+                    pass  # Fall through to simple bz2 handling
+
+            # Handle as simple bz2 file
+            try:
+                output_path = dest_dir / archive_path.stem
+                with bz2.open(archive_path, "rb") as f_in, open(output_path, "wb") as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+                output_path.chmod(output_path.stat().st_mode | 0o755)
+                return
+            except Exception as e:
+                msg = f"Failed to extract bzip2 file: {e}"
+                raise ValueError(msg) from e
+
+        # Handle xz files - either tar.xz or simple .xz
+        if is_xz or filename.endswith((".tar.xz", ".txz", ".xz", ".lzma")):
+            # Check if it's specifically a tar.xz/txz file
+            if filename.endswith((".tar.xz", ".txz")):
+                try:
+                    with tarfile.open(archive_path, mode="r:xz") as tar:
+                        tar.extractall(path=dest_dir)
+                    return
+                except tarfile.ReadError as err:
+                    msg = f"Invalid tar.xz archive: {archive_path}"
+                    raise ValueError(msg) from err
+
+            # Try as tar.xz if it has a tar header
+            if _is_tar_archive(archive_path):
+                try:
+                    with tarfile.open(archive_path, mode="r:xz") as tar:
+                        tar.extractall(path=dest_dir)
+                    return
+                except tarfile.ReadError:
+                    pass  # Fall through to simple xz handling
+
+            # Handle as simple xz file
+            try:
+                output_path = dest_dir / archive_path.stem
+                with lzma.open(archive_path, "rb") as f_in, open(output_path, "wb") as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+                output_path.chmod(output_path.stat().st_mode | 0o755)
+                return
+            except Exception as e:
+                msg = f"Failed to extract xz file: {e}"
+                raise ValueError(msg) from e
+
+        # If we've reached here, we don't know how to handle this file
         msg = f"Unsupported archive format: {archive_path}"
         raise ValueError(msg)  # noqa: TRY301
     except Exception as e:
