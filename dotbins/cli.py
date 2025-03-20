@@ -43,7 +43,7 @@ def _update_tools(
         verbose,
     )
     if shell_setup:
-        print_shell_setup(config)
+        print_shell_setup(config.tools_dir)
 
 
 def _initialize(config: Config) -> None:
@@ -53,7 +53,7 @@ def _initialize(config: Config) -> None:
             config.bin_dir(platform, arch, create=True)
 
     log("dotbins initialized tools directory structure", "success", "🛠️")
-    print_shell_setup(config)
+    print_shell_setup(config.tools_dir)
 
     # Generate README file with shell integration instructions
     config.generate_readme()

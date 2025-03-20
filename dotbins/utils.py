@@ -2,21 +2,21 @@
 
 from __future__ import annotations
 
+import bz2
 import functools
+import gzip
 import hashlib
+import lzma
 import os
+import shutil
 import sys
 import tarfile
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import requests
 from rich.console import Console
-
-if TYPE_CHECKING:
-    from .config import Config
 
 console = Console()
 
@@ -118,10 +118,9 @@ def current_platform() -> tuple[str, str]:
     return platform, arch
 
 
-def print_shell_setup(config: Config) -> None:
+def print_shell_setup(tools_dir: Path) -> None:
     """Print shell setup instructions."""
-    tools_path = config.tools_dir.absolute()
-    tools_dir = str(tools_path).replace(os.path.expanduser("~"), "$HOME")
+    tools_dir_str = str(tools_dir.absolute()).replace(os.path.expanduser("~"), "$HOME")
     print("\n# Add this to your shell configuration file (e.g., .bashrc, .zshrc):")
     print(
         f"""
@@ -133,7 +132,7 @@ _arch=$(uname -m)
 [[ "$_arch" == "x86_64" ]] && _arch="amd64"
 [[ "$_arch" == "aarch64" || "$_arch" == "arm64" ]] && _arch="arm64"
 
-export PATH="{tools_dir}/$_os/$_arch/bin:$PATH"
+export PATH="{tools_dir_str}/$_os/$_arch/bin:$PATH"
 """,
     )
 
@@ -195,29 +194,66 @@ def calculate_sha256(file_path: str | Path) -> str:
     return sha256_hash.hexdigest()
 
 
-def extract_archive(archive_path: str | Path, dest_dir: str | Path) -> None:
+def extract_archive(archive_path: str | Path, dest_dir: str | Path) -> None:  # noqa: PLR0911
     """Extract an archive to a destination directory."""
     archive_path = Path(archive_path)
     dest_dir = Path(dest_dir)
     try:
-        is_gzip = False
+        # Check file headers to identify compression type
         with archive_path.open("rb") as f:
-            header = f.read(3)
-            if header.startswith(b"\x1f\x8b"):
-                is_gzip = True
+            header = f.read(6)
+            is_gzip = header.startswith(b"\x1f\x8b")
+            is_bzip2 = header.startswith(b"BZh")
+            is_xz = header.startswith(b"\xfd\x37\x7a\x58\x5a\x00")
 
-        if is_gzip or archive_path.name.endswith((".tar.gz", ".tgz")):
+        # Get the file extension for fallback detection
+        filename = archive_path.name.lower()
+
+        # Handle tar archives with various compressions
+        if is_gzip or filename.endswith((".tar.gz", ".tgz")):
             with tarfile.open(archive_path, mode="r:gz") as tar:
                 tar.extractall(path=dest_dir)
-        elif archive_path.name.endswith((".tar.bz2", ".tbz2")):
+            return
+        if is_bzip2 or filename.endswith((".tar.bz2", ".tbz2")):
             with tarfile.open(archive_path, mode="r:bz2") as tar:
                 tar.extractall(path=dest_dir)
-        elif archive_path.name.endswith(".zip"):
+            return
+        if is_xz or filename.endswith((".tar.xz", ".txz")):
+            with tarfile.open(archive_path, mode="r:xz") as tar:
+                tar.extractall(path=dest_dir)
+            return
+        if filename.endswith(".tar"):
+            with tarfile.open(archive_path, mode="r:") as tar:
+                tar.extractall(path=dest_dir)
+            return
+        if filename.endswith(".zip"):
             with zipfile.ZipFile(archive_path) as zip_file:
                 zip_file.extractall(path=dest_dir)
-        else:
-            msg = f"Unsupported archive format: {archive_path}"
-            raise ValueError(msg)  # noqa: TRY301
+            return
+        if is_gzip or filename.endswith(".gz"):
+            # For single gzipped files (not tar.gz)
+            output_path = dest_dir / archive_path.stem
+            with gzip.open(archive_path, "rb") as f_in, open(output_path, "wb") as f_out:
+                shutil.copyfileobj(f_in, f_out)
+            # Make sure the output file is executable
+            output_path.chmod(output_path.stat().st_mode | 0o755)
+            return
+        if is_bzip2 or filename.endswith(".bz2"):
+            # For single bzip2 files (not tar.bz2)
+            output_path = dest_dir / archive_path.stem
+            with bz2.open(archive_path, "rb") as f_in, open(output_path, "wb") as f_out:
+                shutil.copyfileobj(f_in, f_out)
+            output_path.chmod(output_path.stat().st_mode | 0o755)
+            return
+        if is_xz or filename.endswith((".xz", ".lzma")):
+            # For single xz/lzma files (not tar.xz)
+            output_path = dest_dir / archive_path.stem
+            with lzma.open(archive_path, "rb") as f_in, open(output_path, "wb") as f_out:
+                shutil.copyfileobj(f_in, f_out)
+            output_path.chmod(output_path.stat().st_mode | 0o755)
+            return
+        msg = f"Unsupported archive format: {archive_path}"
+        raise ValueError(msg)  # noqa: TRY301
     except Exception as e:
         log(f"Extraction failed: {e}", "error", print_exception=True)
         raise

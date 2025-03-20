@@ -137,7 +137,7 @@ def test_extract_from_archive_tar(tmp_path: Path, create_dummy_archive: Callable
     dest_dir.mkdir()
 
     # Extract the binary
-    dotbins.download._extract_from_archive(
+    dotbins.download._extract_binary_from_archive(
         archive_path,
         dest_dir,
         BinSpec(tool_config=tool_config, version="1.0.0", arch="amd64", platform="linux"),
@@ -176,7 +176,7 @@ def test_extract_from_archive_zip(tmp_path: Path, create_dummy_archive: Callable
     dest_dir.mkdir()
 
     # Extract the binary
-    dotbins.download._extract_from_archive(
+    dotbins.download._extract_binary_from_archive(
         archive_path,
         dest_dir,
         BinSpec(
@@ -220,7 +220,7 @@ def test_extract_from_archive_nested(tmp_path: Path, create_dummy_archive: Calla
     dest_dir.mkdir()
 
     # Extract the binary
-    dotbins.download._extract_from_archive(
+    dotbins.download._extract_binary_from_archive(
         archive_path,
         dest_dir,
         BinSpec(
@@ -266,7 +266,7 @@ def test_make_binaries_executable(tmp_path: Path) -> None:
 def test_print_shell_setup(capsys: CaptureFixture[str]) -> None:
     """Test printing shell setup instructions."""
     config = Config()
-    dotbins.utils.print_shell_setup(config)
+    dotbins.utils.print_shell_setup(config.tools_dir)
     assert config.tools_dir == Path(os.path.expanduser("~/.dotbins"))
     captured = capsys.readouterr()
     assert "Add this to your shell configuration file" in captured.out
@@ -399,7 +399,7 @@ def test_extract_from_archive_unknown_type(tmp_path: Path) -> None:
 
     # Call the function and check for exception
     with pytest.raises(ValueError, match="Unsupported archive format"):
-        dotbins.download._extract_from_archive(
+        dotbins.download._extract_binary_from_archive(
             archive_path,
             dest_dir,
             BinSpec(
@@ -441,7 +441,7 @@ def test_extract_from_archive_missing_binary(tmp_path: Path) -> None:
 
     # Call the function and check for exception
     with pytest.raises(FileNotFoundError):
-        dotbins.download._extract_from_archive(
+        dotbins.download._extract_binary_from_archive(
             archive_path,
             dest_dir,
             BinSpec(
@@ -482,7 +482,7 @@ def test_extract_from_archive_multiple_binaries(
     dest_dir.mkdir()
 
     # Call the function
-    dotbins.download._extract_from_archive(
+    dotbins.download._extract_binary_from_archive(
         archive_path,
         dest_dir,
         BinSpec(

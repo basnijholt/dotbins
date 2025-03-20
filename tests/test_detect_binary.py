@@ -11,7 +11,7 @@ import pytest
 
 from dotbins.config import BinSpec, build_tool_config
 from dotbins.detect_binary import auto_detect_binary_paths
-from dotbins.download import AutoDetectBinaryPathsError, _extract_from_archive
+from dotbins.download import AutoDetectBinaryPathsError, _extract_binary_from_archive
 
 
 @pytest.fixture
@@ -331,7 +331,7 @@ def test_extract_from_archive_with_auto_detection(
 
     with patch("dotbins.utils.console", mock_console):
         # Call the function
-        _extract_from_archive(
+        _extract_binary_from_archive(
             mock_archive_simple,
             destination_dir,
             BinSpec(
@@ -381,7 +381,7 @@ def test_extract_from_archive_auto_detection_failure(
         patch("dotbins.utils.console", mock_console),
         pytest.raises(AutoDetectBinaryPathsError, match="Could not auto-detect binary paths"),
     ):
-        _extract_from_archive(
+        _extract_binary_from_archive(
             mock_archive_no_match,
             destination_dir,
             BinSpec(
@@ -425,13 +425,11 @@ def test_directories_ignored(
     # The directories named 'fzf' or 'delta' won't even be considered
     # because os.walk only passes files to our detection logic
     detected_paths = auto_detect_binary_paths(extract_dir, ["delta"])
-    assert detected_paths == [
-        "actual-delta",
-    ], "Should only find the actual binary, directories are never considered"
+    assert detected_paths == ["actual-delta"]
 
     # Verify the directories exist but weren't considered
-    assert (extract_dir / "fzf").is_dir(), "Directory 'fzf' should exist"
-    assert (extract_dir / "bin" / "delta").is_dir(), "Directory 'bin/delta' should exist"
+    assert (extract_dir / "fzf").is_dir()
+    assert (extract_dir / "bin" / "delta").is_dir()
 
 
 def test_substring_matches_fallback(
@@ -448,11 +446,7 @@ def test_substring_matches_fallback(
     # Should find substring match
     detected_paths = auto_detect_binary_paths(extract_dir, ["mytool"])
     assert len(detected_paths) == 1
-    assert detected_paths[0] in [
-        "mytool-v1",
-        "other-mytool-bin",
-        "mytool.backup",
-    ], "Should find a substring match"
+    assert detected_paths[0] in ["mytool-v1", "other-mytool-bin", "mytool.backup"]
 
 
 def test_non_executable_exact_match(
@@ -467,7 +461,7 @@ def test_non_executable_exact_match(
         zipf.extractall(path=extract_dir)
 
     detected_paths = auto_detect_binary_paths(extract_dir, ["mytool"])
-    assert detected_paths == ["mytool"], "Should find exact match even if not executable"
+    assert detected_paths == ["mytool"]
 
 
 def test_bin_directory_fallback(
@@ -483,15 +477,11 @@ def test_bin_directory_fallback(
 
     # When no name matches in bin/, should take first bin/ match
     detected_paths = auto_detect_binary_paths(extract_dir, ["mytool"])
-    assert detected_paths == [
-        "bin/completely-different",
-    ], "Should use first bin/ match when no named matches exist"
+    assert detected_paths == ["bin/completely-different"]
 
     # Verify that other executables exist but weren't chosen
-    assert os.path.exists(extract_dir / "bin2" / "unrelated"), "Other bin match should exist"
-    assert os.path.exists(
-        extract_dir / "other" / "not-mytool",
-    ), "Non-bin match with name should exist"
+    assert (extract_dir / "bin2" / "unrelated").exists()
+    assert (extract_dir / "other" / "not-mytool").exists()
 
 
 def test_bin_directory_preference(
@@ -515,6 +505,6 @@ def test_bin_directory_preference(
     assert detected_paths == ["bin/tool-extra"]
 
     # Verify all test files exist
-    assert os.path.exists(extract_dir / "bin" / "tool"), "Generic bin match should exist"
-    assert os.path.exists(extract_dir / "bin" / "tool-extra"), "Named bin match should exist"
-    assert os.path.exists(extract_dir / "other-bin" / "tool"), "Non-standard bin match should exist"
+    assert (extract_dir / "bin" / "tool").exists()
+    assert (extract_dir / "bin" / "tool-extra").exists()
+    assert (extract_dir / "other-bin" / "tool").exists()

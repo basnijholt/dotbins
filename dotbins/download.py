@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from .versions import VersionStore
 
 
-def _extract_from_archive(
+def _extract_binary_from_archive(
     archive_path: Path,
     destination_dir: Path,
     bin_spec: BinSpec,
@@ -331,7 +331,12 @@ def _process_downloaded_task(
 
         task.destination_dir.mkdir(parents=True, exist_ok=True)
         if task.tool_config.extract_binary:
-            _extract_from_archive(task.temp_path, task.destination_dir, task.bin_spec, verbose)
+            _extract_binary_from_archive(
+                task.temp_path,
+                task.destination_dir,
+                task.bin_spec,
+                verbose,
+            )
         else:
             binary_names = task.tool_config.binary_name
             if len(binary_names) != 1:
