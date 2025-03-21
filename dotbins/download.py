@@ -273,7 +273,11 @@ def prepare_download_tasks(
     return sorted(download_tasks, key=lambda t: t.asset_url), total_count
 
 
-def _download_task(task: _DownloadTask, verbose: bool) -> tuple[_DownloadTask, bool]:
+def _download_task(
+    task: _DownloadTask,
+    github_token: str | None,
+    verbose: bool,
+) -> tuple[_DownloadTask, bool]:
     """Download a file for a DownloadTask."""
     try:
         log(
@@ -281,7 +285,7 @@ def _download_task(task: _DownloadTask, verbose: bool) -> tuple[_DownloadTask, b
             "info",
             "📥",
         )
-        download_file(task.asset_url, str(task.temp_path), verbose)
+        download_file(task.asset_url, str(task.temp_path), github_token, verbose)
         return task, True
     except Exception as e:
         log(f"Error downloading {task.asset_name}: {e!s}", "error", print_exception=verbose)
@@ -290,13 +294,16 @@ def _download_task(task: _DownloadTask, verbose: bool) -> tuple[_DownloadTask, b
 
 def download_files_in_parallel(
     download_tasks: list[_DownloadTask],
+    github_token: str | None,
     verbose: bool,
 ) -> list[tuple[_DownloadTask, bool]]:
     """Download files in parallel using ThreadPoolExecutor."""
     log(f"Downloading {len(download_tasks)} tools in parallel...", "info", "🔄")
     downloaded_tasks = []
     with ThreadPoolExecutor(max_workers=min(16, len(download_tasks) or 1)) as ex:
-        future_to_task = {ex.submit(_download_task, task, verbose): task for task in download_tasks}
+        future_to_task = {
+            ex.submit(_download_task, task, github_token, verbose): task for task in download_tasks
+        }
         for future in as_completed(future_to_task):
             task, success = future.result()
             downloaded_tasks.append((task, success))

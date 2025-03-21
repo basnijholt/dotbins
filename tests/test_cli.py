@@ -1,12 +1,13 @@
 """Integration tests for the dotbins module."""
 
+from __future__ import annotations
+
 import sys
 from pathlib import Path
 from typing import Any, Callable
 from unittest.mock import patch
 
 import pytest
-from _pytest.capture import CaptureFixture
 
 from dotbins import cli
 from dotbins.config import Config, build_tool_config
@@ -37,7 +38,7 @@ def test_initialization(
 
 def test_list_tools(
     tmp_path: Path,
-    capsys: CaptureFixture[str],
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Test the 'list' command."""
     # Create a test tool configuration
@@ -69,7 +70,6 @@ def test_list_tools(
 
 def test_update_tool(
     tmp_path: Path,
-    mock_github_api: Any,  # noqa: ARG001
     create_dummy_archive: Callable,
 ) -> None:
     """Test updating a specific tool."""
@@ -85,6 +85,15 @@ def test_update_tool(
             "platform_map": {"macos": "darwin"},
         },
     )
+    test_tool_config._latest_release = {
+        "tag_name": "v1.0.0",
+        "assets": [
+            {
+                "name": "test-tool-1.0.0-linux_amd64.tar.gz",
+                "browser_download_url": "https://example.com/test-tool-1.0.0-linux_amd64.tar.gz",
+            },
+        ],
+    }
 
     # Create config with our test tool - use new format
     config = Config(
@@ -94,7 +103,12 @@ def test_update_tool(
     )
 
     # Mock the download_file function to use our fixture
-    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
+    def mock_download_file(
+        url: str,  # noqa: ARG001
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
         create_dummy_archive(dest_path=Path(destination), binary_names="test-tool")
         return destination
 
@@ -110,6 +124,7 @@ def test_update_tool(
             generate_readme=True,
             copy_config_file=True,
             generate_shell_scripts=True,
+            github_token=None,
             verbose=True,
         )
 
@@ -117,7 +132,7 @@ def test_update_tool(
     assert (tmp_path / "tools" / "linux" / "amd64" / "bin" / "test-tool").exists()
 
 
-def test_cli_no_command(capsys: CaptureFixture[str]) -> None:
+def test_cli_no_command(capsys: pytest.CaptureFixture[str]) -> None:
     """Test running CLI with no command."""
     with patch.object(sys, "argv", ["dotbins"]):
         cli.main()

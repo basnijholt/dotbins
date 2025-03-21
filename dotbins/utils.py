@@ -23,24 +23,16 @@ from rich.console import Console
 console = Console()
 
 
-@functools.cache
-def _maybe_github_token_header(quiet: bool = False) -> dict[str, str]:  # pragma: no cover
-    """Return a dictionary of headers with GitHub token if it exists."""
-    headers = {}
-    if token := os.environ.get("GITHUB_TOKEN"):
-        headers["Authorization"] = f"token {token}"
-        if not quiet:
-            log("Using GitHub token for authentication", "info", "🔑")
-    return headers
+def _maybe_github_token_header(github_token: str | None) -> dict[str, str]:  # pragma: no cover
+    return {} if github_token is None else {"Authorization": f"token {github_token}"}
 
 
 @functools.cache
-def latest_release_info(repo: str, quiet: bool = False) -> dict:
+def latest_release_info(repo: str, github_token: str | None) -> dict:  # pragma: no cover
     """Fetch release information from GitHub for a single repository."""
     url = f"https://api.github.com/repos/{repo}/releases/latest"
-    if not quiet:
-        log(f"Fetching latest release from {url}", "info", "🔍")
-    headers = _maybe_github_token_header(quiet)
+    log(f"Fetching latest release from {url}", "info", "🔍")
+    headers = _maybe_github_token_header(github_token)
     try:
         response = requests.get(url, headers=headers, timeout=30)
         response.raise_for_status()
@@ -50,19 +42,26 @@ def latest_release_info(repo: str, quiet: bool = False) -> dict:
         raise RuntimeError(msg) from e
 
 
-def _try_fetch_release_info(repo: str) -> dict | None:
+def _try_fetch_release_info(repo: str, github_token: str | None, verbose: bool) -> dict | None:
     """Try to fetch release information from GitHub for a single repository."""
     try:
-        return latest_release_info(repo, quiet=True)
-    except Exception:
+        return latest_release_info(repo, github_token)
+    except Exception:  # pragma: no cover
+        log(f"Failed to fetch latest release for {repo}", "error", print_exception=verbose)
         return None
 
 
-def fetch_releases_in_parallel(repos: list[str]) -> dict[str, dict | None]:
+def fetch_releases_in_parallel(
+    repos: list[str],
+    github_token: str | None = None,
+    verbose: bool = False,
+) -> dict[str, dict | None]:
     """Fetch release information for multiple repositories in parallel.
 
     Args:
         repos: List of repository names in format 'owner/repo'
+        github_token: GitHub token for better rate limiting
+        verbose: Whether to print verbose output
 
     Returns:
         Dictionary mapping repository names to their release information
@@ -70,18 +69,20 @@ def fetch_releases_in_parallel(repos: list[str]) -> dict[str, dict | None]:
     """
     results: dict[str, dict | None] = {}
     with ThreadPoolExecutor(max_workers=min(16, len(repos) or 1)) as ex:
-        future_to_repo = {ex.submit(_try_fetch_release_info, repo): repo for repo in repos}
+        future_to_repo = {
+            ex.submit(_try_fetch_release_info, repo, github_token, verbose): repo for repo in repos
+        }
         for future in as_completed(future_to_repo):
             repo = future_to_repo[future]
             results[repo] = future.result()  # type: ignore[assignment]
     return results
 
 
-def download_file(url: str, destination: str, verbose: bool) -> str:
+def download_file(url: str, destination: str, github_token: str | None, verbose: bool) -> str:
     """Download a file from a URL to a destination path."""
     log(f"Downloading from {url}", "info", "📥")
     # Already verbose when fetching release info
-    headers = _maybe_github_token_header(quiet=verbose)
+    headers = _maybe_github_token_header(github_token)
     try:
         response = requests.get(url, stream=True, timeout=30, headers=headers)
         response.raise_for_status()

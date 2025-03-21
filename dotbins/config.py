@@ -22,7 +22,6 @@ from .utils import (
     current_platform,
     fetch_releases_in_parallel,
     github_url_to_raw_url,
-    latest_release_info,
     log,
     write_shell_scripts,
 )
@@ -50,6 +49,7 @@ class Config:
     config_path: Path | None = field(default=None, init=False)
     _bin_dir: Path | None = field(default=None, init=False)
     _update_summary: UpdateSummary = field(default_factory=UpdateSummary, init=False)
+    _latest_releases: dict | None = field(default=None, init=False)
 
     def bin_dir(self, platform: str, arch: str, *, create: bool = False) -> Path:
         """Return the bin directory for a given platform and architecture."""
@@ -59,6 +59,21 @@ class Config:
         if create:
             bin_dir.mkdir(parents=True, exist_ok=True)
         return bin_dir
+
+    def set_latest_releases(
+        self,
+        tools: list[str] | None = None,
+        github_token: str | None = None,
+        verbose: bool = False,
+    ) -> None:
+        """Set the latest releases for all tools."""
+        if tools is None:
+            tools = list(self.tools)
+        repos = [cfg.repo for tool in tools if (cfg := self.tools[tool])._latest_release is None]
+        releases = fetch_releases_in_parallel(repos, github_token, verbose)
+        for cfg in self.tools.values():
+            if cfg.repo in releases:
+                cfg._latest_release = releases[cfg.repo]
 
     @cached_property
     def version_store(self) -> VersionStore:
@@ -116,6 +131,7 @@ class Config:
         force: bool = False,
         generate_readme: bool = True,
         copy_config_file: bool = False,
+        github_token: str | None = None,
         verbose: bool = False,
     ) -> None:
         """Update tools.
@@ -128,15 +144,16 @@ class Config:
             force: Whether to force update.
             generate_readme: Whether to generate a README.md file with tool information.
             copy_config_file: Whether to write the config to the tools directory.
+            github_token: GitHub token for better rate limiting.
             verbose: Whether to print verbose output.
 
         """
+        if github_token is None and "GITHUB_TOKEN" in os.environ:  # pragma: no cover
+            log("Using GitHub token for authentication", "info", "🔑")
+            github_token = os.environ["GITHUB_TOKEN"]
+
         tools_to_update = _tools_to_update(self, tools)
-        repos = [
-            self.tools[tool].repo
-            for tool in (tools_to_update if tools_to_update is not None else self.tools)
-        ]
-        _ = fetch_releases_in_parallel(repos)  # populates cache
+        self.set_latest_releases(tools_to_update, github_token, verbose)
         platforms_to_update, architecture = _platforms_and_archs_to_update(
             platform,
             architecture,
@@ -150,7 +167,7 @@ class Config:
             force,
             verbose,
         )
-        downloaded_tasks = download_files_in_parallel(download_tasks, verbose)
+        downloaded_tasks = download_files_in_parallel(download_tasks, github_token, verbose)
         success_count = process_downloaded_files(
             downloaded_tasks,
             self.version_store,
@@ -229,7 +246,7 @@ def _print_completion_summary(success_count: int, total_count: int) -> None:
         log("Don't forget to commit the changes to your dotfiles repository", "success", "💾")
 
 
-@dataclass(frozen=True)
+@dataclass
 class ToolConfig:
     """Holds all config data for a single tool, without doing heavy logic."""
 
@@ -241,23 +258,20 @@ class ToolConfig:
     asset_patterns: dict[str, dict[str, str | None]] = field(default_factory=dict)
     platform_map: dict[str, str] = field(default_factory=dict)
     arch_map: dict[str, str] = field(default_factory=dict)
+    _latest_release: dict | None = field(default=None, init=False)
 
     def bin_spec(self, arch: str, platform: str) -> BinSpec:
         """Get a BinSpec object for the tool."""
         return BinSpec(tool_config=self, version=self.latest_version, arch=arch, platform=platform)
 
-    @cached_property
-    def latest_release(self) -> dict:
-        """Get the latest release for the tool."""
-        return latest_release_info(self.repo)
-
-    @cached_property
+    @property
     def latest_version(self) -> str:
         """Get the latest version for the tool."""
-        return self.latest_release["tag_name"].lstrip("v")
+        assert self._latest_release is not None
+        return self._latest_release["tag_name"].lstrip("v")
 
 
-@dataclass
+@dataclass(frozen=True)
 class BinSpec:
     """Specific arch and platform for a tool."""
 
@@ -290,7 +304,8 @@ class BinSpec:
     def matching_asset(self) -> _AssetDict | None:
         """Find a matching asset for the tool."""
         asset_pattern = self.asset_pattern()
-        assets = self.tool_config.latest_release["assets"]
+        assert self.tool_config._latest_release is not None
+        assets = self.tool_config._latest_release["assets"]
         if asset_pattern is None:
             return _auto_detect_asset(self.platform, self.arch, assets)
         return _find_matching_asset(asset_pattern, assets)
@@ -610,5 +625,5 @@ def _find_matching_asset(
         if re.search(asset_pattern, asset["name"]):
             log(f"Found matching asset: {asset['name']}", "success")
             return asset
-    log(f"No asset matching '{asset_pattern}' found", "warning")
+    log(f"No asset matching '{asset_pattern}' found in {assets}", "warning")
     return None

@@ -1,19 +1,22 @@
 """Unit tests for the dotbins module."""
 
+from __future__ import annotations
+
 import os
 import tarfile
 import tempfile
 from pathlib import Path
-from typing import Callable, Literal
+from typing import TYPE_CHECKING, Callable, Literal
 from unittest.mock import patch
 
 import pytest
-from _pytest.capture import CaptureFixture
-from pytest_mock import MockFixture
 
 import dotbins
-from dotbins.config import BinSpec, Config, build_tool_config
+from dotbins.config import BinSpec, Config, _find_config_file, build_tool_config
 from dotbins.versions import VersionStore
+
+if TYPE_CHECKING:
+    from requests_mock import Mocker
 
 
 def test_load_config(tmp_path: Path) -> None:
@@ -65,41 +68,41 @@ def test_load_config_fallback() -> None:
 
 def test_find_asset() -> None:
     """Test finding an asset matching a pattern."""
-    with patch("dotbins.config.latest_release_info") as mock_release:
-        mock_release.return_value = {
-            "tag_name": "v1.0.0",
-            "assets": [
-                {"name": "tool-1.0.0-linux_amd64.tar.gz"},
-                {"name": "tool-1.0.0-linux_arm64.tar.gz"},
-                {"name": "tool-1.0.0-darwin_amd64.tar.gz"},
-            ],
-        }
-        tool_config = build_tool_config(
-            tool_name="tool",
-            raw_data={
-                "repo": "test/repo",
-                "binary_name": "tool",
-                "binary_path": "tool",
-                "asset_patterns": {  # type: ignore[typeddict-item]
-                    "linux": {
-                        "amd64": "tool-{version}-linux_{arch}.tar.gz",
-                        "arm64": "tool-{version}-linux_{arch}.tar.gz",
-                    },
+    tool_config = build_tool_config(
+        tool_name="tool",
+        raw_data={
+            "repo": "test/repo",
+            "binary_name": "tool",
+            "binary_path": "tool",
+            "asset_patterns": {  # type: ignore[typeddict-item]
+                "linux": {
+                    "amd64": "tool-{version}-linux_{arch}.tar.gz",
+                    "arm64": "tool-{version}-linux_{arch}.tar.gz",
                 },
             },
-        )
-        assets = tool_config.latest_release["assets"]
-        assert len(assets) == 3
-        bin_spec = tool_config.bin_spec("amd64", "linux")
-        assert bin_spec.asset_pattern() == "tool-1.0.0-linux_amd64.tar.gz"
-        assert bin_spec.matching_asset() == assets[0]
+        },
+    )
+    tool_config._latest_release = {
+        "tag_name": "v1.0.0",
+        "assets": [
+            {"name": "tool-1.0.0-linux_amd64.tar.gz"},
+            {"name": "tool-1.0.0-linux_arm64.tar.gz"},
+            {"name": "tool-1.0.0-darwin_amd64.tar.gz"},
+        ],
+    }
+    assert tool_config._latest_release is not None
+    assets = tool_config._latest_release["assets"]
+    assert len(assets) == 3
+    bin_spec = tool_config.bin_spec("amd64", "linux")
+    assert bin_spec.asset_pattern() == "tool-1.0.0-linux_amd64.tar.gz"
+    assert bin_spec.matching_asset() == assets[0]
 
-        bin_spec = tool_config.bin_spec("arm64", "linux")
-        assert bin_spec.asset_pattern() == "tool-1.0.0-linux_arm64.tar.gz"
-        assert bin_spec.matching_asset() == assets[1]
+    bin_spec = tool_config.bin_spec("arm64", "linux")
+    assert bin_spec.asset_pattern() == "tool-1.0.0-linux_arm64.tar.gz"
+    assert bin_spec.matching_asset() == assets[1]
 
 
-def test_download_file(requests_mock: MockFixture, tmp_path: Path) -> None:
+def test_download_file(requests_mock: Mocker, tmp_path: Path) -> None:
     """Test downloading a file from URL."""
     # Setup mock response
     test_content = b"test file content"
@@ -108,7 +111,7 @@ def test_download_file(requests_mock: MockFixture, tmp_path: Path) -> None:
 
     # Call the function
     dest_path = str(tmp_path / "downloaded.tar.gz")
-    result = dotbins.download.download_file(url, dest_path, verbose=True)
+    result = dotbins.download.download_file(url, dest_path, github_token=None, verbose=True)
 
     # Verify the file was downloaded correctly
     assert result == dest_path
@@ -265,7 +268,7 @@ def test_make_binaries_executable(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("shell", ["bash", "zsh", "fish", "nushell"])
 def test_print_shell_setup(
-    capsys: CaptureFixture[str],
+    capsys: pytest.CaptureFixture[str],
     shell: Literal["bash", "zsh", "fish", "nushell"],
 ) -> None:
     """Test printing shell setup instructions."""
@@ -276,7 +279,7 @@ def test_print_shell_setup(
     assert f"Add this to your {shell} configuration file" in captured.out
 
 
-def test_download_tool_already_exists(tmp_path: Path) -> None:
+def test_download_tool_already_exists(requests_mock: Mocker, tmp_path: Path) -> None:
     """Test prepare_download_task when binary already exists."""
     # Setup environment with complete tool config
     test_tool_config = build_tool_config(
@@ -311,19 +314,26 @@ def test_download_tool_already_exists(tmp_path: Path) -> None:
     with open(bin_file, "w") as f:
         f.write("#!/bin/sh\necho test")
 
-    # Mock the latest_release_info function to avoid HTTP requests
-    with patch("dotbins.utils.latest_release_info") as mock_release:
-        mock_release.return_value = {"tag_name": "v1.0.0", "assets": []}
+    response_data = {
+        "tag_name": "v1.0.0",
+        "assets": [
+            {"tag_name": "v1.0.0", "assets": []},
+        ],
+    }
+    requests_mock.get(
+        "https://api.github.com/repos/test/tool/releases/latest",
+        json=response_data,
+    )
 
-        # With prepare_download_task, it should return None if file exists
-        result = dotbins.download._prepare_download_task(
-            "test-tool",
-            "linux",
-            "amd64",
-            config,
-            force=False,
-            verbose=True,
-        )
+    # With prepare_download_task, it should return None if file exists
+    result = dotbins.download._prepare_download_task(
+        "test-tool",
+        "linux",
+        "amd64",
+        config,
+        force=False,
+        verbose=True,
+    )
 
     # Should return None (skip download) since file exists
     assert result is None
@@ -331,7 +341,7 @@ def test_download_tool_already_exists(tmp_path: Path) -> None:
 
 def test_download_tool_asset_not_found(
     tmp_path: Path,
-    requests_mock: MockFixture,
+    requests_mock: Mocker,
 ) -> None:
     """Test prepare_download_task when asset is not found."""
     # Mock GitHub API response with no matching Linux assets
@@ -361,22 +371,19 @@ def test_download_tool_asset_not_found(
         tools_dir=tmp_path,
         tools={"test-tool": test_tool_config},
     )
+    config.tools["test-tool"]._latest_release = {"tag_name": "v1.0.0", "assets": []}
+    # Call the function
+    result = dotbins.download._prepare_download_task(
+        "test-tool",
+        "linux",
+        "amd64",
+        config,
+        force=False,
+        verbose=True,
+    )
 
-    with patch("dotbins.config.latest_release_info") as mock_release:
-        mock_release.return_value = {"tag_name": "v1.0.0", "assets": []}
-
-        # Call the function
-        result = dotbins.download._prepare_download_task(
-            "test-tool",
-            "linux",
-            "amd64",
-            config,
-            force=False,
-            verbose=True,
-        )
-
-        # Should return None since asset wasn't found
-        assert result is None
+    # Should return None since asset wasn't found
+    assert result is None
 
 
 def test_extract_from_archive_unknown_type(tmp_path: Path) -> None:
@@ -587,3 +594,56 @@ def test_extract_from_archive_with_arch_platform_version_in_path(
     extracted_bin = dest_dir / "test-tool"
     assert extracted_bin.exists()
     assert extracted_bin.stat().st_mode & 0o100  # Verify it's executable
+
+
+def test_find_config_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Test finding configuration file covers all code paths."""
+    # Case 1: Explicit path that exists
+    config_path = tmp_path / "explicit_config.yaml"
+    config_path.write_text("test content")
+    result = _find_config_file(config_path)
+    assert result == config_path
+    out = capsys.readouterr().out.replace("\n", "")
+    assert f"Loading configuration from: {config_path}" in out
+
+    # Case 2: Explicit path that doesn't exist
+    non_existent_path = tmp_path / "non_existent.yaml"
+    result = _find_config_file(non_existent_path)
+    assert result is None
+    out = capsys.readouterr().out.replace("\n", "")
+    assert f"Config path provided but not found: {non_existent_path}" in out
+
+    # Case 3: No explicit path, check default locations
+    with (
+        patch("pathlib.Path.cwd", return_value=tmp_path / "cwd"),
+        patch("pathlib.Path.home", return_value=tmp_path / "home"),
+    ):
+        # Define all candidate paths to test in order
+        candidates = [
+            (tmp_path / "cwd" / "dotbins.yaml", "cwd config"),
+            (tmp_path / "home" / ".config" / "dotbins" / "config.yaml", "config dir config"),
+            (tmp_path / "home" / ".config" / "dotbins.yaml", "dot config"),
+            (tmp_path / "home" / ".dotbins.yaml", "home dotbins"),
+            (tmp_path / "home" / ".dotbins" / "dotbins.yaml", "dotbins dir config"),
+        ]
+
+        # Test each candidate path in order
+        for config_file, content in candidates:
+            # Create necessary parent directories
+            config_file.parent.mkdir(parents=True, exist_ok=True)
+            config_file.write_text(content)
+
+            # Test the function finds this config file
+            result = _find_config_file(None)
+            assert result == config_file
+            out = capsys.readouterr().out.replace("\n", "")
+            assert f"Loading configuration from: {config_file}" in out
+
+            # Remove this config file before testing the next one
+            config_file.unlink()
+
+        # Case 4: No config file exists anywhere
+        result = _find_config_file(None)
+        assert result is None
+        out = capsys.readouterr().out.replace("\n", "")
+        assert "No configuration file found, using default settings" in out

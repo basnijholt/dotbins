@@ -31,6 +31,7 @@ def _update_tools(
     generate_readme: bool,
     copy_config_file: bool,
     generate_shell_scripts: bool,
+    github_token: str | None,
     verbose: bool,
 ) -> None:
     """Update tools based on command line arguments."""
@@ -42,6 +43,7 @@ def _update_tools(
         force,
         generate_readme,
         copy_config_file,
+        github_token,
         verbose,
     )
     if generate_shell_scripts:
@@ -170,6 +172,11 @@ def create_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Skip writing the config file to the tools directory",
     )
+    update_parser.add_argument(
+        "--github-token",
+        type=str,
+        help="GitHub token to use for private repositories",
+    )
 
     # init command
     _init_parser = subparsers.add_parser(
@@ -264,6 +271,7 @@ def main() -> None:  # pragma: no cover
                 not args.no_readme,
                 not args.no_copy_config_file,
                 not args.no_shell_scripts,
+                args.github_token,
                 args.verbose,
             )
         elif args.command == "readme":

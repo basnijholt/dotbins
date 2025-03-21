@@ -19,25 +19,28 @@ from dotbins.utils import current_platform, log
 
 def _create_mock_release_info(
     tool_name: str,
-    version: str = "1.2.3",
-    platforms: list[str] | None = None,
-    architectures: list[str] | None = None,
-    archive_type: str = "tar.gz",
+    version: str,
+    platforms: dict[str, list[str]],
 ) -> dict[str, Any]:
-    if platforms is None:
-        platforms = ["linux", "darwin"]
-    if architectures is None:
-        architectures = ["amd64", "arm64"]
+    assets = [
+        {
+            "name": f"{tool_name}-{version}-{platform}_{arch}.tar.gz",
+            "browser_download_url": f"https://example.com/{tool_name}-{version}-{platform}_{arch}.tar.gz",
+        }
+        for platform in platforms
+        for arch in platforms[platform]
+    ]
+    return {"tag_name": f"v{version}", "assets": assets}
 
-    assets = []
-    for platform in platforms:
-        for arch in architectures:
-            asset_name = f"{tool_name}-{version}-{platform}_{arch}.{archive_type}"
-            assets.append(
-                {"name": asset_name, "browser_download_url": f"https://example.com/{asset_name}"},
-            )
 
-    return {"tag_name": f"v{version}", "name": f"{tool_name} {version}", "assets": assets}
+def _set_mock_release_info(config: Config, version: str = "1.2.3") -> None:
+    """Set the mock release info for the given config."""
+    for tool_name, tool_config in config.tools.items():
+        tool_config._latest_release = _create_mock_release_info(
+            tool_name,
+            version,
+            config.platforms,
+        )
 
 
 def run_e2e_test(
@@ -73,16 +76,18 @@ def run_e2e_test(
     raw_config: RawConfigDict = {
         "tools_dir": str(tools_dir),
         "platforms": platforms,
-        "tools": tool_configs,
+        "tools": tool_configs,  # type: ignore[typeddict-item]
     }
 
     config = _config_from_dict(raw_config)
+    _set_mock_release_info(config)
 
-    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
-        tool_name = repo.split("/")[-1]
-        return _create_mock_release_info(tool_name)
-
-    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
+    def mock_download_file(
+        url: str,
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
         # Extract tool name from URL
         parts = url.split("/")[-1].split("-")
         tool_name = parts[0]
@@ -91,10 +96,7 @@ def run_e2e_test(
         create_dummy_archive(Path(destination), tool_name)
         return destination
 
-    with (
-        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
-        patch("dotbins.download.download_file", side_effect=mock_download_file),
-    ):
+    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
         log("Running update_tools")
         # Run the update
         config.update_tools(
@@ -283,35 +285,17 @@ def test_e2e_update_tools(
     raw_config: RawConfigDict,
     create_dummy_archive: Callable,
 ) -> None:
-    """Shows an end-to-end test.
-
-    This test:
-    - Builds a Config from a dict
-    - Mocks out `latest_release_info` to produce predictable asset names
-    - Mocks out `download_file` so we skip real network usage
-    - Calls `config.update_tools` directly
-    - Verifies that the binaries are extracted into the correct location.
-    """
+    """Shows an end-to-end test."""
     config = _config_from_dict(raw_config)
     config.tools_dir = tmp_path
+    _set_mock_release_info(config, version="1.2.3")
 
-    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
-        tool_name = repo.split("/")[-1]
-        return {
-            "tag_name": "v1.2.3",
-            "assets": [
-                {
-                    "name": f"{tool_name}-1.2.3-linux_amd64.tar.gz",
-                    "browser_download_url": f"https://example.com/{tool_name}-1.2.3-linux_amd64.tar.gz",
-                },
-                {
-                    "name": f"{tool_name}-1.2.3-linux_arm64.tar.gz",
-                    "browser_download_url": f"https://example.com/{tool_name}-1.2.3-linux_arm64.tar.gz",
-                },
-            ],
-        }
-
-    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
+    def mock_download_file(
+        url: str,
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
         log(f"MOCKED download_file from {url} -> {destination}", "info")
         if "mytool" in url:
             create_dummy_archive(Path(destination), binary_names="mybinary")
@@ -319,16 +303,16 @@ def test_e2e_update_tools(
             create_dummy_archive(Path(destination), binary_names="otherbin")
         return destination
 
-    with (
-        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
-        patch("dotbins.download.download_file", side_effect=mock_download_file),
-    ):
+    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
         config.update_tools()
 
     verify_binaries_installed(config)
 
 
-def test_e2e_update_tools_skip_up_to_date(tmp_path: Path) -> None:
+def test_e2e_update_tools_skip_up_to_date(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     """Demonstrates a scenario where we have a single tool that is already up-to-date.
 
     - We populate the VersionStore with the exact version returned by mocked GitHub releases.
@@ -350,6 +334,7 @@ def test_e2e_update_tools_skip_up_to_date(tmp_path: Path) -> None:
 
     config = _config_from_dict(raw_config)
     config.tools_dir = tmp_path  # Ensures we respect the fixture path
+    _set_mock_release_info(config, version="1.2.3")
 
     # Pre-populate version_store with version='1.2.3' so it should SKIP
     config.version_store.update_tool_info(
@@ -358,28 +343,15 @@ def test_e2e_update_tools_skip_up_to_date(tmp_path: Path) -> None:
         arch="amd64",
         version="1.2.3",
     )
+    bin_dir = config.bin_dir("linux", "amd64")
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    (bin_dir / "mybinary").touch()  # Ensure binary exists
 
-    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
-        return {
-            "tag_name": "v1.2.3",
-            "assets": [
-                {
-                    "name": "mytool-1.2.3-linux_amd64.tar.gz",
-                    "browser_download_url": "https://example.com/mytool-1.2.3-linux_amd64.tar.gz",
-                },
-            ],
-        }
+    def mock_download_file(*args: Any, **kwargs: Any) -> str:  # pragma: no cover
+        msg = "This should never be called"
+        raise NotImplementedError(msg)
 
-    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
-        # This won't be called at all if the skip logic works
-        log(f"MOCK download_file from {url} -> {destination}", "error")
-        msg = "This should never be called if skip is working."
-        raise RuntimeError(msg)
-
-    with (
-        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
-        patch("dotbins.download.download_file", side_effect=mock_download_file),
-    ):
+    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
         config.update_tools()
 
     # If everything is skipped, no new binary is downloaded,
@@ -387,6 +359,10 @@ def test_e2e_update_tools_skip_up_to_date(tmp_path: Path) -> None:
     stored_info = config.version_store.get_tool_info("mytool", "linux", "amd64")
     assert stored_info is not None
     assert stored_info["version"] == "1.2.3"
+
+    # Check that no download was attempted
+    out = capsys.readouterr().out
+    assert "use --force to re-download" in out
 
 
 def test_e2e_update_tools_partial_skip_and_update(
@@ -422,6 +398,7 @@ def test_e2e_update_tools_partial_skip_and_update(
 
     config = _config_from_dict(raw_config)
     config.tools_dir = tmp_path
+    _set_mock_release_info(config, version="2.0.0")
 
     # Mark 'mytool' as already up-to-date
     config.version_store.update_tool_info(
@@ -439,28 +416,12 @@ def test_e2e_update_tools_partial_skip_and_update(
         version="1.0.0",
     )
 
-    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
-        if "mytool" in repo:
-            return {
-                "tag_name": "v2.0.0",
-                "assets": [
-                    {
-                        "name": "mytool-2.0.0-linux_amd64.tar.gz",
-                        "browser_download_url": "https://example.com/mytool-2.0.0-linux_amd64.tar.gz",
-                    },
-                ],
-            }
-        return {
-            "tag_name": "v2.0.0",
-            "assets": [
-                {
-                    "name": "othertool-2.0.0-linux_amd64.tar.gz",
-                    "browser_download_url": "https://example.com/othertool-2.0.0-linux_amd64.tar.gz",
-                },
-            ],
-        }
-
-    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
+    def mock_download_file(
+        url: str,
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
         # Only called for 'othertool' if skip for 'mytool' works
         if "mytool" in url:
             msg = "Should not download mytool if up-to-date!"
@@ -468,10 +429,7 @@ def test_e2e_update_tools_partial_skip_and_update(
         create_dummy_archive(Path(destination), binary_names="otherbin")
         return destination
 
-    with (
-        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
-        patch("dotbins.download.download_file", side_effect=mock_download_file),
-    ):
+    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
         config.update_tools()
 
     # 'mytool' should remain at version 2.0.0, unchanged
@@ -514,36 +472,26 @@ def test_e2e_update_tools_force_re_download(tmp_path: Path, create_dummy_archive
         },
     }
     config = _config_from_dict(raw_config)
-
+    _set_mock_release_info(config, version="1.2.3")
     # Mark 'mytool' as installed at 1.2.3
     config.version_store.update_tool_info("mytool", "linux", "amd64", "1.2.3")
     tool_info = config.version_store.get_tool_info("mytool", "linux", "amd64")
     assert tool_info is not None
     original_updated_at = tool_info["updated_at"]
 
-    # Mock release & download
-    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
-        return {
-            "tag_name": "v1.2.3",
-            "assets": [
-                {
-                    "name": "mytool-1.2.3-linux_amd64.tar.gz",
-                    "browser_download_url": "https://example.com/mytool-1.2.3-linux_amd64.tar.gz",
-                },
-            ],
-        }
-
     downloaded_urls = []
 
-    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
+    def mock_download_file(
+        url: str,
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
         downloaded_urls.append(url)
         create_dummy_archive(Path(destination), binary_names="mybinary")
         return destination
 
-    with (
-        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
-        patch("dotbins.download.download_file", side_effect=mock_download_file),
-    ):
+    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
         # Force a re-download, even though we're "up to date"
         config.update_tools(
             tools=["mytool"],
@@ -588,51 +536,35 @@ def test_e2e_update_tools_specific_platform(tmp_path: Path, create_dummy_archive
                         "arm64": "mytool-{version}-linux_arm64.tar.gz",
                     },
                     "macos": {
-                        "arm64": "mytool-{version}-darwin_arm64.tar.gz",
+                        "arm64": "mytool-{version}-{platform}_arm64.tar.gz",
                     },
                 },
             },
         },
     }
     config = _config_from_dict(raw_config)
-
-    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
-        return {
-            "tag_name": "v1.0.0",
-            "assets": [
-                {
-                    "name": "mytool-1.0.0-linux_amd64.tar.gz",
-                    "browser_download_url": "https://example.com/mytool-1.0.0-linux_amd64.tar.gz",
-                },
-                {
-                    "name": "mytool-1.0.0-linux_arm64.tar.gz",
-                    "browser_download_url": "https://example.com/mytool-1.0.0-linux_arm64.tar.gz",
-                },
-                {
-                    "name": "mytool-1.0.0-darwin_arm64.tar.gz",
-                    "browser_download_url": "https://example.com/mytool-1.0.0-darwin_arm64.tar.gz",
-                },
-            ],
-        }
+    _set_mock_release_info(config, version="1.0.0")
 
     downloaded_files = []
 
-    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
+    def mock_download_file(
+        url: str,
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
         downloaded_files.append(url)
         # Each call uses the same tar generation but with different binary content
         create_dummy_archive(Path(destination), binary_names="mybinary")
         return destination
 
-    with (
-        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
-        patch("dotbins.download.download_file", side_effect=mock_download_file),
-    ):
-        # Only update macOS => We expect only the darwin_arm64 asset
+    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
+        # Only update macOS => We expect only the macos_arm64 asset
         config.update_tools(platform="macos")
 
-    # Should only have downloaded the darwin_arm64 file
+    # Should only have downloaded the macos_arm64 file
     assert len(downloaded_files) == 1
-    assert "mytool-1.0.0-darwin_arm64.tar.gz" in downloaded_files[0]
+    assert "mytool-1.0.0-macos_arm64.tar.gz" in downloaded_files[0]
 
     # Check bin existence
     macos_bin = config.bin_dir("macos", "arm64")
@@ -651,7 +583,7 @@ def test_get_tool_command(tmp_path: Path, create_dummy_archive: Callable) -> Non
     dest_dir.mkdir(parents=True, exist_ok=True)
     platform, arch = current_platform()
 
-    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
+    def mock_latest_release_info(repo: str, github_token: str | None) -> dict:  # noqa: ARG001
         return {
             "tag_name": "v1.0.0",
             "assets": [
@@ -662,13 +594,18 @@ def test_get_tool_command(tmp_path: Path, create_dummy_archive: Callable) -> Non
             ],
         }
 
-    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
+    def mock_download_file(
+        url: str,  # noqa: ARG001
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
         create_dummy_archive(Path(destination), binary_names="mytool")
         return destination
 
     with (
-        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
         patch("dotbins.download.download_file", side_effect=mock_download_file),
+        patch("dotbins.utils.latest_release_info", side_effect=mock_latest_release_info),
     ):
         _get_tool(source="basnijholt/mytool", dest_dir=dest_dir)
 
@@ -719,7 +656,7 @@ def test_get_tool_command_with_remote_config(
         log(f"Mock HTTP GET for URL: {url}", "info")
         return MockResponse(yaml_content.encode("utf-8"))
 
-    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
+    def mock_latest_release_info(repo: str, github_token: str | None) -> dict:  # noqa: ARG001
         log(f"Getting release info for repo: {repo}", "info")
         tool_name = repo.split("/")[-1]
         return {
@@ -732,7 +669,12 @@ def test_get_tool_command_with_remote_config(
             ],
         }
 
-    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
+    def mock_download_file(
+        url: str,
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
         log(f"Downloading from {url} to {destination}", "info")
         tool_name = url.split("/")[-1].split("-")[0]
         log(f"Creating archive for {tool_name}", "info")
@@ -741,8 +683,8 @@ def test_get_tool_command_with_remote_config(
 
     with (
         patch("dotbins.utils.requests.get", side_effect=mock_requests_get),
-        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
         patch("dotbins.download.download_file", side_effect=mock_download_file),
+        patch("dotbins.utils.latest_release_info", side_effect=mock_latest_release_info),
     ):
         _get_tool(source="https://example.com/config.yaml", dest_dir=dest_dir)
 
@@ -787,33 +729,23 @@ def test_copy_config_file(
             (dest_dir / "dotbins.yaml").touch()
 
     config = Config.from_file(cfg_path)
+    _set_mock_release_info(config, version="1.0.0")
     assert config.tools_dir == dest_dir
     assert config.platforms == {platform: [arch]}
 
-    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
-        log(f"Getting release info for repo: {repo}", "info")
-        tool_name = repo.split("/")[-1]
-        return {
-            "tag_name": "v1.0.0",
-            "assets": [
-                {
-                    "name": f"{tool_name}-1.0.0-{platform}_{arch}.tar.gz",
-                    "browser_download_url": f"https://example.com/{tool_name}-1.0.0-{platform}_{arch}.tar.gz",
-                },
-            ],
-        }
-
-    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
+    def mock_download_file(
+        url: str,
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
         log(f"Downloading from {url} to {destination}", "info")
         tool_name = url.split("/")[-1].split("-")[0]
         log(f"Creating archive for {tool_name}", "info")
         create_dummy_archive(Path(destination), binary_names=tool_name)
         return destination
 
-    with (
-        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
-        patch("dotbins.download.download_file", side_effect=mock_download_file),
-    ):
+    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
         config.update_tools(copy_config_file=True)
 
     # Should have been copied to the tools directory
@@ -841,6 +773,7 @@ def test_update_nonexistent_platform(tmp_path: Path, capsys: pytest.CaptureFixtu
         ),
     )
     config = Config.from_file(config_path)
+    _set_mock_release_info(config, version="1.0.0")
 
     config.update_tools(platform="windows")
     captured = capsys.readouterr()
@@ -881,28 +814,19 @@ def test_non_extract_with_multiple_binary_names(
         ),
     )
     config = Config.from_file(config_path)
+    _set_mock_release_info(config, version="1.0.0")
 
-    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
-        log(f"Getting release info for repo: {repo}", "info")
-        return {
-            "tag_name": "v1.0.0",
-            "assets": [
-                {
-                    "name": "multi-bin-tool-1.0.0-linux_amd64.zip",
-                    "browser_download_url": "https://example.com/multi-bin-tool-1.0.0-linux_amd64.zip",
-                },
-            ],
-        }
-
-    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
+    def mock_download_file(
+        url: str,  # noqa: ARG001
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
         # Create a dummy file - this would normally be a binary file
         Path(destination).write_text("dummy binary content")
         return destination
 
-    with (
-        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
-        patch("dotbins.download.download_file", side_effect=mock_download_file),
-    ):
+    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
         # Run the update which should fail for the multi-bin tool
         config.update_tools()
 
@@ -953,28 +877,19 @@ def test_non_extract_single_binary_copy(
         ),
     )
     config = Config.from_file(config_path)
+    _set_mock_release_info(config, version="1.0.0")
 
-    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
-        log(f"Getting release info for repo: {repo}", "info")
-        return {
-            "tag_name": "v1.0.0",
-            "assets": [
-                {
-                    "name": "single-bin-tool-1.0.0-linux_amd64",
-                    "browser_download_url": "https://example.com/single-bin-tool-1.0.0-linux_amd64",
-                },
-            ],
-        }
-
-    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
+    def mock_download_file(
+        url: str,  # noqa: ARG001
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
         # Create a dummy binary file with executable content
         Path(destination).write_text("#!/bin/sh\necho 'Hello from tool-binary'")
         return destination
 
-    with (
-        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
-        patch("dotbins.download.download_file", side_effect=mock_download_file),
-    ):
+    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
         # Run the update which should succeed for the single binary tool
         config.update_tools()
 
@@ -1022,6 +937,7 @@ def test_error_preparing_download(
             },
         },
     )
+    config.tools["error-tool"]._latest_release = {"tag_name": "v1.0.0", "assets": []}
 
     # Create a BinSpec.matching_asset method that raises an exception
     def mock_matching_asset(self) -> NoReturn:  # noqa: ANN001, ARG001
@@ -1029,13 +945,7 @@ def test_error_preparing_download(
         raise RuntimeError(msg)
 
     # Use patch to inject our exception
-    with (
-        patch("dotbins.config.BinSpec.matching_asset", mock_matching_asset),
-        patch(
-            "dotbins.config.latest_release_info",
-            return_value={"tag_name": "v1.0.0", "assets": []},
-        ),
-    ):
+    with patch("dotbins.config.BinSpec.matching_asset", mock_matching_asset):
         config.update_tools(verbose=True)
 
     # Capture the output
@@ -1096,28 +1006,19 @@ def test_binary_not_found_error_handling(
             },
         },
     )
+    _set_mock_release_info(config, version="1.0.0")
 
-    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
-        log(f"Getting release info for repo: {repo}", "info")
-        return {
-            "tag_name": "v1.0.0",
-            "assets": [
-                {
-                    "name": "extraction-error-tool-1.0.0-linux_amd64.tar.gz",
-                    "browser_download_url": "https://example.com/extraction-error-tool-1.0.0-linux_amd64.tar.gz",
-                },
-            ],
-        }
-
-    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
+    def mock_download_file(
+        url: str,  # noqa: ARG001
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
         # Create a dummy archive but WITHOUT the expected binary path
         create_dummy_archive(Path(destination), binary_names="different-binary-name")
         return destination
 
-    with (
-        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
-        patch("dotbins.download.download_file", side_effect=mock_download_file),
-    ):
+    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
         config.update_tools()
 
     # Capture the output
@@ -1177,28 +1078,19 @@ def test_auto_detect_binary_paths_error(
             },
         },
     )
+    _set_mock_release_info(config, version="1.0.0")
 
-    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
-        log(f"Getting release info for repo: {repo}", "info")
-        return {
-            "tag_name": "v1.0.0",
-            "assets": [
-                {
-                    "name": "auto-detect-error-tool-1.0.0-linux_amd64.tar.gz",
-                    "browser_download_url": "https://example.com/auto-detect-error-tool-1.0.0-linux_amd64.tar.gz",
-                },
-            ],
-        }
-
-    def mock_download_file(url: str, destination: str, verbose: bool) -> str:  # noqa: ARG001
+    def mock_download_file(
+        url: str,  # noqa: ARG001
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
         # Create a dummy archive with a binary that won't match the expected name
         create_dummy_archive(Path(destination), binary_names="different-binary-name")
         return destination
 
-    with (
-        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
-        patch("dotbins.download.download_file", side_effect=mock_download_file),
-    ):
+    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
         config.update_tools()
 
     # Capture the output
@@ -1252,27 +1144,14 @@ def test_download_file_request_exception(
             },
         },
     )
-
-    def mock_latest_release_info(repo: str, quiet: bool = False) -> dict:  # noqa: ARG001
-        return {
-            "tag_name": "v1.0.0",
-            "assets": [
-                {
-                    "name": "download-error-tool-1.0.0-linux_amd64.tar.gz",
-                    "browser_download_url": "https://example.com/download-error-tool-1.0.0-linux_amd64.tar.gz",
-                },
-            ],
-        }
+    _set_mock_release_info(config, version="1.0.0")
 
     def mock_requests_get(*args, **kwargs) -> NoReturn:  # noqa: ANN002, ANN003, ARG001
         # Simulate a network error during the request
         err_msg = "Connection refused"
         raise requests.RequestException(err_msg)
 
-    with (
-        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
-        patch("dotbins.utils.requests.get", side_effect=mock_requests_get),
-    ):
+    with (patch("dotbins.utils.requests.get", side_effect=mock_requests_get),):
         config.update_tools(verbose=False)  # Turn off verbose to reduce processing
 
     # Capture the output
