@@ -4,12 +4,18 @@ from __future__ import annotations
 
 import shutil
 import tempfile
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
 from .detect_binary import auto_detect_binary_paths, auto_detect_extract_binary
-from .utils import calculate_sha256, download_file, extract_archive, log, replace_home_in_path
+from .utils import (
+    calculate_sha256,
+    download_file,
+    execute_in_parallel,
+    extract_archive,
+    log,
+    replace_home_in_path,
+)
 
 if TYPE_CHECKING:
     from .config import BinSpec, Config, ToolConfig
@@ -301,15 +307,8 @@ def download_files_in_parallel(
     if not download_tasks:
         return []
     log(f"Downloading {len(download_tasks)} tools in parallel...", "info", "🔄")
-    downloaded_tasks = []
-    with ThreadPoolExecutor(max_workers=min(16, len(download_tasks) or 1)) as ex:
-        future_to_task = {
-            ex.submit(_download_task, task, github_token, verbose): task for task in download_tasks
-        }
-        for future in as_completed(future_to_task):
-            task, success = future.result()
-            downloaded_tasks.append((task, success))
-    return downloaded_tasks
+
+    return execute_in_parallel(download_tasks, _download_task, 16, github_token, verbose)
 
 
 def _process_downloaded_task(

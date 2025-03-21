@@ -56,26 +56,11 @@ def fetch_releases_in_parallel(
     github_token: str | None = None,
     verbose: bool = False,
 ) -> dict[str, dict | None]:
-    """Fetch release information for multiple repositories in parallel.
+    """Fetch release information for multiple repositories in parallel."""
+    results = execute_in_parallel(repos, _try_fetch_release_info, 16, github_token, verbose)
 
-    Args:
-        repos: List of repository names in format 'owner/repo'
-        github_token: GitHub token for better rate limiting
-        verbose: Whether to print verbose output
-
-    Returns:
-        Dictionary mapping repository names to their release information
-
-    """
-    results: dict[str, dict | None] = {}
-    with ThreadPoolExecutor(max_workers=min(16, len(repos) or 1)) as ex:
-        future_to_repo = {
-            ex.submit(_try_fetch_release_info, repo, github_token, verbose): repo for repo in repos
-        }
-        for future in as_completed(future_to_repo):
-            repo = future_to_repo[future]
-            results[repo] = future.result()  # type: ignore[assignment]
-    return results
+    # Convert the results list to a dictionary mapping repo to result
+    return dict(zip(repos, results))
 
 
 def download_file(url: str, destination: str, github_token: str | None, verbose: bool) -> str:
@@ -372,3 +357,36 @@ def github_url_to_raw_url(repo_url: str) -> str:
         "/blob/",
         "/refs/heads/",
     )
+
+
+def execute_in_parallel(
+    items: list[Any],
+    process_func: Callable,
+    max_workers: int = 16,
+    *args: Any,
+    **kwargs: Any,
+) -> list[Any]:
+    """Execute a function over a list of items in parallel.
+
+    Args:
+        items: List of items to process
+        process_func: Function to apply to each item
+        max_workers: Maximum number of parallel workers
+        *args: Additional arguments to pass to process_func
+        **kwargs: Additional keyword arguments to pass to process_func
+
+    Returns:
+        List of results from process_func applied to each item
+
+    """
+    if not items:
+        return []
+
+    results = []
+    with ThreadPoolExecutor(max_workers=min(max_workers, len(items) or 1)) as ex:
+        future_to_item = {ex.submit(process_func, item, *args, **kwargs): item for item in items}
+        for future in as_completed(future_to_item):
+            result = future.result()
+            results.append(result)
+
+    return results
