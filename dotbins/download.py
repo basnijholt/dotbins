@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
-from .detect_binary import auto_detect_binary_paths
+from .detect_binary import auto_detect_binary_paths, auto_detect_extract_binary
 from .utils import calculate_sha256, download_file, extract_archive, log
 
 if TYPE_CHECKING:
@@ -327,7 +327,16 @@ def _process_downloaded_task(
         log(f"SHA256: {sha256_hash}", "info", "🔐")
 
         task.destination_dir.mkdir(parents=True, exist_ok=True)
-        if task.tool_config.extract_binary:
+        extract_binary = task.tool_config.extract_binary
+        if extract_binary is None:
+            extract_binary = auto_detect_extract_binary(str(task.temp_path))
+            log(
+                f"Auto-detected extract_binary for {task.tool_name}: {extract_binary}",
+                "info",
+                "🔍",
+            )
+
+        if extract_binary:
             _extract_binary_from_archive(
                 task.temp_path,
                 task.destination_dir,
@@ -374,7 +383,7 @@ def _process_downloaded_task(
             task.arch,
             task.version,
             old_version=version_store.get_tool_version(task.tool_name, task.platform, task.arch)
-            or "Unknown",
+            or "—",
         )
         version_store.update_tool_info(
             task.tool_name,
