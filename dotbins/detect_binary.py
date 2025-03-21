@@ -125,3 +125,24 @@ def auto_detect_binary_paths(extracted_dir: Path, binary_names: list[str]) -> li
             detected_paths.append(str(binary_path))
 
     return detected_paths
+
+
+def auto_detect_extract_binary(name: str) -> bool:
+    """Automatically detect if a binary should be extracted from an archive."""
+    # These are all the archive extensions that are supported by
+    # the `utils.extract_archive` function
+    archive_extensions = [
+        ".zip",
+        ".tar",
+        ".tar.gz",
+        ".tgz",
+        ".tar.bz2",
+        ".tbz2",
+        ".tar.xz",
+        ".txz",
+        ".gz",
+        ".bz2",
+        ".xz",
+        ".lzma",
+    ]
+    return any(name.lower().endswith(ext) for ext in archive_extensions)

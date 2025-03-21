@@ -46,7 +46,7 @@ def test_tool_has_repo_defined(
 
 @pytest.mark.parametrize(
     "key",
-    ["repo", "extract_binary", "binary_name"],
+    ["repo", "binary_name"],
 )
 @pytest.mark.parametrize("tool_name", TOOLS)
 def test_tool_config_has_required_fields(
