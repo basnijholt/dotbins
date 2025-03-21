@@ -1,0 +1,59 @@
+tools_dir: ~/.dotbins-examples
+
+# List of tools that require no configuration
+
+tools:
+  bandwhich: imsnif/bandwhich     # Terminal bandwidth utilization tool
+  bat: sharkdp/bat                # Cat clone with syntax highlighting and Git integration
+  bottom: ClementTsang/bottom     # Graphical system monitor
+  btop: aristocratos/btop         # Resource monitor and process viewer
+  caddy: caddyserver/caddy        # Web server with automatic HTTPS
+  choose: theryangeary/choose     # Cut alternative with a simpler syntax
+  croc: schollz/croc              # File transfer tool with end-to-end encryption
+  ctop: bcicen/ctop               # Container metrics and monitoring
+  curlie: rs/curlie               # Curl wrapper with httpie-like syntax
+  delta: dandavison/delta         # Syntax-highlighting pager for git and diff output
+  difftastic: Wilfred/difftastic  # Structural diff tool that understands syntax
+  direnv: direnv/direnv           # Environment switcher for the shell
+  dog: ogham/dog                  # Command-line DNS client like dig
+  duf: muesli/duf                 # Disk usage analyzer with pretty output
+  dust: bootandy/dust             # More intuitive version of du (disk usage)
+  eget: zyedidia/eget             # Go single file downloader (similar to Dotbins)
+  fd: sharkdp/fd                  # Simple, fast alternative to find
+  fzf: junegunn/fzf               # Command-line fuzzy finder
+  git-lfs: git-lfs/git-lfs        # Git extension for versioning large files
+  glow: charmbracelet/glow        # Markdown renderer for the terminal
+  gping: orf/gping                # Ping with a graph
+  gron: tomnomnom/gron            # Make JSON greppable
+  hexyl: sharkdp/hexyl            # Command-line hex viewer
+  hyperfine: sharkdp/hyperfine    # Command-line benchmarking tool
+  jc: kellyjonbrazil/jc           # JSON CLI output converter
+  jless: PaulJuliusMartinez/jless # Command-line JSON viewer
+  jq: jqlang/jq                   # Lightweight JSON processor
+  just: casey/just                # Command runner alternative to make
+  k9s: derailed/k9s               # Kubernetes CLI to manage clusters
+  lazygit: jesseduffield/lazygit  # Simple terminal UI for git commands
+  lnav: tstack/lnav               # Log file navigator
+  lsd: lsd-rs/lsd                 # Next-gen ls command with icons and colors
+  mcfly: cantino/mcfly            # Fly through your shell history
+  micro: zyedidia/micro           # Modern and intuitive terminal-based text editor
+  navi: denisidoro/navi           # Interactive cheatsheet tool for the CLI
+  neovim: neovim/neovim           # Modern text editor
+  procs: dalance/procs            # Modern replacement for ps
+  rg: BurntSushi/ripgrep          # Fast grep alternative
+  sd: chmln/sd                    # Find & replace CLI
+  starship: starship/starship     # Minimal, fast, customizable prompt for any shell
+  tealdeer: tealdeer-rs/tealdeer  # Fast tldr client in Rust
+  tre: dduan/tre                  # Tree command with git awareness
+  xh: ducaale/xh                  # Friendly and fast tool for sending HTTP requests
+  xplr: sayanarijit/xplr          # Hackable, minimal, fast TUI file explorer
+  yazi: sxyazi/yazi               # Terminal file manager with image preview
+  yq: mikefarah/yq                # YAML/XML/TOML processor similar to jq
+  zoxide: ajeetdsouza/zoxide      # Smarter cd command with learning
+
+platforms:
+  linux:
+    - amd64
+    - arm64
+  macos:
+    - arm64

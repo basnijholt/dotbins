@@ -321,7 +321,7 @@ class RawConfigDict(TypedDict, total=False):
 
     tools_dir: str
     platforms: dict[str, list[str]]
-    tools: dict[str, RawToolConfigDict]
+    tools: dict[str, str | RawToolConfigDict]
 
 
 class RawToolConfigDict(TypedDict, total=False):
@@ -419,6 +419,8 @@ def _config_from_dict(data: RawConfigDict) -> Config:
 
     tool_configs: dict[str, ToolConfig] = {}
     for tool_name, tool_data in raw_tools.items():
+        if isinstance(tool_data, str):
+            tool_data = {"repo": tool_data}  # noqa: PLW2901
         tool_configs[tool_name] = build_tool_config(tool_name, tool_data, platforms)
 
     config_obj = Config(tools_dir=tools_dir_path, platforms=platforms, tools=tool_configs)
