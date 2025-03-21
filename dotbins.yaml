@@ -10,39 +10,20 @@ platforms:
 
 # Tool definitions
 tools:
-  bat:
-    repo: sharkdp/bat
-
-  delta:
-    repo: dandavison/delta
-
-  direnv:
-    repo: direnv/direnv
-
-  duf:
-    repo: muesli/duf
-
-  fd:
-    repo: sharkdp/fd
-
-  fzf:
-    repo: junegunn/fzf
-
-  git-lfs:
-    repo: git-lfs/git-lfs
-
-  lazygit:
-    repo: jesseduffield/lazygit
+  bat: sharkdp/bat
+  delta: dandavison/delta
+  direnv: direnv/direnv
+  duf: muesli/duf
+  fd: sharkdp/fd
+  fzf: junegunn/fzf
+  git-lfs: git-lfs/git-lfs
+  lazygit: jesseduffield/lazygit
+  yazi: sxyazi/yazi
+  zoxide: ajeetdsouza/zoxide
 
   ripgrep:
     repo: BurntSushi/ripgrep
     binary_name: rg
-
-  zoxide:
-    repo: ajeetdsouza/zoxide
-
-  yazi:
-    repo: sxyazi/yazi
 
   eza:
     repo: eza-community/eza
