@@ -7,7 +7,7 @@ import tarfile
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, NoReturn
+from typing import TYPE_CHECKING, Any, Callable, NoReturn
 from unittest.mock import patch
 
 import pytest
@@ -16,6 +16,9 @@ import requests
 from dotbins.cli import _get_tool
 from dotbins.config import Config, RawConfigDict, RawToolConfigDict, _config_from_dict
 from dotbins.utils import current_platform, log
+
+if TYPE_CHECKING:
+    from requests_mock import Mocker
 
 
 def _create_mock_release_info(
@@ -1321,3 +1324,28 @@ def test_sync_tools_with_empty_archive(
     out = capsys.readouterr().out
     assert "Error extracting archive: No files matching *" in out
     assert "Error processing mytool: No files matching *" in out
+
+
+def test_failed_to_fetch_release_info(
+    tmp_path: Path,
+    requests_mock: Mocker,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test handling of failed to fetch release info."""
+    raw_config: RawConfigDict = {
+        "tools_dir": str(tmp_path),
+        "platforms": {"linux": ["amd64"]},
+        "tools": {"mytool": {"repo": "fakeuser/mytool"}},
+    }
+    config = _config_from_dict(raw_config)
+    requests_mock.get(
+        "https://api.github.com/repos/fakeuser/mytool/releases/latest",
+        status_code=403,
+        # Same as on real GitHub API
+        reason="rate limit exceeded for url: https://api.github.com/repos/fakeuser/mytool/releases/latest",
+    )
+    config.sync_tools()
+
+    out = capsys.readouterr().out
+    assert "Failed to fetch latest release for" in out
+    assert "limit exceeded" in out
