@@ -35,10 +35,11 @@ else:  # pragma: no cover
     from typing_extensions import Required
 
 DEFAULT_TOOLS_DIR = "~/.dotbins"
-DEFAULT_PLATFORMS = {
-    "linux": ["amd64", "arm64"],
-    "macos": ["arm64"],
-}
+
+
+def _default_platforms() -> dict[str, list[str]]:
+    platform, arch = current_platform()
+    return {platform: [arch]}
 
 
 @dataclass
@@ -46,7 +47,7 @@ class Config:
     """Overall configuration for dotbins."""
 
     tools_dir: Path = field(default=Path(os.path.expanduser(DEFAULT_TOOLS_DIR)))
-    platforms: dict[str, list[str]] = field(default_factory=lambda: DEFAULT_PLATFORMS)
+    platforms: dict[str, list[str]] = field(default_factory=_default_platforms)
     tools: dict[str, ToolConfig] = field(default_factory=dict)
     config_path: Path | None = field(default=None, init=False)
     _bin_dir: Path | None = field(default=None, init=False)
@@ -365,7 +366,7 @@ def build_tool_config(
     or normalization that used to happen inside the constructor.
     """
     if not platforms:
-        platforms = DEFAULT_PLATFORMS
+        platforms = _default_platforms()
 
     # Safely grab data from raw_data (or set default if missing).
     repo = raw_data.get("repo") or ""
@@ -423,7 +424,7 @@ def config_from_file(config_path: str | Path | None = None) -> Config:
 
 def _config_from_dict(data: RawConfigDict) -> Config:
     tools_dir = data.get("tools_dir", DEFAULT_TOOLS_DIR)
-    platforms = data.get("platforms", DEFAULT_PLATFORMS)
+    platforms = data.get("platforms", _default_platforms())
     raw_tools = data.get("tools", {})
 
     tools_dir_path = Path(os.path.expanduser(tools_dir))

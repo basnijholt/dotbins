@@ -81,6 +81,7 @@ def test_find_asset() -> None:
                 },
             },
         },
+        platforms={"linux": ["amd64", "arm64"]},
     )
     tool_config._latest_release = {
         "tag_name": "v1.0.0",
@@ -538,8 +539,12 @@ def test_build_tool_config_skips_unknown_platforms() -> None:
         },
     }
 
+    platforms = {
+        "linux": ["amd64", "arm64"],
+        "macos": ["arm64"],
+    }
     # Build the tool config
-    tool_config = build_tool_config(tool_name="tool", raw_data=raw_data)  # type: ignore[arg-type]
+    tool_config = build_tool_config(tool_name="tool", raw_data=raw_data, platforms=platforms)  # type: ignore[arg-type]
     assert tool_config.asset_patterns == {
         "linux": {
             "amd64": "tool-{version}-linux_{arch}.tar.gz",

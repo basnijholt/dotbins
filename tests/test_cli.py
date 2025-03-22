@@ -84,6 +84,7 @@ def test_update_tool(
             "asset_patterns": "test-tool-{version}-{platform}_{arch}.tar.gz",
             "platform_map": {"macos": "darwin"},
         },
+        platforms={"linux": ["amd64"]},
     )
     test_tool_config._latest_release = {
         "tag_name": "v1.0.0",
