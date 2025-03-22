@@ -115,3 +115,14 @@ class VersionStore:
             paths = [tool_dir / platform / arch / "bin" / name for name in info["binaries"]]
             installed_bin_paths.extend(paths)
         return installed_bin_paths
+
+    def remove_tools_not_in_config(self, tools_in_config: set[str]) -> None:
+        """Remove entries for tools that are no longer in the configuration."""
+        if not self.versions:
+            return
+        tools_to_remove = [tool for tool in self.versions if tool not in tools_in_config]
+        for tool in tools_to_remove:
+            del self.versions[tool]
+        if tools_to_remove:
+            log(f"Removed {len(tools_to_remove)} tool(s) from version store", "info")
+            self.save()

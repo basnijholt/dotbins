@@ -241,7 +241,9 @@ class Config:
         write_shell_scripts(self.tools_dir, print_shell_setup)
 
     def _cleanup_unused_binaries(self, verbose: bool = False) -> None:
-        """Remove binaries that are not associated with any known tool."""
+        """Remove binaries that are not associated with any known tool and clean version store."""
+        self.version_store.remove_tools_not_in_config(set(self.tools))
+
         expected_binaries = self.version_store.get_all_installed_binary_paths()
 
         bin_dirs = {
