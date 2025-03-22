@@ -1193,3 +1193,12 @@ def test_no_matching_asset(
 
     # Verify error message in the log output
     assert "No matching asset found" in captured.out
+
+
+def test_no_tools(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Test syncing with no tools."""
+    config = Config(tools_dir=tmp_path)
+    config.sync_tools()
+
+    captured = capsys.readouterr()
+    assert "No tools configured" in captured.out
