@@ -26,6 +26,7 @@ See this example `.dotbins` repository: [basnijholt/.dotbins](https://github.com
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 - [:zap: Quick Start](#zap-quick-start)
+  - [Windows Support](#windows-support)
 - [:star2: Features](#star2-features)
 - [:bulb: Why I Created dotbins](#bulb-why-i-created-dotbins)
 - [:books: Usage](#books-usage)
