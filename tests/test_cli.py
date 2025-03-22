@@ -183,8 +183,8 @@ def test_cli_tools_dir_override(tmp_path: Path) -> None:
         **kwargs: Any,  # noqa: ARG001
     ) -> Config:
         return Config(
-            tools_dir=tmp_path / "default_tools",  # Default dir
-            platforms={"linux": ["amd64"]},  # Use new format
+            tools_dir=tmp_path / "default_tools",
+            platforms={"linux": ["amd64"]},
         )
 
     # Patch config loading
