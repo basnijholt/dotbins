@@ -247,22 +247,23 @@ def _generate_shell_integration(tools_dir: Path) -> list[str]:
 def _generate_updating_section() -> list[str]:
     """Generate updating tools section content."""
     return [
-        "## 🔄 Updating Tools",
+        "## 🔄 Installing and Updating Tools",
         "",
-        "### Update all tools",
+        "### Install or update all tools",
         "```bash",
-        "dotbins update",
+        "dotbins sync",
         "```",
         "",
-        "### Update specific tools only",
+        "### Install or update specific tools only",
         "```bash",
-        "dotbins update tool1 tool2",
+        "dotbins sync tool1 tool2",
         "```",
         "",
-        "### Update for current platform only",
+        "### Install or update for current platform only",
         "```bash",
-        "dotbins update --current",
+        "dotbins sync --current",
         "```",
+        "",
     ]
 
 
@@ -277,7 +278,7 @@ def _generate_commands_section() -> list[str]:
         "```",
         "dotbins list           # List all available tools",
         "dotbins init           # Initialize directory structure",
-        "dotbins update         # Update all tools",
+        "dotbins sync           # Install and update tools to their latest versions",
         "dotbins readme         # Regenerate this README",
         "dotbins versions       # Show installed tool versions",
         "dotbins get REPO       # Install tool directly to ~/.local/bin",
@@ -343,7 +344,7 @@ def generate_readme_content(config: Config) -> str:
         "- [Installed Tools](#-installed-tools)",
         "- [Tool Statistics](#-tool-statistics)",
         "- [Shell Integration](#-shell-integration)",
-        "- [Updating Tools](#-updating-tools)",
+        "- [Installing and Updating Tools](#-installing-and-updating-tools)",
         "- [Quick Commands](#-quick-commands)",
         "- [Configuration File](#-configuration-file)",
         "- [Additional Information](#ℹ️-additional-information)",  # noqa: RUF001

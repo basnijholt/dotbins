@@ -125,47 +125,55 @@ class Config:
         if write_file:
             write_readme_file(self, verbose=verbose)
 
-    def update_tools(
-        self: Config,
+    def sync_tools(
+        self,
         tools: list[str] | None = None,
         platform: str | None = None,
         architecture: str | None = None,
         current: bool = False,
         force: bool = False,
         generate_readme: bool = True,
-        copy_config_file: bool = False,
+        copy_config_file: bool = True,
         github_token: str | None = None,
         verbose: bool = False,
     ) -> None:
-        """Update tools.
+        """Install and update tools to their latest versions.
+
+        Downloads, extracts, and installs tools based on the configuration.
+        For tools that are already installed, it checks if updates are available
+        and updates them if necessary.
 
         Args:
-            tools: List of tools to update.
-            platform: Platform to update, if not provided, all platforms will be updated.
-            architecture: Architecture to update, if not provided, all architectures will be updated.
-            current: Whether to update only the current platform and architecture. Overrides platform and architecture.
-            force: Whether to force update.
-            generate_readme: Whether to generate a README.md file with tool information.
-            copy_config_file: Whether to write the config to the tools directory.
-            github_token: GitHub token for better rate limiting.
-            verbose: Whether to print verbose output.
+            tools: List of tool names to sync (all if None)
+            platform: Only sync tools for this platform
+            architecture: Only sync tools for this architecture
+            current: Only sync tools for the current platform/architecture (overrides platform/architecture)
+            force: Force sync even if the binary exists and is up to date
+            generate_readme: Whether to generate a README.md file
+            copy_config_file: Whether to copy the config file to the tools directory
+            github_token: GitHub token to use for API requests
+            verbose: Whether to print verbose output
 
         """
+        if not self.tools:
+            log("No tools configured", "error")
+            return
+
         if github_token is None and "GITHUB_TOKEN" in os.environ:  # pragma: no cover
             log("Using GitHub token for authentication", "info", "🔑")
             github_token = os.environ["GITHUB_TOKEN"]
 
-        tools_to_update = _tools_to_update(self, tools)
-        self.set_latest_releases(tools_to_update, github_token, verbose)
-        platforms_to_update, architecture = _platforms_and_archs_to_update(
+        tools_to_sync = _tools_to_sync(self, tools)
+        self.set_latest_releases(tools_to_sync, github_token, verbose)
+        platforms_to_sync, architecture = _platforms_and_archs_to_sync(
             platform,
             architecture,
             current,
         )
         download_tasks = prepare_download_tasks(
             self,
-            tools_to_update,
-            platforms_to_update,
+            tools_to_sync,
+            platforms_to_sync,
             architecture,
             force,
             verbose,
@@ -218,20 +226,37 @@ def _maybe_copy_config_file(
     shutil.copy(config_path, tools_config_path)
 
 
-def _platforms_and_archs_to_update(
+def _platforms_and_archs_to_sync(
     platform: str | None,
     architecture: str | None,
     current: bool,
 ) -> tuple[list[str] | None, str | None]:
+    """Determine which platforms and architectures to sync.
+
+    Args:
+        platform: Platform to filter by
+        architecture: Architecture to filter by
+        current: Whether to only use the current platform and architecture
+
+    Returns:
+        Tuple of (platforms_to_sync, architecture)
+            - platforms_to_sync: List of platform names to sync, or None for all
+            - architecture: Architecture to filter by, or None for all
+
+    """
     if current:
-        platform, architecture = current_platform()
-        platforms_to_update = [platform]
-    else:
-        platforms_to_update = [platform] if platform else None  # type: ignore[assignment]
-    return platforms_to_update, architecture
+        # Get current platform and architecture
+        current_platform_name, current_arch_name = current_platform()
+        platforms_to_sync = [current_platform_name]
+        return platforms_to_sync, current_arch_name
+
+    if platform is not None:
+        platforms_to_sync = [platform] if platform else None  # type: ignore[assignment]
+        return platforms_to_sync, architecture
+    return None, architecture
 
 
-def _tools_to_update(config: Config, tools: list[str] | None) -> list[str] | None:
+def _tools_to_sync(config: Config, tools: list[str] | None) -> list[str] | None:
     if tools:
         for tool in tools:
             if tool not in config.tools:

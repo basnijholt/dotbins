@@ -232,21 +232,21 @@ def _prepare_download_task(
 
 def prepare_download_tasks(
     config: Config,
-    tools_to_update: list[str] | None,
-    platforms_to_update: list[str] | None,
+    tools_to_sync: list[str] | None,
+    platforms_to_sync: list[str] | None,
     architecture: str | None,
     force: bool,
     verbose: bool,
 ) -> list[_DownloadTask]:
     """Prepare download tasks for all tools and platforms."""
     download_tasks = []
-    if tools_to_update is None:
-        tools_to_update = list(config.tools)
-    if platforms_to_update is None:
-        platforms_to_update = list(config.platforms)
+    if tools_to_sync is None:
+        tools_to_sync = list(config.tools)
+    if platforms_to_sync is None:
+        platforms_to_sync = list(config.platforms)
 
-    for tool_name in tools_to_update:
-        for platform in platforms_to_update:
+    for tool_name in tools_to_sync:
+        for platform in platforms_to_sync:
             if platform not in config.platforms:
                 config._update_summary.add_skipped_tool(
                     tool_name,
