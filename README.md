@@ -444,17 +444,17 @@ List available tools:
 dotbins list
 ```
 
-Update all tools for all platforms:
+Sync all tools for all platforms:
 ```bash
 dotbins sync
 ```
 
-Update specific tools only:
+Sync specific tools only:
 ```bash
 dotbins sync fzf bat
 ```
 
-Update tools for a specific platform/architecture:
+Sync tools for a specific platform/architecture:
 ```bash
 dotbins sync -p macos -a arm64
 ```

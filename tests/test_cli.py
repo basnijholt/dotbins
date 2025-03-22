@@ -144,7 +144,7 @@ def test_cli_no_command(capsys: pytest.CaptureFixture[str]) -> None:
 
 
 def test_cli_unknown_tool() -> None:
-    """Test updating an unknown tool."""
+    """Test syncing an unknown tool."""
     with (
         pytest.raises(SystemExit),
         patch.object(sys, "argv", ["dotbins", "sync", "unknown-tool"]),
@@ -190,12 +190,12 @@ def test_cli_argument_parsing() -> None:
     args = parser.parse_args(["readme"])
     assert args.command == "readme"
 
-    # Test update with --no-readme
+    # Test sync with --no-readme
     args = parser.parse_args(["sync", "--no-readme"])
     assert args.command == "sync"
     assert args.no_readme is True
 
-    # Test update without --no-readme (default)
+    # Test sync without --no-readme (default)
     args = parser.parse_args(["sync"])
     assert args.command == "sync"
     assert args.no_readme is False

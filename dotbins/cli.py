@@ -34,7 +34,7 @@ def _sync_tools(
     github_token: str | None,
     verbose: bool,
 ) -> None:
-    """Update tools based on command line arguments."""
+    """Sync tools based on command line arguments."""
     config.sync_tools(
         tools,
         platform,
@@ -122,10 +122,10 @@ def create_parser() -> argparse.ArgumentParser:
         help="List available tools",
     )
 
-    # update command
+    # sync command
     sync_parser = subparsers.add_parser(
         "sync",
-        help="Update tools",
+        help="Sync tools",
         formatter_class=RichHelpFormatter,
     )
     sync_parser.add_argument(

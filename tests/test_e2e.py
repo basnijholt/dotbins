@@ -280,12 +280,12 @@ def test_auto_detect_binary_and_asset_patterns(
         },
     ],
 )
-def test_e2e_update_tools(
+def test_e2e_sync_tools(
     tmp_path: Path,
     raw_config: RawConfigDict,
     create_dummy_archive: Callable,
 ) -> None:
-    """Shows an end-to-end test."""
+    """Test the end-to-end tool sync workflow with different configurations."""
     config = _config_from_dict(raw_config)
     config.tools_dir = tmp_path
     _set_mock_release_info(config, version="1.2.3")
@@ -309,15 +309,11 @@ def test_e2e_update_tools(
     verify_binaries_installed(config)
 
 
-def test_e2e_update_tools_skip_up_to_date(
+def test_e2e_sync_tools_skip_up_to_date(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Demonstrates a scenario where we have a single tool that is already up-to-date.
-
-    - We populate the VersionStore with the exact version returned by mocked GitHub releases.
-    - The `config.sync_tools` call should skip downloading or extracting anything.
-    """
+    """Test that tools are skipped if they are already up to date."""
     raw_config: RawConfigDict = {
         "tools_dir": str(tmp_path),
         "platforms": {"linux": ["amd64"]},
@@ -365,16 +361,11 @@ def test_e2e_update_tools_skip_up_to_date(
     assert "--force to re-download" in out
 
 
-def test_e2e_update_tools_partial_skip_and_update(
+def test_e2e_sync_tools_partial_skip_and_update(
     tmp_path: Path,
     create_dummy_archive: Callable,
 ) -> None:
-    """Partial skip & update.
-
-    Demonstrates:
-    - 'mytool' is already up-to-date => skip
-    - 'othertool' is on an older version => must update.
-    """
+    """Test that some tools are skipped and others are updated."""
     raw_config: RawConfigDict = {
         "tools_dir": str(tmp_path),
         "platforms": {"linux": ["amd64"]},
@@ -451,13 +442,8 @@ def test_e2e_update_tools_partial_skip_and_update(
     assert config._update_summary.updated[0].version == "2.0.0"
 
 
-def test_e2e_update_tools_force_re_download(tmp_path: Path, create_dummy_archive: Callable) -> None:
-    """Force a re-download.
-
-    Scenario:
-    - 'mytool' is already up to date at version 1.2.3
-    - We specify `force=True` => it MUST redownload
-    """
+def test_e2e_sync_tools_force_re_download(tmp_path: Path, create_dummy_archive: Callable) -> None:
+    """Test that the --force flag forces re-download of up-to-date tools."""
     raw_config: RawConfigDict = {
         "tools_dir": str(tmp_path),
         "platforms": {"linux": ["amd64"]},
@@ -512,12 +498,8 @@ def test_e2e_update_tools_force_re_download(tmp_path: Path, create_dummy_archive
     assert tool_info["updated_at"] != original_updated_at
 
 
-def test_e2e_update_tools_specific_platform(tmp_path: Path, create_dummy_archive: Callable) -> None:
-    """Update a specific platform.
-
-    Scenario: We have a config with 'linux' & 'macos', but only request updates for 'macos'
-    => Only macOS assets are fetched and placed in the correct bin dir.
-    """
+def test_e2e_sync_tools_specific_platform(tmp_path: Path, create_dummy_archive: Callable) -> None:
+    """Test syncing tools for a specific platform only."""
     raw_config: RawConfigDict = {
         "tools_dir": str(tmp_path),
         "platforms": {
