@@ -168,11 +168,7 @@ class Config:
             force,
             verbose,
         )
-        download_successes = download_files_in_parallel(
-            download_tasks,
-            github_token,
-            verbose,
-        )
+        download_successes = download_files_in_parallel(download_tasks, github_token, verbose)
         process_downloaded_files(
             download_tasks,
             download_successes,
