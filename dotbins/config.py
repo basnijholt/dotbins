@@ -20,9 +20,10 @@ from .readme import write_readme_file
 from .summary import UpdateSummary, display_update_summary
 from .utils import (
     current_platform,
-    fetch_releases_in_parallel,
+    execute_in_parallel,
     github_url_to_raw_url,
     humanize_time_ago,
+    latest_release_info,
     log,
     replace_home_in_path,
     write_shell_scripts,
@@ -94,19 +95,15 @@ class Config:
         """Set the latest releases for all tools."""
         if tools is None:
             tools = list(self.tools)
-        cfgs = [cfg for tool in tools if (cfg := self.tools[tool])._latest_release is None]
-        repos = [cfg.repo for cfg in cfgs]
-        releases = fetch_releases_in_parallel(repos, github_token, verbose)
-        for cfg, release in zip(cfgs, releases):
-            if release is None:
-                self._update_summary.add_failed_tool(
-                    cfg.tool_name,
-                    "Any",
-                    "Any",
-                    version="Unknown",
-                    reason=f"Failed to fetch release for {cfg.repo}",
-                )
-            cfg._latest_release = release
+        tool_configs = [self.tools[tool] for tool in tools]
+        releases = _fetch_releases_in_parallel(
+            tool_configs,
+            self._update_summary,
+            verbose,
+            github_token,
+        )
+        for tool_config, release in zip(tool_configs, releases):
+            tool_config._latest_release = release
 
     @cached_property
     def version_store(self) -> VersionStore:
@@ -671,3 +668,34 @@ def _find_matching_asset(
             return asset
     log(f"No asset matching '{asset_pattern}' found in {assets}", "warning")
     return None
+
+
+def _fetch_releases_in_parallel(
+    tool_configs: list[ToolConfig],
+    update_summary: UpdateSummary,
+    verbose: bool,
+    github_token: str | None = None,
+) -> list[dict | None]:
+    """Fetch release information for multiple repositories in parallel."""
+
+    def fetch_release(tool_config: ToolConfig) -> dict | None:
+        if tool_config._latest_release is not None:
+            return tool_config._latest_release
+        try:
+            return latest_release_info(tool_config.repo, github_token)
+        except Exception as e:
+            update_summary.add_failed_tool(
+                tool_config.tool_name,
+                "Any",
+                "Any",
+                version="Unknown",
+                reason=f"Failed to fetch release for {tool_config.repo}",
+            )
+            log(
+                f"Failed to fetch release for {tool_config.repo}: {e}",
+                "error",
+                print_exception=verbose,
+            )
+            return None
+
+    return execute_in_parallel(tool_configs, fetch_release, 16)
