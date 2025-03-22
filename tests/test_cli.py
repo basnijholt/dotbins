@@ -173,6 +173,27 @@ def test_cli_unknown_tool(tmp_path: Path) -> None:
         )
 
 
+def test_cli_no_tools(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Test syncing with no tools."""
+    config = Config(tools_dir=tmp_path)
+    cli._sync_tools(
+        config,
+        tools=[],
+        platform=None,
+        architecture=None,
+        current=False,
+        force=False,
+        generate_readme=True,
+        copy_config_file=True,
+        generate_shell_scripts=True,
+        github_token=None,
+        verbose=True,
+    )
+
+    captured = capsys.readouterr()
+    assert "No tools configured" in captured.out
+
+
 def test_cli_tools_dir_override(tmp_path: Path) -> None:
     """Test overriding tools directory via CLI."""
     custom_dir = tmp_path / "custom_tools"
