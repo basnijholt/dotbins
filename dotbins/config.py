@@ -321,7 +321,7 @@ class BinSpec:
             log(
                 f"[b]{self.tool_config.tool_name} v{self.version}[/] for"
                 f" [b]{self.platform}/{self.arch}[/] is already up to date"
-                f" (installed [b]{dt}[/b] ago) use --force to re-download.",
+                f" (installed [b]{dt}[/] ago) use --force to re-download.",
                 "success",
             )
             return True
@@ -571,7 +571,7 @@ def _maybe_asset_pattern(
     search_pattern = tool_config.asset_patterns[platform][arch]
     if search_pattern is None:
         log(
-            f"No [b]asset_pattern[/] provided for [b]{platform}/{arch}[/b]",
+            f"No [b]asset_pattern[/] provided for [b]{platform}/{arch}[/]",
             "info",
             "ℹ️",  # noqa: RUF001
         )
@@ -594,7 +594,7 @@ def _auto_detect_asset(
     assets: list[_AssetDict],
 ) -> _AssetDict | None:
     """Auto-detect an asset for the tool."""
-    log(f"Auto-detecting asset for [b]{platform}/{arch}[/b]", "info", "🔍")
+    log(f"Auto-detecting asset for [b]{platform}/{arch}[/]", "info", "🔍")
     detect_fn = create_system_detector(platform, arch)
     asset_names = [x["name"] for x in assets]
     asset_name, candidates, err = detect_fn(asset_names)

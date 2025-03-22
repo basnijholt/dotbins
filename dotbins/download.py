@@ -127,7 +127,7 @@ def _copy_binary_to_destination(
     dest_path = destination_dir / binary_name
     shutil.copy2(source_path, dest_path)
     dest_path.chmod(dest_path.stat().st_mode | 0o755)
-    log(f"Copied binary to [b]{replace_home_in_path(dest_path, '~')}[/b]", "success")
+    log(f"Copied binary to [b]{replace_home_in_path(dest_path, '~')}[/]", "success")
 
 
 def _replace_variables_in_path(path: str, version: str, arch: str, platform: str) -> str:
@@ -286,7 +286,7 @@ def _download_task(
     """Download a file for a DownloadTask."""
     try:
         log(
-            f"Downloading [b]{task.asset_name}[/b] for [b]{task.tool_name}[/b] ([b]{task.platform}/{task.arch}[/b])...",
+            f"Downloading [b]{task.asset_name}[/] for [b]{task.tool_name}[/] ([b]{task.platform}/{task.arch}[/])...",
             "info",
             "📥",
         )
@@ -338,7 +338,7 @@ def _process_downloaded_task(
         if extract_binary is None:
             extract_binary = auto_detect_extract_binary(str(task.temp_path))
             log(
-                f"Auto-detected [b]extract_binary[/] for [b]{task.tool_name}[/b]: {extract_binary}",
+                f"Auto-detected [b]extract_binary[/] for [b]{task.tool_name}[/]: {extract_binary}",
                 "info",
                 "🔍",
             )
