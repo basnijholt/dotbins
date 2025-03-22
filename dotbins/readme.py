@@ -278,7 +278,7 @@ def _generate_commands_section() -> list[str]:
         "```",
         "dotbins list           # List all available tools",
         "dotbins init           # Initialize directory structure",
-        "dotbins sync           # Update all tools",
+        "dotbins sync           # Sync all tools",
         "dotbins readme         # Regenerate this README",
         "dotbins versions       # Show installed tool versions",
         "dotbins get REPO       # Install tool directly to ~/.local/bin",

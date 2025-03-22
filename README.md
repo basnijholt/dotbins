@@ -149,7 +149,7 @@ Options:
 
 ### Commands
 
-1. **sync** - Download or update tools
+1. **sync** - Download or sync tools
 2. **get** - Download and install a tool directly without using a configuration file
 3. **init** - Initialize the tools directory structure
 4. **list** - List available tools defined in your configuration

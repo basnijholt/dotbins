@@ -131,31 +131,31 @@ def create_parser() -> argparse.ArgumentParser:
     sync_parser.add_argument(
         "tools",
         nargs="*",
-        help="Tools to update (all if not specified)",
+        help="Tools to sync (all if not specified)",
     )
     sync_parser.add_argument(
         "-p",
         "--platform",
-        help="Only update for specific platform",
+        help="Only sync for specific platform",
         type=str,
     )
     sync_parser.add_argument(
         "-a",
         "--architecture",
-        help="Only update for specific architecture",
+        help="Only sync for specific architecture",
         type=str,
     )
     sync_parser.add_argument(
         "-f",
         "--force",
         action="store_true",
-        help="Force update even if binary exists",
+        help="Force sync even if binary exists",
     )
     sync_parser.add_argument(
         "-c",
         "--current",
         action="store_true",
-        help="Only update for the current platform and architecture",
+        help="Only sync for the current platform and architecture",
     )
     sync_parser.add_argument(
         "--no-shell-scripts",

@@ -68,11 +68,11 @@ def test_list_tools(
     assert "test/tool" in captured.out
 
 
-def test_update_tool(
+def test_sync_tool(
     tmp_path: Path,
     create_dummy_archive: Callable,
 ) -> None:
-    """Test updating a specific tool."""
+    """Test syncing a specific tool."""
     # Set up mock environment
     test_tool_config = build_tool_config(
         tool_name="test-tool",
