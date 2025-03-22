@@ -421,11 +421,7 @@ def _process_downloaded_task(
             task.platform,
             task.arch,
             task.version,
-            old_version=version_store.get_tool_version(
-                task.tool_name,
-                task.platform,
-                task.arch,
-            )
+            old_version=version_store.get_tool_version(task.tool_name, task.platform, task.arch)
             or "—",
         )
         version_store.update_tool_info(
@@ -458,13 +454,7 @@ def process_downloaded_files(
         return
     log(f"Processing {len(download_successes)} downloaded tools...", "info", "🔄")
     for task, download_success in zip(download_tasks, download_successes):
-        _process_downloaded_task(
-            task,
-            download_success,
-            version_store,
-            summary,
-            verbose,
-        )
+        _process_downloaded_task(task, download_success, version_store, summary, verbose)
 
 
 def _determine_architectures(
