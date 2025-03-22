@@ -239,13 +239,6 @@ def _tools_to_update(config: Config, tools: list[str] | None) -> list[str] | Non
     return None
 
 
-def _print_completion_summary(success_count: int, total_count: int) -> None:
-    """Print completion summary and additional instructions."""
-    log(f"Completed: {success_count}/{total_count} tools updated successfully", "info", "🔄")
-    if success_count > 0:
-        log("Don't forget to commit the changes to your dotfiles repository", "success", "💾")
-
-
 @dataclass
 class ToolConfig:
     """Holds all config data for a single tool, without doing heavy logic."""
