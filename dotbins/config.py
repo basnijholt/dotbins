@@ -111,11 +111,7 @@ class Config:
                         if binary.is_file():
                             binary.chmod(binary.stat().st_mode | 0o755)
 
-    def generate_readme(
-        self: Config,
-        write_file: bool = True,
-        verbose: bool = False,
-    ) -> None:
+    def generate_readme(self: Config, write_file: bool = True, verbose: bool = False) -> None:
         """Generate a README.md file in the tools directory with information about installed tools.
 
         Args:
@@ -263,12 +259,7 @@ class ToolConfig:
 
     def bin_spec(self, arch: str, platform: str) -> BinSpec:
         """Get a BinSpec object for the tool."""
-        return BinSpec(
-            tool_config=self,
-            version=self.latest_version,
-            arch=arch,
-            platform=platform,
-        )
+        return BinSpec(tool_config=self, version=self.latest_version, arch=arch, platform=platform)
 
     @property
     def latest_version(self) -> str:
@@ -444,13 +435,13 @@ def _config_from_dict(data: RawConfigDict) -> Config:
             tool_data = {"repo": tool_data}  # noqa: PLW2901
         tool_configs[tool_name] = build_tool_config(tool_name, tool_data, platforms)
 
-    config_obj = Config(
+    config = Config(
         tools_dir=tools_dir_path,
         platforms=platforms,
         tools=tool_configs,
     )
-    config_obj.validate()
-    return config_obj
+    config.validate()
+    return config
 
 
 def config_from_url(config_url: str) -> Config:
@@ -521,10 +512,7 @@ def _find_config_file(config_path: str | Path | None) -> Path | None:
     if config_path is not None:
         path = Path(config_path)
         if path.exists():
-            log(
-                f"Loading configuration from: {replace_home_in_path(path, '~')}",
-                "success",
-            )
+            log(f"Loading configuration from: {replace_home_in_path(path, '~')}", "success")
             return path
         log(f"Config path provided but not found: {path}", "warning")
         return None
@@ -539,10 +527,7 @@ def _find_config_file(config_path: str | Path | None) -> Path | None:
     ]
     for candidate in candidates:
         if candidate.exists():
-            log(
-                f"Loading configuration from: {replace_home_in_path(candidate, '~')}",
-                "success",
-            )
+            log(f"Loading configuration from: {replace_home_in_path(candidate, '~')}", "success")
             return candidate
 
     log("No configuration file found, using default settings", "warning")
@@ -623,11 +608,7 @@ def _auto_detect_asset(
             asset_name = sorted(candidates)[0]
         else:
             if candidates:
-                log(
-                    f"Found multiple candidates: {candidates}, manually select one",
-                    "info",
-                    "⁉️",
-                )
+                log(f"Found multiple candidates: {candidates}, manually select oneinfo", "⁉️")
             log(f"Error detecting asset: {err}", "error")
             return None
     asset = assets[asset_names.index(asset_name)]

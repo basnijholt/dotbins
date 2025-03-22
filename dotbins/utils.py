@@ -24,9 +24,7 @@ from rich.console import Console
 console = Console()
 
 
-def _maybe_github_token_header(
-    github_token: str | None,
-) -> dict[str, str]:  # pragma: no cover
+def _maybe_github_token_header(github_token: str | None) -> dict[str, str]:  # pragma: no cover
     return {} if github_token is None else {"Authorization": f"token {github_token}"}
 
 
