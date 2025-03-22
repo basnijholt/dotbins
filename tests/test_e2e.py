@@ -566,7 +566,11 @@ def test_get_tool_command(tmp_path: Path, create_dummy_archive: Callable) -> Non
     dest_dir.mkdir(parents=True, exist_ok=True)
     platform, arch = current_platform()
 
-    def mock_latest_release_info(repo: str, github_token: str | None) -> dict:  # noqa: ARG001
+    def mock_latest_release_info(
+        repo: str,  # noqa: ARG001
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> dict:
         return {
             "tag_name": "v1.0.0",
             "assets": [
@@ -639,7 +643,11 @@ def test_get_tool_command_with_remote_config(
         log(f"Mock HTTP GET for URL: {url}", "info")
         return MockResponse(yaml_content.encode("utf-8"))
 
-    def mock_latest_release_info(repo: str, github_token: str | None) -> dict:  # noqa: ARG001
+    def mock_latest_release_info(
+        repo: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> dict:
         log(f"Getting release info for repo: {repo}", "info")
         tool_name = repo.split("/")[-1]
         return {

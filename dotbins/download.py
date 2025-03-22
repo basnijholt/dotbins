@@ -185,6 +185,8 @@ def _prepare_download_task(
     """Prepare a download task, checking if update is needed based on version."""
     try:
         tool_config = config.tools[tool_name]
+        if tool_config._latest_release is None:
+            return None
         bin_spec = tool_config.bin_spec(arch, platform)
         if bin_spec.skip_download(config, force):
             config._update_summary.add_skipped_tool(
