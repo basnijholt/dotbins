@@ -1202,3 +1202,90 @@ def test_no_tools(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
 
     captured = capsys.readouterr()
     assert "No tools configured" in captured.out
+
+
+def test_auto_detect_asset_multiple_perfect_matches(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test handling of multiple perfect matches."""
+    raw_config: RawConfigDict = {
+        "tools_dir": str(tmp_path),
+        "platforms": {"linux": ["amd64"]},
+        "tools": {"mytool": {"repo": "fakeuser/mytool"}},
+    }
+    config = _config_from_dict(raw_config)
+
+    config.tools["mytool"]._latest_release = {
+        "tag_name": "v1.2.3",
+        "assets": [
+            {
+                "name": "mytool-1.2.3-linux_amd64.tar.gz",
+                "browser_download_url": "https://example.com/mytool-1.2.3-linux_amd64.tar.gz",
+            },
+            {
+                "name": "mytool-1.2.3-linux_x86_64.tar.gz",
+                "browser_download_url": "https://example.com/mytool-1.2.3-linux_x86_64.tar.gz",
+            },
+        ],
+    }
+
+    def mock_download_file(
+        url: str,  # noqa: ARG001
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        # Create a dummy archive with a binary that won't match the expected name
+        create_dummy_archive(Path(destination), binary_names="mytool")
+        return destination
+
+    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
+        config.sync_tools()
+
+    out = capsys.readouterr().out
+    assert "Found multiple candidates" in out
+    assert "selecting first" in out
+
+    # Verify that the correct binary was downloaded
+    bin_dir = config.bin_dir("linux", "amd64")
+    assert bin_dir.exists()
+    assert (bin_dir / "mytool").exists()
+
+
+def test_auto_detect_asset_no_matches(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test handling of no matching assets."""
+    raw_config: RawConfigDict = {
+        "tools_dir": str(tmp_path),
+        "platforms": {"linux": ["arm64"]},
+        "tools": {"mytool": {"repo": "fakeuser/mytool"}},
+    }
+    config = _config_from_dict(raw_config)
+
+    config.tools["mytool"]._latest_release = _create_mock_release_info(
+        "mytool",
+        "1.2.3",
+        {"linux": ["amd64", "i386"]},  # Different arch
+    )
+
+    def mock_download_file(
+        url: str,  # noqa: ARG001
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        # Create a dummy archive with a binary that won't match the expected name
+        create_dummy_archive(Path(destination), binary_names="mytool")
+        return destination
+
+    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
+        config.sync_tools()
+
+    out = capsys.readouterr().out
+    assert "Found multiple candidates" in out, out
+    assert "manually select one" in out
