@@ -362,8 +362,6 @@ def execute_in_parallel(
         List of results from process_func applied to each item
 
     """
-    if not items:
-        return []
     with ThreadPoolExecutor(max_workers=min(max_workers, len(items) or 1)) as ex:
         futures = ex.map(process_func, items)
         return list(futures)
