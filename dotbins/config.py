@@ -44,7 +44,16 @@ def _default_platforms() -> dict[str, list[str]]:
 
 @dataclass
 class Config:
-    """Overall configuration for dotbins."""
+    """Main configuration for managing CLI tool binaries.
+
+    This class represents the overall configuration for dotbins, including:
+    - The tools directory where binaries will be stored
+    - Supported platforms and architectures
+    - Tool definitions and their settings
+
+    The configuration is typically loaded from a YAML file, with tools
+    organized by platform and architecture.
+    """
 
     tools_dir: Path = field(default=Path(os.path.expanduser(DEFAULT_TOOLS_DIR)))
     platforms: dict[str, list[str]] = field(default_factory=_default_platforms)
@@ -55,7 +64,20 @@ class Config:
     _latest_releases: dict | None = field(default=None, init=False)
 
     def bin_dir(self, platform: str, arch: str, *, create: bool = False) -> Path:
-        """Return the bin directory for a given platform and architecture."""
+        """Return the bin directory path for a specific platform and architecture.
+
+        This method constructs the appropriate bin directory path following the
+        structure: {tools_dir}/{platform}/{arch}/bin
+
+        Args:
+            platform: The platform name (e.g., "linux", "macos")
+            arch: The architecture name (e.g., "amd64", "arm64")
+            create: If True, ensure the directory exists by creating it if necessary
+
+        Returns:
+            The Path object pointing to the bin directory
+
+        """
         bin_dir = (
             self.tools_dir / platform / arch / "bin" if self._bin_dir is None else self._bin_dir
         )
@@ -139,20 +161,28 @@ class Config:
     ) -> None:
         """Install and update tools to their latest versions.
 
-        Downloads, extracts, and installs tools based on the configuration.
-        For tools that are already installed, it checks if updates are available
-        and updates them if necessary.
+        This is the core functionality of dotbins. It handles:
+        1. First-time installation of tools
+        2. Updating existing tools to their latest versions
+        3. Organizing binaries by platform and architecture
+
+        The process:
+        - Fetches the latest releases from GitHub for each tool
+        - Determines which tools need to be installed or updated
+        - Downloads and extracts binaries for each platform/architecture
+        - Makes binaries executable and tracks their versions
+        - Optionally generates documentation and shell integration
 
         Args:
-            tools: List of tool names to sync (all if None)
-            platform: Only sync tools for this platform
-            architecture: Only sync tools for this architecture
-            current: Only sync tools for the current platform/architecture (overrides platform/architecture)
-            force: Force sync even if the binary exists and is up to date
-            generate_readme: Whether to generate a README.md file
-            copy_config_file: Whether to copy the config file to the tools directory
-            github_token: GitHub token to use for API requests
-            verbose: Whether to print verbose output
+            tools: Specific tools to process (None = all tools in config)
+            platform: Only process tools for this platform (None = all platforms)
+            architecture: Only process tools for this architecture (None = all architectures)
+            current: If True, only process tools for current platform/architecture
+            force: If True, reinstall tools even if already up to date
+            generate_readme: If True, create or update README.md with tool info
+            copy_config_file: If True, copy config file to tools directory
+            github_token: GitHub API token for authentication (helps with rate limits)
+            verbose: If True, show detailed logs during the process
 
         """
         if not self.tools:
@@ -231,17 +261,20 @@ def _platforms_and_archs_to_sync(
     architecture: str | None,
     current: bool,
 ) -> tuple[list[str] | None, str | None]:
-    """Determine which platforms and architectures to sync.
+    """Determine which platforms and architectures to process.
+
+    Handles the logic for filtering by platform/architecture or using
+    the current system's platform and architecture.
 
     Args:
-        platform: Platform to filter by
-        architecture: Architecture to filter by
-        current: Whether to only use the current platform and architecture
+        platform: User-specified platform filter (e.g., "linux", "macos")
+        architecture: User-specified architecture filter (e.g., "amd64", "arm64")
+        current: If True, use only the current system's platform and architecture
 
     Returns:
-        Tuple of (platforms_to_sync, architecture)
-            - platforms_to_sync: List of platform names to sync, or None for all
-            - architecture: Architecture to filter by, or None for all
+        Tuple containing:
+        - List of platform names to process, or None for all platforms
+        - Architecture string to filter by, or None for all architectures
 
     """
     if current:
@@ -257,6 +290,19 @@ def _platforms_and_archs_to_sync(
 
 
 def _tools_to_sync(config: Config, tools: list[str] | None) -> list[str] | None:
+    """Validate and prepare the list of tools to process.
+
+    Args:
+        config: Configuration containing all tool definitions
+        tools: List of tool names specified by the user
+
+    Returns:
+        The validated list of tools, or None to process all tools
+
+    Raises:
+        SystemExit: If a specified tool doesn't exist in the configuration
+
+    """
     if tools:
         for tool in tools:
             if tool not in config.tools:

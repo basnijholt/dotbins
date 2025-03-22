@@ -245,7 +245,7 @@ def _generate_shell_integration(tools_dir: Path) -> list[str]:
 
 
 def _generate_updating_section() -> list[str]:
-    """Generate updating tools section content."""
+    """Generate section content for installing and updating tools."""
     return [
         "## 🔄 Installing and Updating Tools",
         "",
@@ -262,6 +262,11 @@ def _generate_updating_section() -> list[str]:
         "### Install or update for current platform only",
         "```bash",
         "dotbins sync --current",
+        "```",
+        "",
+        "### Force reinstall of all tools",
+        "```bash",
+        "dotbins sync --force",
         "```",
         "",
     ]
@@ -283,16 +288,21 @@ def _generate_commands_section() -> list[str]:
         "dotbins versions       # Show installed tool versions",
         "dotbins get REPO       # Install tool directly to ~/.local/bin",
         "```",
+        "",
+        "For detailed usage information, run `dotbins --help` or `dotbins <command> --help`",
         "</details>",
     ]
 
 
 def _generate_config_section(config: Config) -> list[str]:
-    """Generate configuration file section content."""
+    """Generate section showing the configuration file content."""
     content = [
         "## 📁 Configuration File",
         "",
-        "dotbins is configured using a YAML file (`dotbins.yaml`). Here's the configuration file used to manage these tools:",
+        "dotbins is configured using a YAML file (`dotbins.yaml`).",
+        "This configuration defines which tools to manage, their sources, and platform compatibility.",
+        "",
+        "**Current Configuration:**",
         "",
         "```yaml",
     ]
@@ -352,8 +362,18 @@ def generate_readme_content(config: Config) -> str:
         "## 📦 What is dotbins?",
         "",
         "**dotbins** is a utility for managing CLI tool binaries in your dotfiles repository."
-        " It downloads and organizes binaries for popular tools across multiple platforms"
+        " It downloads and organizes binaries for popular command-line tools across multiple platforms"
         " (macOS, Linux) and architectures (amd64, arm64).",
+        "",
+        "**Key features:**",
+        "",
+        "- ✅ **Cross-platform support** - Manages tools for different OSes and CPU architectures",
+        "- ✅ **No admin privileges** - Perfect for systems where you lack sudo access",
+        "- ✅ **Version tracking** - Keeps track of installed tools with update timestamps",
+        "- ✅ **GitHub integration** - Automatically downloads from GitHub releases",
+        "- ✅ **Simple configuration** - YAML-based config with auto-detection capabilities",
+        "",
+        "Learn more: [github.com/basnijholt/dotbins](https://github.com/basnijholt/dotbins)",
         "",
     ]
 

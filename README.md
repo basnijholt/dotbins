@@ -10,7 +10,7 @@
 
 **dotbins** manages CLI tool binaries in your dotfiles repository, offering:
 
-- ✅ Cross-platform binary management (macOS, Linux)
+- ✅ Cross-platform binary management (macOS, Linux, Windows)
 - ✅ No admin privileges required
 - ✅ Version-controlled CLI tools
 - ✅ Downloads from GitHub releases
@@ -58,10 +58,10 @@ See this example `.dotbins` repository: [basnijholt/.dotbins](https://github.com
 Using the amazing [`uv`](https://docs.astral.sh/uv/) package manager:
 
 ```bash
-# Install directly to ~/.local/bin
+# Install directly to ~/.local/bin (no configuration needed)
 uvx dotbins get junegunn/fzf
 
-# Set up multiple tools with a config file
+# Set up multiple tools with a config file (creates ~/.dotbins)
 uvx dotbins sync
 
 # Bootstrap a collection of tools from a remote config
@@ -251,9 +251,14 @@ tools:
   fzf: junegunn/fzf
 ```
 
-This will download and autodetect the latest release from GitHub and install it in to the specified `tools_dir` (defaults to `~/.dotbins`).
+This minimal configuration works because dotbins will:
+1. Auto-detect the latest release from GitHub
+2. Choose an appropriate asset based on your platform/architecture
+3. Extract the binary with a matching name (e.g., "fzf" for the fzf tool)
+4. Track the installed version and timestamp
 
-When auto-detect is not possible or you want to be more explicit, you can specify the following fields:
+When auto-detection isn't possible or you need more control, you can provide detailed configuration:
+
 ```yaml
 tool-name:
   repo: owner/repo                 # Required: GitHub repository
@@ -277,8 +282,6 @@ tool-name:
       amd64: pattern-for-macos-amd64.tar.gz
       arm64: pattern-for-macos-arm64.tar.gz
 ```
-
-If you don't specify `binary_path` or `asset_patterns`, `dotbins` will attempt to auto-detect the appropriate values for you. This often works well for standard tool releases.
 
 ### Platform and Architecture Mapping
 
@@ -439,19 +442,19 @@ tools:
 
 ## :bulb: Examples
 
-List available tools:
+List all available tools in your configuration:
 ```bash
 dotbins list
 ```
 
-Install or update all tools for all platforms:
+Install or update all tools for all configured platforms:
 ```bash
 dotbins sync
 ```
 
 Install or update specific tools only:
 ```bash
-dotbins sync fzf bat
+dotbins sync fzf bat ripgrep
 ```
 
 Install or update tools for a specific platform/architecture:
@@ -459,9 +462,24 @@ Install or update tools for a specific platform/architecture:
 dotbins sync -p macos -a arm64
 ```
 
+Install tools only for your current system:
+```bash
+dotbins sync -c
+```
+
+Force reinstall even if tools are up to date:
+```bash
+dotbins sync --force
+```
+
 Install tools from a remote configuration:
 ```bash
 dotbins get https://raw.githubusercontent.com/username/dotbins-config/main/tools.yaml --dest ~/bin
+```
+
+Show version information for all installed tools:
+```bash
+dotbins versions
 ```
 
 ## :books: Examples with 50+ Tools
