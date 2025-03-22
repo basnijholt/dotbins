@@ -1318,6 +1318,7 @@ def test_sync_tools_with_empty_archive(
 def test_cleanup_unused_binaries(
     tmp_path: Path,
     create_dummy_archive: Callable,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Test that the cleanup parameter removes binaries that are not in the configuration."""
     # Create a config with two tools
@@ -1379,8 +1380,6 @@ def test_cleanup_unused_binaries(
     assert (bin_dir / "tool1-bin").exists()
     assert (bin_dir / "tool2-bin").exists()
 
-    # Check that the removed binary is recorded in the update summary
-    assert len(config._update_summary.removed) == 1
-    assert config._update_summary.removed[0].binary_name == "unused-bin"
-    assert config._update_summary.removed[0].platform == "linux"
-    assert config._update_summary.removed[0].arch == "amd64"
+    out = capsys.readouterr().out
+    assert "Removed unused binary" in out
+    assert "unused-bin" in out

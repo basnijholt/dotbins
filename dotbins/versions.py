@@ -109,9 +109,9 @@ class VersionStore:
     def get_all_installed_binary_paths(self) -> list[Path]:
         """Get all installed binary paths."""
         tool_dir = self.version_file.absolute().parent
-        return [  # type: ignore[misc]
-            tool_dir / platform / arch / "bin" / name  # type: ignore[has-type]
-            for key, info in self.versions.items()
-            for _, platform, arch in key.split("/")
-            for name in info["names"]
-        ]
+        installed_bin_paths = []
+        for key, info in self.versions.items():
+            _tool, platform, arch = key.split("/")
+            paths = [tool_dir / platform / arch / "bin" / name for name in info["names"]]
+            installed_bin_paths.extend(paths)
+        return installed_bin_paths
