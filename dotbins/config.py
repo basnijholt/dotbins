@@ -7,6 +7,7 @@ import re
 import shutil
 import sys
 from dataclasses import dataclass, field
+from datetime import datetime
 from functools import cached_property
 from pathlib import Path
 from typing import TypedDict
@@ -315,13 +316,43 @@ class BinSpec:
             (destination_dir / binary_name).exists() for binary_name in self.tool_config.binary_name
         )
         if tool_info and tool_info["version"] == self.version and all_exist and not force:
+            dt = _humanize_time_ago(tool_info["updated_at"])
             log(
-                f"{self.tool_config.tool_name} {self.version} for {self.platform}/{self.arch} is already"
-                f" up to date (installed on {tool_info['updated_at']}) use --force to re-download.",
+                f"[b]{self.tool_config.tool_name} v{self.version}[/] for"
+                f" [b]{self.platform}/{self.arch}[/] is already up to date"
+                f" (installed [b]{dt}[/b] ago) use --force to re-download.",
                 "success",
             )
             return True
         return False
+
+
+def _humanize_time_ago(date_str: str) -> str:
+    """Humanize a time ago string showing two largest time components."""
+    date = datetime.fromisoformat(date_str)
+    now = datetime.now()
+    diff = now - date
+
+    days = diff.days
+    hours = diff.seconds // 3600
+    minutes = (diff.seconds % 3600) // 60
+    seconds = diff.seconds % 60
+
+    if days > 0:
+        if hours > 0:
+            return f"{days}d{hours}h"
+        return f"{days}d"
+
+    if hours > 0:
+        return f"{hours}h{minutes}m" if minutes > 0 else f"{hours}h"
+
+    if minutes > 0:
+        return f"{minutes}m{seconds}s" if seconds > 0 else f"{minutes}m"
+
+    if seconds > 0:
+        return f"{seconds}s"
+
+    return "0s"
 
 
 class RawConfigDict(TypedDict, total=False):

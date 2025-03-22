@@ -362,7 +362,7 @@ def test_e2e_update_tools_skip_up_to_date(
 
     # Check that no download was attempted
     out = capsys.readouterr().out
-    assert "use --force to re-download" in out
+    assert "--force to re-download" in out
 
 
 def test_e2e_update_tools_partial_skip_and_update(
