@@ -245,61 +245,48 @@ class Config:
         arch: str | None = None,
         verbose: bool = False,
     ) -> None:
-        """Remove binaries that are not in the configuration.
-
-        Args:
-            tools_list: List of tools to consider (None = all tools in config)
-            platforms_list: List of platforms to consider (None = all platforms in config)
-            arch: Architecture to consider (None = all architectures for the platforms)
-            verbose: If True, show detailed logs during the process
-
-        """
-        if not tools_list:
-            tools_list = list(self.tools.keys())
-
-        if not platforms_list:
-            platforms_list = list(self.platforms.keys())
-
+        """Remove binaries that are not in the configuration."""
         # Build a set of expected binary names
-        expected_binaries = set()
-        for tool_name in tools_list:
-            tool_config = self.tools.get(tool_name)
-            if not tool_config:
-                continue
-            expected_binaries.update(tool_config.binary_name)
+        expected_binaries = {
+            binary
+            for tool_name in tools_list or self.tools.keys()
+            if (tool_config := self.tools.get(tool_name))
+            for binary in tool_config.binary_name
+        }
 
-        # Only process specific architectures if requested
-        for platform in platforms_list:
+        # Get platforms to process
+        platforms_to_process = platforms_list or list(self.platforms.keys())
+
+        # Process each platform/arch combination
+        for platform in platforms_to_process:
             if platform not in self.platforms:
                 continue
 
-            archs_to_process = (
+            archs = (
                 [arch] if arch and arch in self.platforms[platform] else self.platforms[platform]
             )
 
-            for architecture in archs_to_process:
+            for architecture in archs:
                 bin_dir = self.bin_dir(platform, architecture)
                 if not bin_dir.exists():
                     continue
 
                 log(f"Cleaning up binaries in {bin_dir}...", "info", "🧹")
-                for binary_path in bin_dir.iterdir():
-                    if not binary_path.is_file():
-                        continue
 
-                    binary_name = binary_path.name
-                    if binary_name not in expected_binaries:
+                # Process all binary files in the directory
+                for binary_path in (p for p in bin_dir.iterdir() if p.is_file()):
+                    if binary_path.name not in expected_binaries:
                         try:
                             binary_path.unlink()
-                            log(f"Removed unused binary: {binary_name}", "success")
+                            log(f"Removed unused binary: {binary_path.name}", "success")
                             self._update_summary.add_removed_binary(
-                                binary_name,
+                                binary_path.name,
                                 platform,
                                 architecture,
                             )
                         except OSError as e:
                             log(
-                                f"Failed to remove {binary_name}: {e}",
+                                f"Failed to remove {binary_path.name}: {e}",
                                 "error",
                                 print_exception=verbose,
                             )
