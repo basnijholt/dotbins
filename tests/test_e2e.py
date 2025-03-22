@@ -1347,3 +1347,40 @@ def test_failed_to_fetch_release_info(
     out = capsys.readouterr().out
     assert "Failed to fetch latest release for" in out
     assert "limit exceeded" in out
+
+
+def test_failed_to_download_file(
+    tmp_path: Path,
+    requests_mock: Mocker,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test handling of failed to download file."""
+    raw_config: RawConfigDict = {
+        "tools_dir": str(tmp_path),
+        "platforms": {"linux": ["amd64"]},
+        "tools": {"mytool": {"repo": "fakeuser/mytool"}},
+    }
+    config = _config_from_dict(raw_config)
+    url = "https://example.com/mytool-1.2.3-linux_amd64.tar.gz"
+    requests_mock.get(
+        "https://api.github.com/repos/fakeuser/mytool/releases/latest",
+        json={
+            "tag_name": "v1.2.3",
+            "assets": [
+                {
+                    "name": "mytool-1.2.3-linux_amd64.tar.gz",
+                    "browser_download_url": url,
+                },
+            ],
+        },
+    )
+    requests_mock.get(
+        url=url,
+        status_code=403,
+        reason="rate limit exceeded for url: https://api.github.com/repos/fakeuser/mytool/releases/latest",
+    )
+    config.sync_tools()
+
+    out = capsys.readouterr().out
+    assert "Failed to download" in out
+    assert "limit exceeded" in out

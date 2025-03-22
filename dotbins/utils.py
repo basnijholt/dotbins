@@ -37,7 +37,7 @@ def latest_release_info(repo: str, github_token: str | None) -> dict | None:
     try:
         response = requests.get(url, headers=headers, timeout=30)
         response.raise_for_status()
-        return response.json()  # pragma: no cover
+        return response.json()
     except requests.RequestException as e:
         msg = f"Failed to fetch latest release for {repo}: {e}"
         raise RuntimeError(msg) from e
