@@ -155,7 +155,7 @@ class Config:
         current: bool = False,
         force: bool = False,
         generate_readme: bool = True,
-        copy_config_file: bool = True,
+        copy_config_file: bool = False,
         github_token: str | None = None,
         verbose: bool = False,
     ) -> None:
@@ -261,48 +261,15 @@ def _platforms_and_archs_to_sync(
     architecture: str | None,
     current: bool,
 ) -> tuple[list[str] | None, str | None]:
-    """Determine which platforms and architectures to process.
-
-    Handles the logic for filtering by platform/architecture or using
-    the current system's platform and architecture.
-
-    Args:
-        platform: User-specified platform filter (e.g., "linux", "macos")
-        architecture: User-specified architecture filter (e.g., "amd64", "arm64")
-        current: If True, use only the current system's platform and architecture
-
-    Returns:
-        Tuple containing:
-        - List of platform names to process, or None for all platforms
-        - Architecture string to filter by, or None for all architectures
-
-    """
     if current:
-        # Get current platform and architecture
-        current_platform_name, current_arch_name = current_platform()
-        platforms_to_sync = [current_platform_name]
-        return platforms_to_sync, current_arch_name
-
-    if platform is not None:
-        platforms_to_sync = [platform] if platform else None  # type: ignore[assignment]
-        return platforms_to_sync, architecture
-    return None, architecture
+        platform, architecture = current_platform()
+        platforms_to_update = [platform]
+    else:
+        platforms_to_update = [platform] if platform else None  # type: ignore[assignment]
+    return platforms_to_update, architecture
 
 
 def _tools_to_sync(config: Config, tools: list[str] | None) -> list[str] | None:
-    """Validate and prepare the list of tools to process.
-
-    Args:
-        config: Configuration containing all tool definitions
-        tools: List of tool names specified by the user
-
-    Returns:
-        The validated list of tools, or None to process all tools
-
-    Raises:
-        SystemExit: If a specified tool doesn't exist in the configuration
-
-    """
     if tools:
         for tool in tools:
             if tool not in config.tools:
