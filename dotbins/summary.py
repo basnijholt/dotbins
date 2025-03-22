@@ -123,12 +123,7 @@ class UpdateSummary:
             ),
         )
 
-    def add_removed_binary(
-        self,
-        binary_name: str,
-        platform: str,
-        arch: str,
-    ) -> None:
+    def add_removed_binary(self, binary_name: str, platform: str, arch: str) -> None:
         """Add a removed binary to the summary."""
         self.removed.append(
             RemovedBinarySummary(

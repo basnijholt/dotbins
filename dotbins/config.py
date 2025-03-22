@@ -244,19 +244,24 @@ class Config:
         """Remove binaries that are not associated with any known tool."""
         expected_binaries = self.version_store.get_all_installed_binary_paths()
 
-        bin_dirs = [
-            bin_dir
+        bin_dirs = {
+            (platform, arch): bin_dir
             for platform, architectures in self.platforms.items()
             for arch in architectures
             if (bin_dir := self.bin_dir(platform, arch)).exists()
-        ]
-        for bin_dir in bin_dirs:
+        }
+        for (platform, arch), bin_dir in bin_dirs.items():
             log(f"Cleaning up binaries in {bin_dir}...", "info", "🧹")
             for binary_path in bin_dir.glob("*"):
                 if binary_path.absolute() not in expected_binaries:
                     try:
                         binary_path.unlink()
                         log(f"Removed unused binary: {binary_path.name}", "success")
+                        self._update_summary.add_removed_binary(
+                            binary_path.name,
+                            platform,
+                            arch,
+                        )
                     except OSError as e:
                         log(
                             f"Failed to remove {binary_path.name}: {e}",
