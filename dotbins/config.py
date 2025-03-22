@@ -222,14 +222,8 @@ class Config:
         )
         self.make_binaries_executable()
 
-        # Cleanup binaries that are not in the configuration if requested
         if cleanup:
-            self._cleanup_unused_binaries(
-                tools_list=tools_to_sync,
-                platforms_list=platforms_to_sync,
-                arch=architecture,
-                verbose=verbose,
-            )
+            self._cleanup_unused_binaries(verbose=verbose)
 
         # Display the summary
         display_update_summary(self._update_summary)
@@ -237,59 +231,6 @@ class Config:
         if generate_readme:
             self.generate_readme(verbose=verbose)
         _maybe_copy_config_file(copy_config_file, self.config_path, self.tools_dir)
-
-    def _cleanup_unused_binaries(
-        self,
-        tools_list: list[str] | None = None,
-        platforms_list: list[str] | None = None,
-        arch: str | None = None,
-        verbose: bool = False,
-    ) -> None:
-        """Remove binaries that are not in the configuration."""
-        # Build a set of expected binary names
-        expected_binaries = {
-            binary
-            for tool_name in tools_list or self.tools.keys()
-            if (tool_config := self.tools.get(tool_name))
-            for binary in tool_config.binary_name
-        }
-
-        # Get platforms to process
-        platforms_to_process = platforms_list or list(self.platforms.keys())
-
-        # Process each platform/arch combination
-        for platform in platforms_to_process:
-            if platform not in self.platforms:
-                continue
-
-            archs = (
-                [arch] if arch and arch in self.platforms[platform] else self.platforms[platform]
-            )
-
-            for architecture in archs:
-                bin_dir = self.bin_dir(platform, architecture)
-                if not bin_dir.exists():
-                    continue
-
-                log(f"Cleaning up binaries in {bin_dir}...", "info", "🧹")
-
-                # Process all binary files in the directory
-                for binary_path in (p for p in bin_dir.iterdir() if p.is_file()):
-                    if binary_path.name not in expected_binaries:
-                        try:
-                            binary_path.unlink()
-                            log(f"Removed unused binary: {binary_path.name}", "success")
-                            self._update_summary.add_removed_binary(
-                                binary_path.name,
-                                platform,
-                                architecture,
-                            )
-                        except OSError as e:
-                            log(
-                                f"Failed to remove {binary_path.name}: {e}",
-                                "error",
-                                print_exception=verbose,
-                            )
 
     def generate_shell_scripts(self: Config, print_shell_setup: bool = True) -> None:
         """Generate shell script files for different shells.
