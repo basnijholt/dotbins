@@ -68,11 +68,11 @@ def test_list_tools(
     assert "test/tool" in captured.out
 
 
-def test_update_tool(
+def test_sync_tool(
     tmp_path: Path,
     create_dummy_archive: Callable,
 ) -> None:
-    """Test updating a specific tool."""
+    """Test syncing a specific tool."""
     # Set up mock environment
     test_tool_config = build_tool_config(
         tool_name="test-tool",
@@ -113,9 +113,9 @@ def test_update_tool(
         create_dummy_archive(dest_path=Path(destination), binary_names="test-tool")
         return destination
 
-    # Directly call update_tools
+    # Directly call sync_tools
     with patch("dotbins.download.download_file", mock_download_file):
-        cli._update_tools(
+        cli._sync_tools(
             config,
             tools=["test-tool"],
             platform="linux",
@@ -144,10 +144,10 @@ def test_cli_no_command(capsys: pytest.CaptureFixture[str]) -> None:
 
 
 def test_cli_unknown_tool() -> None:
-    """Test updating an unknown tool."""
+    """Test syncing an unknown tool."""
     with (
         pytest.raises(SystemExit),
-        patch.object(sys, "argv", ["dotbins", "update", "unknown-tool"]),
+        patch.object(sys, "argv", ["dotbins", "sync", "unknown-tool"]),
         patch.object(
             Config,
             "from_file",
@@ -190,12 +190,12 @@ def test_cli_argument_parsing() -> None:
     args = parser.parse_args(["readme"])
     assert args.command == "readme"
 
-    # Test update with --no-readme
-    args = parser.parse_args(["update", "--no-readme"])
-    assert args.command == "update"
+    # Test sync with --no-readme
+    args = parser.parse_args(["sync", "--no-readme"])
+    assert args.command == "sync"
     assert args.no_readme is True
 
-    # Test update without --no-readme (default)
-    args = parser.parse_args(["update"])
-    assert args.command == "update"
+    # Test sync without --no-readme (default)
+    args = parser.parse_args(["sync"])
+    assert args.command == "sync"
     assert args.no_readme is False

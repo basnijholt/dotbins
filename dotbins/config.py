@@ -44,7 +44,16 @@ def _default_platforms() -> dict[str, list[str]]:
 
 @dataclass
 class Config:
-    """Overall configuration for dotbins."""
+    """Main configuration for managing CLI tool binaries.
+
+    This class represents the overall configuration for dotbins, including:
+    - The tools directory where binaries will be stored
+    - Supported platforms and architectures
+    - Tool definitions and their settings
+
+    The configuration is typically loaded from a YAML file, with tools
+    organized by platform and architecture.
+    """
 
     tools_dir: Path = field(default=Path(os.path.expanduser(DEFAULT_TOOLS_DIR)))
     platforms: dict[str, list[str]] = field(default_factory=_default_platforms)
@@ -55,7 +64,20 @@ class Config:
     _latest_releases: dict | None = field(default=None, init=False)
 
     def bin_dir(self, platform: str, arch: str, *, create: bool = False) -> Path:
-        """Return the bin directory for a given platform and architecture."""
+        """Return the bin directory path for a specific platform and architecture.
+
+        This method constructs the appropriate bin directory path following the
+        structure: {tools_dir}/{platform}/{arch}/bin
+
+        Args:
+            platform: The platform name (e.g., "linux", "macos")
+            arch: The architecture name (e.g., "amd64", "arm64")
+            create: If True, ensure the directory exists by creating it if necessary
+
+        Returns:
+            The Path object pointing to the bin directory
+
+        """
         bin_dir = (
             self.tools_dir / platform / arch / "bin" if self._bin_dir is None else self._bin_dir
         )
@@ -125,47 +147,63 @@ class Config:
         if write_file:
             write_readme_file(self, verbose=verbose)
 
-    def update_tools(
-        self: Config,
+    def sync_tools(
+        self,
         tools: list[str] | None = None,
         platform: str | None = None,
         architecture: str | None = None,
         current: bool = False,
         force: bool = False,
         generate_readme: bool = True,
-        copy_config_file: bool = False,
+        copy_config_file: bool = True,
         github_token: str | None = None,
         verbose: bool = False,
     ) -> None:
-        """Update tools.
+        """Install and update tools to their latest versions.
+
+        This is the core functionality of dotbins. It handles:
+        1. First-time installation of tools
+        2. Updating existing tools to their latest versions
+        3. Organizing binaries by platform and architecture
+
+        The process:
+        - Fetches the latest releases from GitHub for each tool
+        - Determines which tools need to be installed or updated
+        - Downloads and extracts binaries for each platform/architecture
+        - Makes binaries executable and tracks their versions
+        - Optionally generates documentation and shell integration
 
         Args:
-            tools: List of tools to update.
-            platform: Platform to update, if not provided, all platforms will be updated.
-            architecture: Architecture to update, if not provided, all architectures will be updated.
-            current: Whether to update only the current platform and architecture. Overrides platform and architecture.
-            force: Whether to force update.
-            generate_readme: Whether to generate a README.md file with tool information.
-            copy_config_file: Whether to write the config to the tools directory.
-            github_token: GitHub token for better rate limiting.
-            verbose: Whether to print verbose output.
+            tools: Specific tools to process (None = all tools in config)
+            platform: Only process tools for this platform (None = all platforms)
+            architecture: Only process tools for this architecture (None = all architectures)
+            current: If True, only process tools for current platform/architecture
+            force: If True, reinstall tools even if already up to date
+            generate_readme: If True, create or update README.md with tool info
+            copy_config_file: If True, copy config file to tools directory
+            github_token: GitHub API token for authentication (helps with rate limits)
+            verbose: If True, show detailed logs during the process
 
         """
+        if not self.tools:
+            log("No tools configured", "error")
+            return
+
         if github_token is None and "GITHUB_TOKEN" in os.environ:  # pragma: no cover
             log("Using GitHub token for authentication", "info", "🔑")
             github_token = os.environ["GITHUB_TOKEN"]
 
-        tools_to_update = _tools_to_update(self, tools)
-        self.set_latest_releases(tools_to_update, github_token, verbose)
-        platforms_to_update, architecture = _platforms_and_archs_to_update(
+        tools_to_sync = _tools_to_sync(self, tools)
+        self.set_latest_releases(tools_to_sync, github_token, verbose)
+        platforms_to_sync, architecture = _platforms_and_archs_to_sync(
             platform,
             architecture,
             current,
         )
         download_tasks = prepare_download_tasks(
             self,
-            tools_to_update,
-            platforms_to_update,
+            tools_to_sync,
+            platforms_to_sync,
             architecture,
             force,
             verbose,
@@ -218,20 +256,53 @@ def _maybe_copy_config_file(
     shutil.copy(config_path, tools_config_path)
 
 
-def _platforms_and_archs_to_update(
+def _platforms_and_archs_to_sync(
     platform: str | None,
     architecture: str | None,
     current: bool,
 ) -> tuple[list[str] | None, str | None]:
+    """Determine which platforms and architectures to process.
+
+    Handles the logic for filtering by platform/architecture or using
+    the current system's platform and architecture.
+
+    Args:
+        platform: User-specified platform filter (e.g., "linux", "macos")
+        architecture: User-specified architecture filter (e.g., "amd64", "arm64")
+        current: If True, use only the current system's platform and architecture
+
+    Returns:
+        Tuple containing:
+        - List of platform names to process, or None for all platforms
+        - Architecture string to filter by, or None for all architectures
+
+    """
     if current:
-        platform, architecture = current_platform()
-        platforms_to_update = [platform]
-    else:
-        platforms_to_update = [platform] if platform else None  # type: ignore[assignment]
-    return platforms_to_update, architecture
+        # Get current platform and architecture
+        current_platform_name, current_arch_name = current_platform()
+        platforms_to_sync = [current_platform_name]
+        return platforms_to_sync, current_arch_name
+
+    if platform is not None:
+        platforms_to_sync = [platform] if platform else None  # type: ignore[assignment]
+        return platforms_to_sync, architecture
+    return None, architecture
 
 
-def _tools_to_update(config: Config, tools: list[str] | None) -> list[str] | None:
+def _tools_to_sync(config: Config, tools: list[str] | None) -> list[str] | None:
+    """Validate and prepare the list of tools to process.
+
+    Args:
+        config: Configuration containing all tool definitions
+        tools: List of tool names specified by the user
+
+    Returns:
+        The validated list of tools, or None to process all tools
+
+    Raises:
+        SystemExit: If a specified tool doesn't exist in the configuration
+
+    """
     if tools:
         for tool in tools:
             if tool not in config.tools:

@@ -93,7 +93,7 @@ def test_generate_readme_content(mock_current_platform: MagicMock, mock_config: 
     assert "For **Zsh**:" in content
     assert "For **Fish**:" in content
     assert "For **Nushell**:" in content
-    assert "## 🔄 Updating Tools" in content
+    assert "## 🔄 Installing and Updating Tools" in content
     assert "## 🚀 Quick Commands" in content
     assert "## 📁 Configuration File" in content
     assert "Configuration file not found" in content
