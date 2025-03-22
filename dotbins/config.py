@@ -125,7 +125,7 @@ class Config:
         if write_file:
             write_readme_file(self, verbose=verbose)
 
-    def update_tools(
+    def sync_tools(
         self: Config,
         tools: list[str] | None = None,
         platform: str | None = None,

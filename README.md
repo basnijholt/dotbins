@@ -10,7 +10,7 @@
 
 **dotbins** manages CLI tool binaries in your dotfiles repository, offering:
 
-- ✅ Cross-platform binary management (macOS, Linux, Windows)
+- ✅ Cross-platform binary management (macOS, Linux)
 - ✅ No admin privileges required
 - ✅ Version-controlled CLI tools
 - ✅ Downloads from GitHub releases
@@ -62,7 +62,7 @@ Using the amazing [`uv`](https://docs.astral.sh/uv/) package manager:
 uvx dotbins get junegunn/fzf
 
 # Set up multiple tools with a config file
-uvx dotbins update
+uvx dotbins sync
 
 # Bootstrap a collection of tools from a remote config
 uvx dotbins get https://github.com/basnijholt/.dotbins/blob/main/dotbins.yaml
@@ -149,7 +149,7 @@ Options:
 
 ### Commands
 
-1. **update** - Download or update tools
+1. **sync** - Download or update tools
 2. **get** - Download and install a tool directly without using a configuration file
 3. **init** - Initialize the tools directory structure
 4. **list** - List available tools defined in your configuration
@@ -446,17 +446,17 @@ dotbins list
 
 Update all tools for all platforms:
 ```bash
-dotbins update
+dotbins sync
 ```
 
 Update specific tools only:
 ```bash
-dotbins update fzf bat
+dotbins sync fzf bat
 ```
 
 Update tools for a specific platform/architecture:
 ```bash
-dotbins update -p macos -a arm64
+dotbins sync -p macos -a arm64
 ```
 
 Install tools from a remote configuration:

@@ -21,7 +21,7 @@ def _list_tools(config: Config) -> None:
         log(f"  {tool} (from {tool_config.repo})", "success")
 
 
-def _update_tools(
+def _sync_tools(
     config: Config,
     tools: list[str],
     platform: str | None,
@@ -35,7 +35,7 @@ def _update_tools(
     verbose: bool,
 ) -> None:
     """Update tools based on command line arguments."""
-    config.update_tools(
+    config.sync_tools(
         tools,
         platform,
         architecture,
@@ -87,7 +87,7 @@ def _get_tool(source: str, dest_dir: str | Path, name: str | None = None) -> Non
             tools={tool_name: build_tool_config(tool_name, {"repo": source})},
         )
     config._bin_dir = dest_dir_path
-    config.update_tools(current=True, force=True, generate_readme=False, copy_config_file=False)
+    config.sync_tools(current=True, force=True, generate_readme=False, copy_config_file=False)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -124,7 +124,7 @@ def create_parser() -> argparse.ArgumentParser:
 
     # update command
     update_parser = subparsers.add_parser(
-        "update",
+        "sync",
         help="Update tools",
         formatter_class=RichHelpFormatter,
     )
@@ -260,8 +260,8 @@ def main() -> None:  # pragma: no cover
             _initialize(config)
         elif args.command == "list":
             _list_tools(config)
-        elif args.command == "update":
-            _update_tools(
+        elif args.command == "sync":
+            _sync_tools(
                 config,
                 args.tools,
                 args.platform,
