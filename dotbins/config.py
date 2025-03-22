@@ -98,6 +98,14 @@ class Config:
         repos = [cfg.repo for cfg in cfgs]
         releases = fetch_releases_in_parallel(repos, github_token, verbose)
         for cfg, release in zip(cfgs, releases):
+            if release is None:
+                self._update_summary.add_failed_tool(
+                    cfg.tool_name,
+                    "Any",
+                    "Any",
+                    version="Unknown",
+                    reason=f"Failed to fetch release for {cfg.repo}",
+                )
             cfg._latest_release = release
 
     @cached_property
