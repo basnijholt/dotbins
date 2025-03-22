@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import tarfile
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
@@ -96,7 +97,7 @@ def run_e2e_test(
         create_dummy_archive(Path(destination), tool_name)
         return destination
 
-    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
         log("Running sync_tools")
         # Run the update
         config.sync_tools(
@@ -303,7 +304,7 @@ def test_e2e_sync_tools(
             create_dummy_archive(Path(destination), binary_names="otherbin")
         return destination
 
-    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
         config.sync_tools()
 
     verify_binaries_installed(config)
@@ -347,7 +348,7 @@ def test_e2e_sync_tools_skip_up_to_date(
         msg = "This should never be called"
         raise NotImplementedError(msg)
 
-    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
         config.sync_tools()
 
     # If everything is skipped, no new binary is downloaded,
@@ -420,7 +421,7 @@ def test_e2e_sync_tools_partial_skip_and_update(
         create_dummy_archive(Path(destination), binary_names="otherbin")
         return destination
 
-    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
         config.sync_tools()
 
     # 'mytool' should remain at version 2.0.0, unchanged
@@ -477,7 +478,7 @@ def test_e2e_sync_tools_force_re_download(tmp_path: Path, create_dummy_archive: 
         create_dummy_archive(Path(destination), binary_names="mybinary")
         return destination
 
-    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
         # Force a re-download, even though we're "up to date"
         config.sync_tools(
             tools=["mytool"],
@@ -540,7 +541,7 @@ def test_e2e_sync_tools_specific_platform(tmp_path: Path, create_dummy_archive: 
         create_dummy_archive(Path(destination), binary_names="mybinary")
         return destination
 
-    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
         # Only update macOS => We expect only the macos_arm64 asset
         config.sync_tools(platform="macos")
 
@@ -727,7 +728,7 @@ def test_copy_config_file(
         create_dummy_archive(Path(destination), binary_names=tool_name)
         return destination
 
-    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
         config.sync_tools(copy_config_file=True)
 
     # Should have been copied to the tools directory
@@ -808,7 +809,7 @@ def test_non_extract_with_multiple_binary_names(
         Path(destination).write_text("dummy binary content")
         return destination
 
-    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
         # Run the update which should fail for the multi-bin tool
         config.sync_tools()
 
@@ -871,7 +872,7 @@ def test_non_extract_single_binary_copy(
         Path(destination).write_text("#!/bin/sh\necho 'Hello from tool-binary'")
         return destination
 
-    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
         # Run the update which should succeed for the single binary tool
         config.sync_tools()
 
@@ -1000,7 +1001,7 @@ def test_binary_not_found_error_handling(
         create_dummy_archive(Path(destination), binary_names="different-binary-name")
         return destination
 
-    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
         config.sync_tools()
 
     # Capture the output
@@ -1072,7 +1073,7 @@ def test_auto_detect_binary_paths_error(
         create_dummy_archive(Path(destination), binary_names="different-binary-name")
         return destination
 
-    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
         config.sync_tools()
 
     # Capture the output
@@ -1241,7 +1242,7 @@ def test_auto_detect_asset_multiple_perfect_matches(
         create_dummy_archive(Path(destination), binary_names="mytool")
         return destination
 
-    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
         config.sync_tools()
 
     out = capsys.readouterr().out
@@ -1277,3 +1278,38 @@ def test_auto_detect_asset_no_matches(
     out = capsys.readouterr().out
     assert "Found multiple candidates" in out, out
     assert "manually select one" in out
+
+
+def test_sync_tools_with_empty_archive(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test syncing tools with an empty archive."""
+    raw_config: RawConfigDict = {
+        "tools_dir": str(tmp_path),
+        "platforms": {"linux": ["amd64"]},
+        "tools": {
+            "mytool": {"repo": "fakeuser/mytool", "binary_path": "*", "extract_binary": True},
+        },
+    }
+    config = _config_from_dict(raw_config)
+    _set_mock_release_info(config, version="1.2.3")
+
+    def mock_download_file(
+        url: str,  # noqa: ARG001
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        # Create an empty archive
+        Path(destination).touch()
+        with tarfile.open(destination, "w:gz") as tar:
+            tar.add(destination, arcname="empty.tar.gz")
+        return destination
+
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools()
+
+    out = capsys.readouterr().out
+    assert "Error extracting archive: No files matching *" in out
+    assert "Error processing mytool: No files matching *" in out
