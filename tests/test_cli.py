@@ -143,18 +143,34 @@ def test_cli_no_command(capsys: pytest.CaptureFixture[str]) -> None:
     assert "Usage: dotbins" in captured.out
 
 
-def test_cli_unknown_tool() -> None:
+def test_cli_unknown_tool(tmp_path: Path) -> None:
     """Test syncing an unknown tool."""
-    with (
-        pytest.raises(SystemExit),
-        patch.object(sys, "argv", ["dotbins", "sync", "unknown-tool"]),
-        patch.object(
-            Config,
-            "from_file",
-            return_value=Config(),
-        ),
-    ):
-        cli.main()
+    platforms = {"linux": ["amd64"]}
+    config = Config(
+        tools_dir=tmp_path,
+        platforms=platforms,
+        tools={
+            "test-tool": build_tool_config(
+                tool_name="test-tool",
+                raw_data={"repo": "test/tool"},
+                platforms=platforms,
+            ),
+        },
+    )
+    with pytest.raises(SystemExit):
+        cli._sync_tools(
+            config,
+            tools=["unknown-tool"],
+            platform=None,
+            architecture=None,
+            current=False,
+            force=False,
+            generate_readme=True,
+            copy_config_file=True,
+            generate_shell_scripts=True,
+            github_token=None,
+            verbose=True,
+        )
 
 
 def test_cli_tools_dir_override(tmp_path: Path) -> None:
