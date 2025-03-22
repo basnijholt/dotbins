@@ -29,7 +29,7 @@ def _extract_binary_from_archive(
     destination_dir: Path,
     bin_spec: BinSpec,
     verbose: bool,
-) -> None:
+) -> list[Path]:
     """Extract binaries from an archive."""
     log(f"Extracting from {archive_path} for {bin_spec.platform}", "info", "📦")
     temp_dir = Path(tempfile.mkdtemp())
@@ -39,8 +39,7 @@ def _extract_binary_from_archive(
         log(f"Archive extracted to {temp_dir}", "success", "📦")
         _log_extracted_files(temp_dir)
         binary_paths = _detect_binary_paths(temp_dir, bin_spec.tool_config)
-        _process_binaries(temp_dir, destination_dir, binary_paths, bin_spec)
-
+        return _process_binaries(temp_dir, destination_dir, binary_paths, bin_spec)
     except Exception as e:
         log(f"Error extracting archive: {e}", "error", print_exception=verbose)
         raise
@@ -72,8 +71,9 @@ def _process_binaries(
     destination_dir: Path,
     binary_paths: list[str],
     bin_spec: BinSpec,
-) -> None:
+) -> list[Path]:
     """Process each binary by finding it and copying to destination."""
+    paths = []
     for binary_path_pattern, binary_name in zip(binary_paths, bin_spec.tool_config.binary_name):
         source_path = _find_binary_in_extracted_files(
             temp_dir,
@@ -82,7 +82,9 @@ def _process_binaries(
             bin_spec.tool_arch,
             bin_spec.tool_platform,
         )
-        _copy_binary_to_destination(source_path, destination_dir, binary_name)
+        dest_path = _copy_binary_to_destination(source_path, destination_dir, binary_name)
+        paths.append(dest_path)
+    return paths
 
 
 def _log_extracted_files(temp_dir: Path) -> None:
@@ -121,13 +123,14 @@ def _copy_binary_to_destination(
     source_path: Path,
     destination_dir: Path,
     binary_name: str,
-) -> None:
+) -> Path:
     """Copy the binary to its destination and set permissions."""
     destination_dir.mkdir(parents=True, exist_ok=True)
     dest_path = destination_dir / binary_name
     shutil.copy2(source_path, dest_path)
     dest_path.chmod(dest_path.stat().st_mode | 0o755)
     log(f"Copied binary to [b]{replace_home_in_path(dest_path, '~')}[/]", "success")
+    return dest_path
 
 
 def _replace_variables_in_path(path: str, version: str, arch: str, platform: str) -> str:
@@ -344,7 +347,7 @@ def _process_downloaded_task(
             )
 
         if extract_binary:
-            _extract_binary_from_archive(
+            paths = _extract_binary_from_archive(
                 task.temp_path,
                 task.destination_dir,
                 task.bin_spec,
@@ -366,7 +369,12 @@ def _process_downloaded_task(
                 )
                 return False
             binary_name = binary_names[0]
-            _copy_binary_to_destination(task.temp_path, task.destination_dir, binary_name)
+            dest_path = _copy_binary_to_destination(
+                task.temp_path,
+                task.destination_dir,
+                binary_name,
+            )
+            paths = [dest_path]
     except Exception as e:
         # Differentiate error types for better reporting
         error_prefix = "Error processing"
@@ -398,6 +406,7 @@ def _process_downloaded_task(
             task.arch,
             task.version,
             sha256=sha256_hash,
+            names=[path.name for path in paths],
         )
 
         log(

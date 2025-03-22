@@ -299,6 +299,30 @@ class Config:
         """
         write_shell_scripts(self.tools_dir, print_shell_setup)
 
+    def _cleanup_unused_binaries(self, verbose: bool = False) -> None:
+        """Remove binaries that are not associated with any known tool."""
+        expected_binaries = self.version_store.get_all_installed_binary_paths()
+
+        bin_dirs = [
+            bin_dir
+            for platform, architectures in self.platforms.items()
+            for arch in architectures
+            if (bin_dir := self.bin_dir(platform, arch)).exists()
+        ]
+        for bin_dir in bin_dirs:
+            log(f"Cleaning up binaries in {bin_dir}...", "info", "🧹")
+            for binary_path in bin_dir.glob("*"):
+                if binary_path.absolute() not in expected_binaries:
+                    try:
+                        binary_path.unlink()
+                        log(f"Removed unused binary: {binary_path.name}", "success")
+                    except OSError as e:
+                        log(
+                            f"Failed to remove {binary_path.name}: {e}",
+                            "error",
+                            print_exception=verbose,
+                        )
+
 
 def _maybe_copy_config_file(
     copy_config_file: bool,
