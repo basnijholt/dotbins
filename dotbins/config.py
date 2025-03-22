@@ -257,11 +257,7 @@ class Config:
                     try:
                         binary_path.unlink()
                         log(f"Removed unused binary: {binary_path.name}", "success")
-                        self._update_summary.add_removed_binary(
-                            binary_path.name,
-                            platform,
-                            arch,
-                        )
+                        self._update_summary.add_removed_binary(binary_path.name, platform, arch)
                     except OSError as e:
                         log(
                             f"Failed to remove {binary_path.name}: {e}",
