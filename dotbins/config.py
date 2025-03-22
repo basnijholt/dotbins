@@ -431,11 +431,7 @@ def _config_from_dict(data: RawConfigDict) -> Config:
             tool_data = {"repo": tool_data}  # noqa: PLW2901
         tool_configs[tool_name] = build_tool_config(tool_name, tool_data, platforms)
 
-    config = Config(
-        tools_dir=tools_dir_path,
-        platforms=platforms,
-        tools=tool_configs,
-    )
+    config = Config(tools_dir=tools_dir_path, platforms=platforms, tools=tool_configs)
     config.validate()
     return config
 
