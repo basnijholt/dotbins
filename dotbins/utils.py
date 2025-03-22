@@ -86,7 +86,7 @@ def current_platform() -> tuple[str, str]:
 
     Returns:
         Tuple containing (platform, architecture)
-        platform: 'linux', 'macos', or 'windows'
+        platform: 'linux' or 'macos'
         architecture: 'amd64' or 'arm64'
 
     """
@@ -94,28 +94,14 @@ def current_platform() -> tuple[str, str]:
     platform = sys.platform
     platform = {
         "darwin": "macos",
-        "win32": "windows",
     }.get(platform, platform)
 
     # Detect architecture
-    if platform == "windows":
-        # Windows-specific architecture detection
-        arch = os.environ.get("PROCESSOR_ARCHITECTURE", "").lower()
-        arch = {
-            "amd64": "amd64",
-            "x86_64": "amd64",
-            "arm64": "arm64",
-        }.get(arch, arch)
-        # Handle 32-bit Windows running on 64-bit processor
-        if arch == "x86" and os.environ.get("PROCESSOR_ARCHITEW6432"):
-            arch = "amd64"
-    else:
-        # Linux/macOS architecture detection
-        machine = os.uname().machine.lower()
-        arch = {
-            "aarch64": "arm64",
-            "x86_64": "amd64",
-        }.get(machine, machine)
+    machine = os.uname().machine.lower()
+    arch = {
+        "aarch64": "arm64",
+        "x86_64": "amd64",
+    }.get(machine, machine)
 
     return platform, arch
 
@@ -127,7 +113,7 @@ def replace_home_in_path(path: Path, home: str = "$HOME") -> str:
 
 def _format_shell_instructions(
     tools_dir: Path,
-    shell: Literal["bash", "zsh", "fish", "nushell", "powershell"],
+    shell: Literal["bash", "zsh", "fish", "nushell"],
 ) -> str:
     """Format shell instructions for a given shell."""
     tools_dir_str = replace_home_in_path(tools_dir)
@@ -174,34 +160,6 @@ def _format_shell_instructions(
                 f'$env.PATH = ($env.PATH | prepend $"{tools_dir}/$_os/$_arch/bin")',
             ],
         )
-
-    if shell == "powershell":
-        home_dir = os.path.expanduser("~")
-        tools_dir_win = str(tools_dir).replace(home_dir, "$HOME")
-        return textwrap.dedent(
-            f"""\
-            # dotbins - Add platform-specific binaries to PATH
-            $HOME = if ($env:USERPROFILE) {{ $env:USERPROFILE }} else {{ $env:HOME }}
-
-            # Detect OS - Windows in this case
-            $os = "windows"
-
-            # Detect architecture
-            $arch = if ($env:PROCESSOR_ARCHITECTURE -eq "AMD64" -or $env:PROCESSOR_ARCHITEW6432 -eq "AMD64") {{
-                "amd64"
-            }} elseif ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") {{
-                "arm64"
-            }} else {{
-                $env:PROCESSOR_ARCHITECTURE.ToLower()
-            }}
-
-            # Update PATH
-            $binPath = Join-Path "{tools_dir_win}" "$os/$arch/bin"
-            $binPath = $binPath.Replace('$HOME', $HOME)
-            $env:PATH = "$binPath;" + $env:PATH
-            """,
-        )
-
     msg = f"Unsupported shell: {shell}"  # pragma: no cover
     raise ValueError(msg)  # pragma: no cover
 
@@ -210,7 +168,7 @@ def write_shell_scripts(tools_dir: Path, print_shell_setup: bool = False) -> Non
     """Generate shell script files for different shells.
 
     Creates a 'shell' directory in the tools_dir and writes script files
-    for bash, zsh, fish, nushell, and powershell that users can source in their shell
+    for bash, zsh, fish, and nushell that users can source in their shell
     configuration files.
 
     Args:
@@ -228,7 +186,6 @@ def write_shell_scripts(tools_dir: Path, print_shell_setup: bool = False) -> Non
         "zsh": "zsh.sh",
         "fish": "fish.fish",
         "nushell": "nushell.nu",
-        "powershell": "powershell.ps1",
     }
 
     for shell, filename in shell_files.items():
@@ -247,28 +204,16 @@ def write_shell_scripts(tools_dir: Path, print_shell_setup: bool = False) -> Non
     if print_shell_setup:
         tools_dir2 = replace_home_in_path(tools_dir, "$HOME")
         log("Add this to your shell config:", "info")
-        log(f"  Bash:      source {tools_dir2}/shell/bash.sh", "info", "👉")
-        log(f"  Zsh:       source {tools_dir2}/shell/zsh.sh", "info", "👉")
-        log(f"  Fish:      source {tools_dir2}/shell/fish.fish", "info", "👉")
-        log(f"  Nushell:   source {tools_dir2}/shell/nushell.nu", "info", "👉")
-        log(f"  PowerShell: . {tools_dir2}/shell/powershell.ps1", "info", "👉")
+        log(f"  Bash:    source {tools_dir2}/shell/bash.sh", "info", "👉")
+        log(f"  Zsh:     source {tools_dir2}/shell/zsh.sh", "info", "👉")
+        log(f"  Fish:    source {tools_dir2}/shell/fish.fish", "info", "👉")
+        log(f"  Nushell: source {tools_dir2}/shell/nushell.nu", "info", "👉")
 
 
-def print_shell_setup(
-    tools_dir: Path,
-    shell: Literal["bash", "zsh", "fish", "nushell", "powershell"],
-) -> None:
+def print_shell_setup(tools_dir: Path, shell: Literal["bash", "zsh", "fish", "nushell"]) -> None:
     """Print shell setup instructions."""
     instructions = _format_shell_instructions(tools_dir, shell)
-    shell_config = {
-        "bash": ".bashrc",
-        "zsh": ".zshrc",
-        "fish": "config.fish",
-        "nushell": "config.nu",
-        "powershell": "Microsoft.PowerShell_profile.ps1",
-    }
-    config_file = shell_config.get(shell, "configuration file")
-    log(f"\n# Add this to your {shell} configuration file (e.g., {config_file}):")
+    log(f"\n# Add this to your {shell} configuration file (e.g., .bashrc, .zshrc):")
     log(f"\n{instructions}")
 
 
@@ -376,9 +321,7 @@ def extract_archive(archive_path: str | Path, dest_dir: str | Path) -> None:
                 open(output_path, "wb") as f_out,
             ):
                 shutil.copyfileobj(f_in, f_out)
-            # Only set executable permissions on non-Windows platforms
-            if os.name != "nt":
-                output_path.chmod(output_path.stat().st_mode | 0o755)
+            output_path.chmod(output_path.stat().st_mode | 0o755)
 
         # Try each compression format based on extension or file header
         if filename.endswith(".gz") or header.startswith(b"\x1f\x8b"):

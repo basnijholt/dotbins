@@ -6,9 +6,6 @@ platforms:
     - arm64
   macos:
     - arm64
-  windows:
-    - amd64
-    - arm64
 
 tools:
   bat: sharkdp/bat

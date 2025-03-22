@@ -10,7 +10,7 @@
 
 **dotbins** manages CLI tool binaries in your dotfiles repository, offering:
 
-- ✅ Cross-platform binary management (macOS, Linux, Windows)
+- ✅ Cross-platform binary management (macOS, Linux)
 - ✅ No admin privileges required
 - ✅ Version-controlled CLI tools
 - ✅ Downloads from GitHub releases
