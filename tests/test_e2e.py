@@ -1183,3 +1183,31 @@ def test_download_file_request_exception(
     # Verify version store doesn't have an entry for this tool
     tool_info = config.version_store.get_tool_info("download-error-tool", "linux", "amd64")
     assert tool_info is None
+
+
+def test_no_matching_asset(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test error handling when no matching asset is found."""
+    config = Config.from_dict(
+        {
+            "tools_dir": str(tmp_path),
+            "platforms": {"linux": ["amd64"]},
+            "tools": {
+                "mytool": {
+                    "repo": "fakeuser/mytool",
+                    "asset_patterns": "mytool-{version}-linux_{arch}.tar.gz",
+                },
+            },
+        },
+    )
+    config.tools["mytool"]._latest_release = {"tag_name": "v1.0.0", "assets": []}
+
+    config.update_tools()
+
+    # Capture the output
+    captured = capsys.readouterr()
+
+    # Verify error message in the log output
+    assert "No matching asset found" in captured.out

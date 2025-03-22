@@ -197,7 +197,6 @@ def _prepare_download_task(
             return None
         asset = bin_spec.matching_asset()
         if asset is None:
-            assert 0
             config._update_summary.add_failed_tool(
                 tool_name,
                 platform,
