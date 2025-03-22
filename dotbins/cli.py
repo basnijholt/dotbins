@@ -256,7 +256,8 @@ def create_parser() -> argparse.ArgumentParser:
     )
     get_parser.add_argument(
         "--name",
-        help="Name to use for the binary (defaults to repository name if not specified)",
+        help="Name to use for the binary (defaults to repository name if not specified)"
+        " and is ignored if source is a URL",
     )
 
     return parser
