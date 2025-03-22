@@ -76,7 +76,7 @@ uvx dotbins get https://github.com/basnijholt/.dotbins/blob/main/dotbins.yaml
 
 * 🌐 Supports multiple platforms (macOS, Linux, etc.) and architectures (amd64, arm64, etc.)
 * 📦 Downloads and organizes binaries from GitHub releases
-* 🔄 Updates tools to their latest versions with a single command
+* 🔄 Syncs tools to their latest versions with a single command
 * 📊 Tracks installed versions and update timestamps for all tools
 * 🧩 Extracts binaries from various archive formats (zip, tar.gz)
 * 📂 Organizes tools by platform and architecture for easy access

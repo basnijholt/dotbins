@@ -161,17 +161,17 @@ class Config:
             log("Using GitHub token for authentication", "info", "🔑")
             github_token = os.environ["GITHUB_TOKEN"]
 
-        tools_to_update = _tools_to_sync(self, tools)
-        self.set_latest_releases(tools_to_update, github_token, verbose)
-        platforms_to_update, architecture = _platforms_and_archs_to_update(
+        tools_to_sync = _tools_to_sync(self, tools)
+        self.set_latest_releases(tools_to_sync, github_token, verbose)
+        platforms_to_sync, architecture = _platforms_and_archs_to_sync(
             platform,
             architecture,
             current,
         )
         download_tasks = prepare_download_tasks(
             self,
-            tools_to_update,
-            platforms_to_update,
+            tools_to_sync,
+            platforms_to_sync,
             architecture,
             force,
             verbose,
@@ -224,17 +224,34 @@ def _maybe_copy_config_file(
     shutil.copy(config_path, tools_config_path)
 
 
-def _platforms_and_archs_to_update(
+def _platforms_and_archs_to_sync(
     platform: str | None,
     architecture: str | None,
     current: bool,
 ) -> tuple[list[str] | None, str | None]:
+    """Determine which platforms and architectures to sync.
+
+    Args:
+        platform: Platform to filter by
+        architecture: Architecture to filter by
+        current: Whether to only use the current platform and architecture
+
+    Returns:
+        Tuple of (platforms_to_sync, architecture)
+            - platforms_to_sync: List of platform names to sync, or None for all
+            - architecture: Architecture to filter by, or None for all
+
+    """
     if current:
-        platform, architecture = current_platform()
-        platforms_to_update = [platform]
-    else:
-        platforms_to_update = [platform] if platform else None  # type: ignore[assignment]
-    return platforms_to_update, architecture
+        # Get current platform and architecture
+        current_platform_name, current_arch_name = current_platform()
+        platforms_to_sync = [current_platform_name]
+        return platforms_to_sync, current_arch_name
+
+    if platform is not None:
+        platforms_to_sync = [platform] if platform else None  # type: ignore[assignment]
+        return platforms_to_sync, architecture
+    return None, architecture
 
 
 def _tools_to_sync(config: Config, tools: list[str] | None) -> list[str] | None:
