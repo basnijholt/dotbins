@@ -259,7 +259,7 @@ tools:
 
 dotbins will auto-detect the latest release, choose the appropriate asset for your platform, and install binaries to the specified `tools_dir` (defaults to `~/.dotbins`).
 
-When auto-detection isn't possible or you need more control, you can provide detailed configuration:
+When auto-detection isn't possible or you want more control, you can provide detailed configuration:
 
 ```yaml
 tool-name:
