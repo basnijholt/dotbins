@@ -14,6 +14,7 @@ import tarfile
 import textwrap
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from functools import partial
 from pathlib import Path
 from typing import Any, Callable, Literal, TypeVar
@@ -386,3 +387,26 @@ def execute_in_parallel(
     with ThreadPoolExecutor(max_workers=min(max_workers, len(items) or 1)) as ex:
         futures = ex.map(process_func, items)
         return list(futures)
+
+
+def humanize_time_ago(date_str: str) -> str:
+    """Humanize a time ago string showing two largest time components."""
+    # Note: Function doesn't properly handle future dates.
+    date = datetime.fromisoformat(date_str)
+    now = datetime.now()
+    diff = now - date
+
+    days = diff.days
+    hours = diff.seconds // 3600
+    minutes = (diff.seconds % 3600) // 60
+    seconds = diff.seconds % 60
+
+    if days > 0:
+        return f"{days}d{hours}h" if hours > 0 else f"{days}d"
+    if hours > 0:
+        return f"{hours}h{minutes}m" if minutes > 0 else f"{hours}h"
+    if minutes > 0:
+        return f"{minutes}m{seconds}s" if seconds > 0 else f"{minutes}m"
+    if seconds > 0:
+        return f"{seconds}s"
+    return "0s"

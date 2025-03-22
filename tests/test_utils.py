@@ -6,11 +6,13 @@ import lzma
 import os
 import tarfile
 import zipfile
+from datetime import datetime
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
-from dotbins.utils import extract_archive, github_url_to_raw_url
+from dotbins.utils import extract_archive, github_url_to_raw_url, humanize_time_ago
 
 
 def test_github_url_to_raw_url() -> None:
@@ -205,3 +207,39 @@ def test_extraction_error(archive_dirs: tuple[Path, Path, Path]) -> None:
     # This should raise because it's not a valid gzip file
     with pytest.raises((ValueError, tarfile.ReadError), match=".*"):
         extract_archive(archive_path, dest_dir)
+
+
+def test_humanize_time_ago() -> None:
+    """Test humanize_time_ago with various time differences."""
+    # Define a fixed reference time for testing
+    fixed_now = datetime(2023, 5, 15, 12, 30, 0)  # noqa: DTZ001
+
+    with patch("dotbins.utils.datetime") as mock_datetime:
+        # Mock datetime.now() to return our fixed time
+        mock_datetime.now.return_value = fixed_now
+        # Pass through the fromisoformat method
+        mock_datetime.fromisoformat = datetime.fromisoformat
+
+        # Test days + hours
+        assert humanize_time_ago("2023-05-10T10:30:00") == "5d2h"
+
+        # Test days only
+        assert humanize_time_ago("2023-05-10T12:30:00") == "5d"
+
+        # Test hours + minutes
+        assert humanize_time_ago("2023-05-15T08:15:00") == "4h15m"
+
+        # Test hours only
+        assert humanize_time_ago("2023-05-15T08:30:00") == "4h"
+
+        # Test minutes + seconds
+        assert humanize_time_ago("2023-05-15T12:25:15") == "4m45s"
+
+        # Test minutes only
+        assert humanize_time_ago("2023-05-15T12:25:00") == "5m"
+
+        # Test seconds only
+        assert humanize_time_ago("2023-05-15T12:29:30") == "30s"
+
+        # Test zero difference
+        assert humanize_time_ago("2023-05-15T12:30:00") == "0s"
