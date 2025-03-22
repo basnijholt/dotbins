@@ -225,7 +225,6 @@ class Config:
         if cleanup:
             self._cleanup_unused_binaries(verbose=verbose)
 
-        # Display the summary
         display_update_summary(self._update_summary)
 
         if generate_readme:

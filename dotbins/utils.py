@@ -30,7 +30,11 @@ def _maybe_github_token_header(github_token: str | None) -> dict[str, str]:  # p
 
 
 @functools.cache
-def latest_release_info(repo: str, github_token: str | None) -> dict:  # pragma: no cover
+def latest_release_info(
+    repo: str,
+    github_token: str | None,
+    verbose: bool = False,
+) -> dict | None:  # pragma: no cover
     """Fetch release information from GitHub for a single repository."""
     url = f"https://api.github.com/repos/{repo}/releases/latest"
     log(f"Fetching latest release from {url}", "info", "🔍")
@@ -41,15 +45,7 @@ def latest_release_info(repo: str, github_token: str | None) -> dict:  # pragma:
         return response.json()
     except requests.RequestException as e:
         msg = f"Failed to fetch latest release for {repo}: {e}"
-        raise RuntimeError(msg) from e
-
-
-def _try_fetch_release_info(repo: str, github_token: str | None, verbose: bool) -> dict | None:
-    """Try to fetch release information from GitHub for a single repository."""
-    try:
-        return latest_release_info(repo, github_token)
-    except Exception:  # pragma: no cover
-        log(f"Failed to fetch latest release for {repo}", "error", print_exception=verbose)
+        log(msg, "error", print_exception=verbose)
         return None
 
 
@@ -59,7 +55,7 @@ def fetch_releases_in_parallel(
     verbose: bool = False,
 ) -> list[dict | None]:
     """Fetch release information for multiple repositories in parallel."""
-    func = partial(_try_fetch_release_info, github_token=github_token, verbose=verbose)
+    func = partial(latest_release_info, github_token=github_token, verbose=verbose)
     return execute_in_parallel(repos, func, 16)
 
 
