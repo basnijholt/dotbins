@@ -186,6 +186,7 @@ def _prepare_download_task(
     try:
         tool_config = config.tools[tool_name]
         if tool_config._latest_release is None:
+            # Means we failed to fetch the release info
             return None
         bin_spec = tool_config.bin_spec(arch, platform)
         if bin_spec.skip_download(config, force):
