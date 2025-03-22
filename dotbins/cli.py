@@ -123,56 +123,56 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # update command
-    update_parser = subparsers.add_parser(
+    sync_parser = subparsers.add_parser(
         "sync",
         help="Update tools",
         formatter_class=RichHelpFormatter,
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "tools",
         nargs="*",
         help="Tools to update (all if not specified)",
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "-p",
         "--platform",
         help="Only update for specific platform",
         type=str,
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "-a",
         "--architecture",
         help="Only update for specific architecture",
         type=str,
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "-f",
         "--force",
         action="store_true",
         help="Force update even if binary exists",
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "-c",
         "--current",
         action="store_true",
         help="Only update for the current platform and architecture",
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "--no-shell-scripts",
         action="store_true",
         help="Skip generating shell scripts that can be sourced in shell configuration files",
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "--no-readme",
         action="store_true",
         help="Skip generating README.md file",
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "--no-copy-config-file",
         action="store_true",
         help="Skip writing the config file to the tools directory",
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "--github-token",
         type=str,
         help="GitHub token to use for private repositories",
