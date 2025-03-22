@@ -97,9 +97,9 @@ def run_e2e_test(
         return destination
 
     with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
-        log("Running update_tools")
+        log("Running sync_tools")
         # Run the update
-        config.update_tools(
+        config.sync_tools(
             tools=filter_tools,
             platform=filter_platform,
             architecture=filter_arch,
@@ -304,7 +304,7 @@ def test_e2e_update_tools(
         return destination
 
     with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
-        config.update_tools()
+        config.sync_tools()
 
     verify_binaries_installed(config)
 
@@ -316,7 +316,7 @@ def test_e2e_update_tools_skip_up_to_date(
     """Demonstrates a scenario where we have a single tool that is already up-to-date.
 
     - We populate the VersionStore with the exact version returned by mocked GitHub releases.
-    - The `config.update_tools` call should skip downloading or extracting anything.
+    - The `config.sync_tools` call should skip downloading or extracting anything.
     """
     raw_config: RawConfigDict = {
         "tools_dir": str(tmp_path),
@@ -352,7 +352,7 @@ def test_e2e_update_tools_skip_up_to_date(
         raise NotImplementedError(msg)
 
     with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
-        config.update_tools()
+        config.sync_tools()
 
     # If everything is skipped, no new binary is downloaded,
     # and the existing version_store is unchanged.
@@ -430,7 +430,7 @@ def test_e2e_update_tools_partial_skip_and_update(
         return destination
 
     with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
-        config.update_tools()
+        config.sync_tools()
 
     # 'mytool' should remain at version 2.0.0, unchanged
     mytool_info = config.version_store.get_tool_info("mytool", "linux", "amd64")
@@ -493,7 +493,7 @@ def test_e2e_update_tools_force_re_download(tmp_path: Path, create_dummy_archive
 
     with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
         # Force a re-download, even though we're "up to date"
-        config.update_tools(
+        config.sync_tools(
             tools=["mytool"],
             platform="linux",
             architecture="amd64",
@@ -560,7 +560,7 @@ def test_e2e_update_tools_specific_platform(tmp_path: Path, create_dummy_archive
 
     with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
         # Only update macOS => We expect only the macos_arm64 asset
-        config.update_tools(platform="macos")
+        config.sync_tools(platform="macos")
 
     # Should only have downloaded the macos_arm64 file
     assert len(downloaded_files) == 1
@@ -746,7 +746,7 @@ def test_copy_config_file(
         return destination
 
     with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
-        config.update_tools(copy_config_file=True)
+        config.sync_tools(copy_config_file=True)
 
     # Should have been copied to the tools directory
     assert (dest_dir / "dotbins.yaml").exists()
@@ -775,11 +775,11 @@ def test_update_nonexistent_platform(tmp_path: Path, capsys: pytest.CaptureFixtu
     config = Config.from_file(config_path)
     _set_mock_release_info(config, version="1.0.0")
 
-    config.update_tools(platform="windows")
+    config.sync_tools(platform="windows")
     captured = capsys.readouterr()
     assert "Skipping unknown platform: windows" in captured.out
 
-    config.update_tools(architecture="nonexistent")
+    config.sync_tools(architecture="nonexistent")
     captured = capsys.readouterr()
     assert "Skipping unknown architecture: nonexistent" in captured.out
 
@@ -828,7 +828,7 @@ def test_non_extract_with_multiple_binary_names(
 
     with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
         # Run the update which should fail for the multi-bin tool
-        config.update_tools()
+        config.sync_tools()
 
     # Capture the output
     captured = capsys.readouterr()
@@ -891,7 +891,7 @@ def test_non_extract_single_binary_copy(
 
     with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
         # Run the update which should succeed for the single binary tool
-        config.update_tools()
+        config.sync_tools()
 
     # Capture the output
     captured = capsys.readouterr()
@@ -946,7 +946,7 @@ def test_error_preparing_download(
 
     # Use patch to inject our exception
     with patch("dotbins.config.BinSpec.matching_asset", mock_matching_asset):
-        config.update_tools(verbose=True)
+        config.sync_tools(verbose=True)
 
     # Capture the output
     captured = capsys.readouterr()
@@ -1019,7 +1019,7 @@ def test_binary_not_found_error_handling(
         return destination
 
     with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
-        config.update_tools()
+        config.sync_tools()
 
     # Capture the output
     captured = capsys.readouterr()
@@ -1091,7 +1091,7 @@ def test_auto_detect_binary_paths_error(
         return destination
 
     with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
-        config.update_tools()
+        config.sync_tools()
 
     # Capture the output
     captured = capsys.readouterr()
@@ -1152,7 +1152,7 @@ def test_download_file_request_exception(
         raise requests.RequestException(err_msg)
 
     with (patch("dotbins.utils.requests.get", side_effect=mock_requests_get),):
-        config.update_tools(verbose=False)  # Turn off verbose to reduce processing
+        config.sync_tools(verbose=False)  # Turn off verbose to reduce processing
 
     # Capture the output
     captured = capsys.readouterr()
@@ -1204,7 +1204,7 @@ def test_no_matching_asset(
     )
     config.tools["mytool"]._latest_release = {"tag_name": "v1.0.0", "assets": []}
 
-    config.update_tools()
+    config.sync_tools()
 
     # Capture the output
     captured = capsys.readouterr()

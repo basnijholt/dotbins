@@ -23,7 +23,10 @@ def _is_definitely_not_exec(filename: str) -> bool:
 
 
 def _is_likely_exec(filename: str) -> bool:
-    match = re.search(r"\.(exe|bin|appimage|run|out)$", filename.lower())
+    """Check if filename is likely to be an executable based on extension."""
+    # Windows executables (.exe, .com, .bat, .cmd)
+    # Linux/macOS binaries (no extension, .bin, .appimage, .run)
+    match = re.search(r"\.(exe|bin|appimage|run|out|com|bat|cmd)$", filename.lower())
     return bool(match) or "." not in Path(filename).name
 
 
