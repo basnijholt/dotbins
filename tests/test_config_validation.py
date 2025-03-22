@@ -5,7 +5,7 @@ import pytest
 from dotbins.config import Config, build_tool_config
 
 
-def test_validate_unknown_architecture() -> None:
+def test_validate_unknown_architecture(capsys: pytest.CaptureFixture[str]) -> None:
     """Test validation when an unknown architecture is specified in asset_patterns."""
     # Create a config with a tool that has an unknown architecture in asset_patterns
     config = Config(
@@ -27,6 +27,9 @@ def test_validate_unknown_architecture() -> None:
 
     # This should not raise an exception but should log a warning
     config.validate()
+
+    out = capsys.readouterr().out
+    assert "uses unknown platform" in out
 
 
 def test_validate_missing_repo(capsys: pytest.CaptureFixture[str]) -> None:
