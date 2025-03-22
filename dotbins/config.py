@@ -160,7 +160,7 @@ class Config:
             architecture,
             current,
         )
-        download_tasks, total_count = prepare_download_tasks(
+        download_tasks = prepare_download_tasks(
             self,
             tools_to_update,
             platforms_to_update,
@@ -168,9 +168,10 @@ class Config:
             force,
             verbose,
         )
-        downloaded_tasks = download_files_in_parallel(download_tasks, github_token, verbose)
-        success_count = process_downloaded_files(
-            downloaded_tasks,
+        download_successes = download_files_in_parallel(download_tasks, github_token, verbose)
+        process_downloaded_files(
+            download_tasks,
+            download_successes,
             self.version_store,
             self._update_summary,
             verbose,
@@ -179,8 +180,6 @@ class Config:
 
         # Display the summary
         display_update_summary(self._update_summary)
-
-        _print_completion_summary(success_count, total_count)
 
         if generate_readme:
             self.generate_readme(verbose=verbose)

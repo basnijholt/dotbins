@@ -13,9 +13,10 @@ import sys
 import tarfile
 import textwrap
 import zipfile
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Literal
+from typing import Any, Callable, Literal, TypeVar
 
 import requests
 from rich.console import Console
@@ -57,10 +58,9 @@ def fetch_releases_in_parallel(
     verbose: bool = False,
 ) -> dict[str, dict | None]:
     """Fetch release information for multiple repositories in parallel."""
-    results = execute_in_parallel(repos, _try_fetch_release_info, 16, github_token, verbose)
-
-    # Convert the results list to a dictionary mapping repo to result
-    return dict(zip(repos, results))
+    func = partial(_try_fetch_release_info, github_token=github_token, verbose=verbose)
+    releases = execute_in_parallel(repos, func, 16)
+    return dict(zip(repos, releases))
 
 
 def download_file(url: str, destination: str, github_token: str | None, verbose: bool) -> str:
@@ -359,21 +359,21 @@ def github_url_to_raw_url(repo_url: str) -> str:
     )
 
 
+T = TypeVar("T")
+R = TypeVar("R")
+
+
 def execute_in_parallel(
-    items: list[Any],
-    process_func: Callable,
+    items: list[T],
+    process_func: Callable[[T], R],
     max_workers: int = 16,
-    *args: Any,
-    **kwargs: Any,
-) -> list[Any]:
+) -> list[R]:
     """Execute a function over a list of items in parallel.
 
     Args:
         items: List of items to process
         process_func: Function to apply to each item
         max_workers: Maximum number of parallel workers
-        *args: Additional arguments to pass to process_func
-        **kwargs: Additional keyword arguments to pass to process_func
 
     Returns:
         List of results from process_func applied to each item
@@ -381,12 +381,6 @@ def execute_in_parallel(
     """
     if not items:
         return []
-
-    results = []
     with ThreadPoolExecutor(max_workers=min(max_workers, len(items) or 1)) as ex:
-        future_to_item = {ex.submit(process_func, item, *args, **kwargs): item for item in items}
-        for future in as_completed(future_to_item):
-            result = future.result()
-            results.append(result)
-
-    return results
+        futures = ex.map(process_func, items)
+        return list(futures)

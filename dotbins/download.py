@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shutil
 import tempfile
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
@@ -236,10 +237,9 @@ def prepare_download_tasks(
     architecture: str | None,
     force: bool,
     verbose: bool,
-) -> tuple[list[_DownloadTask], int]:
+) -> list[_DownloadTask]:
     """Prepare download tasks for all tools and platforms."""
     download_tasks = []
-    total_count = 0
     if tools_to_update is None:
         tools_to_update = list(config.tools)
     if platforms_to_update is None:
@@ -271,19 +271,18 @@ def prepare_download_tasks(
                 continue
 
             for arch in archs_to_update:
-                total_count += 1
                 task = _prepare_download_task(tool_name, platform, arch, config, force, verbose)
                 if task:
                     download_tasks.append(task)
 
-    return sorted(download_tasks, key=lambda t: t.asset_url), total_count
+    return sorted(download_tasks, key=lambda t: t.asset_url)
 
 
 def _download_task(
     task: _DownloadTask,
     github_token: str | None,
     verbose: bool,
-) -> tuple[_DownloadTask, bool]:
+) -> bool:
     """Download a file for a DownloadTask."""
     try:
         log(
@@ -292,23 +291,23 @@ def _download_task(
             "📥",
         )
         download_file(task.asset_url, str(task.temp_path), github_token, verbose)
-        return task, True
+        return True
     except Exception as e:
         log(f"Error downloading {task.asset_name}: {e!s}", "error", print_exception=verbose)
-        return task, False
+        return False
 
 
 def download_files_in_parallel(
     download_tasks: list[_DownloadTask],
     github_token: str | None,
     verbose: bool,
-) -> list[tuple[_DownloadTask, bool]]:
+) -> list[bool]:
     """Download files in parallel using ThreadPoolExecutor."""
     if not download_tasks:
         return []
     log(f"Downloading {len(download_tasks)} tools in parallel...", "info", "🔄")
-
-    return execute_in_parallel(download_tasks, _download_task, 16, github_token, verbose)
+    func = partial(_download_task, github_token=github_token, verbose=verbose)
+    return execute_in_parallel(download_tasks, func, 16)
 
 
 def _process_downloaded_task(
@@ -412,20 +411,18 @@ def _process_downloaded_task(
 
 
 def process_downloaded_files(
-    downloaded_tasks: list[tuple[_DownloadTask, bool]],
+    download_tasks: list[_DownloadTask],
+    download_successes: list[bool],
     version_store: VersionStore,
     summary: UpdateSummary,
     verbose: bool,
-) -> int:
-    """Process downloaded files and return success count."""
-    if not downloaded_tasks:
-        return 0
-    log(f"Processing {len(downloaded_tasks)} downloaded tools...", "info", "🔄")
-    success_count = 0
-    for task, download_success in downloaded_tasks:
-        if _process_downloaded_task(task, download_success, version_store, summary, verbose):
-            success_count += 1
-    return success_count
+) -> None:
+    """Process downloaded files."""
+    if not download_successes:
+        return
+    log(f"Processing {len(download_successes)} downloaded tools...", "info", "🔄")
+    for task, download_success in zip(download_tasks, download_successes):
+        _process_downloaded_task(task, download_success, version_store, summary, verbose)
 
 
 def _determine_architectures(
