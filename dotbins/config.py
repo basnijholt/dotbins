@@ -86,7 +86,7 @@ class Config:
     def validate(self) -> None:
         """Check for missing repos, unknown platforms, etc."""
         for tool_name, tool_config in self.tools.items():
-            _validate_tool_config(self.platforms, tool_name, tool_config)
+            _validate_tool_config(tool_name, tool_config)
 
     @classmethod
     def from_file(cls, config_path: str | Path | None = None) -> Config:
@@ -546,30 +546,17 @@ def _ensure_list(value: str | list[str]) -> list[str]:
     return [value]
 
 
-def _validate_tool_config(
-    platforms: dict[str, list[str]],
-    tool_name: str,
-    tool_config: ToolConfig,
-) -> None:
+def _validate_tool_config(tool_name: str, tool_config: ToolConfig) -> None:
     # Basic checks
     if not tool_config.repo:
-        log(f"Tool {tool_name} is missing required field 'repo'", "error")
+        log(f"Tool [b]{tool_name}[/] is missing required field [b]'repo'[/]", "error")
 
     # If binary lists differ in length, log an error
     if len(tool_config.binary_name) != len(tool_config.binary_path) and tool_config.binary_path:
         log(
-            f"Tool {tool_name}: 'binary_name' and 'binary_path' must have the same length if both are specified as lists.",
+            f"Tool [b]{tool_name}[/]: [b]'binary_name'[/] and [b]'binary_path'[/] must have the same length if both are specified as lists.",
             "error",
         )
-
-    # Check for unknown platforms/arch in asset_patterns
-    for platform in tool_config.asset_patterns:
-        if platform not in platforms:
-            log(
-                f"Tool {tool_name}: 'asset_patterns' uses unknown platform '{platform}'",
-                "error",
-            )
-            continue
 
 
 def _maybe_asset_pattern(
