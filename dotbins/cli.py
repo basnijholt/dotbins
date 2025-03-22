@@ -21,7 +21,7 @@ def _list_tools(config: Config) -> None:
         log(f"  {tool} (from {tool_config.repo})", "success")
 
 
-def _update_tools(
+def _sync_tools(
     config: Config,
     tools: list[str],
     platform: str | None,
@@ -34,8 +34,8 @@ def _update_tools(
     github_token: str | None,
     verbose: bool,
 ) -> None:
-    """Update tools based on command line arguments."""
-    config.update_tools(
+    """Sync tools based on command line arguments."""
+    config.sync_tools(
         tools,
         platform,
         architecture,
@@ -87,7 +87,7 @@ def _get_tool(source: str, dest_dir: str | Path, name: str | None = None) -> Non
             tools={tool_name: build_tool_config(tool_name, {"repo": source})},
         )
     config._bin_dir = dest_dir_path
-    config.update_tools(current=True, force=True, generate_readme=False, copy_config_file=False)
+    config.sync_tools(current=True, force=True, generate_readme=False, copy_config_file=False)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -122,57 +122,57 @@ def create_parser() -> argparse.ArgumentParser:
         help="List available tools",
     )
 
-    # update command
-    update_parser = subparsers.add_parser(
-        "update",
-        help="Update tools",
+    # sync command
+    sync_parser = subparsers.add_parser(
+        "sync",
+        help="Sync tools",
         formatter_class=RichHelpFormatter,
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "tools",
         nargs="*",
         help="Tools to update (all if not specified)",
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "-p",
         "--platform",
         help="Only update for specific platform",
         type=str,
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "-a",
         "--architecture",
         help="Only update for specific architecture",
         type=str,
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "-f",
         "--force",
         action="store_true",
         help="Force update even if binary exists",
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "-c",
         "--current",
         action="store_true",
         help="Only update for the current platform and architecture",
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "--no-shell-scripts",
         action="store_true",
         help="Skip generating shell scripts that can be sourced in shell configuration files",
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "--no-readme",
         action="store_true",
         help="Skip generating README.md file",
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "--no-copy-config-file",
         action="store_true",
         help="Skip writing the config file to the tools directory",
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "--github-token",
         type=str,
         help="GitHub token to use for private repositories",
@@ -260,8 +260,8 @@ def main() -> None:  # pragma: no cover
             _initialize(config)
         elif args.command == "list":
             _list_tools(config)
-        elif args.command == "update":
-            _update_tools(
+        elif args.command == "sync":
+            _sync_tools(
                 config,
                 args.tools,
                 args.platform,

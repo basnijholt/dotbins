@@ -125,37 +125,43 @@ class Config:
         if write_file:
             write_readme_file(self, verbose=verbose)
 
-    def update_tools(
-        self: Config,
+    def sync_tools(
+        self,
         tools: list[str] | None = None,
         platform: str | None = None,
         architecture: str | None = None,
         current: bool = False,
         force: bool = False,
         generate_readme: bool = True,
-        copy_config_file: bool = False,
+        copy_config_file: bool = True,
         github_token: str | None = None,
         verbose: bool = False,
     ) -> None:
-        """Update tools.
+        """Sync tools.
+
+        Downloads and extracts tools based on the configuration.
 
         Args:
-            tools: List of tools to update.
-            platform: Platform to update, if not provided, all platforms will be updated.
-            architecture: Architecture to update, if not provided, all architectures will be updated.
-            current: Whether to update only the current platform and architecture. Overrides platform and architecture.
-            force: Whether to force update.
-            generate_readme: Whether to generate a README.md file with tool information.
-            copy_config_file: Whether to write the config to the tools directory.
-            github_token: GitHub token for better rate limiting.
-            verbose: Whether to print verbose output.
+            tools: List of tool names to sync (all if None)
+            platform: Only sync tools for this platform
+            architecture: Only sync tools for this architecture
+            current: Only sync tools for the current platform/architecture (overrides platform/architecture)
+            force: Force sync even if the binary exists and is up to date
+            generate_readme: Whether to generate a README.md file
+            copy_config_file: Whether to copy the config file to the tools directory
+            github_token: GitHub token to use for API requests
+            verbose: Whether to print verbose output
 
         """
+        if not self.tools:
+            log("No tools configured", "error")
+            return
+
         if github_token is None and "GITHUB_TOKEN" in os.environ:  # pragma: no cover
             log("Using GitHub token for authentication", "info", "🔑")
             github_token = os.environ["GITHUB_TOKEN"]
 
-        tools_to_update = _tools_to_update(self, tools)
+        tools_to_update = _tools_to_sync(self, tools)
         self.set_latest_releases(tools_to_update, github_token, verbose)
         platforms_to_update, architecture = _platforms_and_archs_to_update(
             platform,
@@ -231,7 +237,7 @@ def _platforms_and_archs_to_update(
     return platforms_to_update, architecture
 
 
-def _tools_to_update(config: Config, tools: list[str] | None) -> list[str] | None:
+def _tools_to_sync(config: Config, tools: list[str] | None) -> list[str] | None:
     if tools:
         for tool in tools:
             if tool not in config.tools:
