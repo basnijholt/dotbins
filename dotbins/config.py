@@ -600,7 +600,7 @@ def _auto_detect_asset(
             asset_name = sorted(candidates)[0]
         else:
             if candidates:
-                log(f"Found multiple candidates: {candidates}, manually select oneinfo", "⁉️")
+                log(f"Found multiple candidates: {candidates}, manually select one", "info", "⁉️")
             log(f"Error detecting asset: {err}", "error")
             return None
     asset = assets[asset_names.index(asset_name)]

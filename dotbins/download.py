@@ -74,10 +74,7 @@ def _process_binaries(
     bin_spec: BinSpec,
 ) -> None:
     """Process each binary by finding it and copying to destination."""
-    for binary_path_pattern, binary_name in zip(
-        binary_paths,
-        bin_spec.tool_config.binary_name,
-    ):
+    for binary_path_pattern, binary_name in zip(binary_paths, bin_spec.tool_config.binary_name):
         source_path = _find_binary_in_extracted_files(
             temp_dir,
             binary_path_pattern,
@@ -103,12 +100,7 @@ def _find_binary_in_extracted_files(
     tool_platform: str,
 ) -> Path:
     """Find a specific binary in the extracted files."""
-    binary_path = _replace_variables_in_path(
-        binary_path,
-        version,
-        tool_arch,
-        tool_platform,
-    )
+    binary_path = _replace_variables_in_path(binary_path, version, tool_arch, tool_platform)
 
     if "*" in binary_path:
         matches = list(temp_dir.glob(binary_path))
@@ -138,12 +130,7 @@ def _copy_binary_to_destination(
     log(f"Copied binary to {replace_home_in_path(dest_path, '~')}", "success")
 
 
-def _replace_variables_in_path(
-    path: str,
-    version: str,
-    arch: str,
-    platform: str,
-) -> str:
+def _replace_variables_in_path(path: str, version: str, arch: str, platform: str) -> str:
     """Replace variables in a path with their values."""
     if "{version}" in path and version:
         path = path.replace("{version}", version)
@@ -284,14 +271,7 @@ def prepare_download_tasks(
                 continue
 
             for arch in archs_to_update:
-                task = _prepare_download_task(
-                    tool_name,
-                    platform,
-                    arch,
-                    config,
-                    force,
-                    verbose,
-                )
+                task = _prepare_download_task(tool_name, platform, arch, config, force, verbose)
                 if task:
                     download_tasks.append(task)
 
@@ -313,11 +293,7 @@ def _download_task(
         download_file(task.asset_url, str(task.temp_path), github_token, verbose)
         return True
     except Exception as e:
-        log(
-            f"Error downloading {task.asset_name}: {e!s}",
-            "error",
-            print_exception=verbose,
-        )
+        log(f"Error downloading {task.asset_name}: {e!s}", "error", print_exception=verbose)
         return False
 
 
