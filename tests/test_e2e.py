@@ -1256,7 +1256,6 @@ def test_auto_detect_asset_multiple_perfect_matches(
 
 def test_auto_detect_asset_no_matches(
     tmp_path: Path,
-    create_dummy_archive: Callable,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Test handling of no matching assets."""
@@ -1273,18 +1272,7 @@ def test_auto_detect_asset_no_matches(
         {"linux": ["amd64", "i386"]},  # Different arch
     )
 
-    def mock_download_file(
-        url: str,  # noqa: ARG001
-        destination: str,
-        github_token: str | None,  # noqa: ARG001
-        verbose: bool,  # noqa: ARG001
-    ) -> str:
-        # Create a dummy archive with a binary that won't match the expected name
-        create_dummy_archive(Path(destination), binary_names="mytool")
-        return destination
-
-    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
-        config.sync_tools()
+    config.sync_tools()
 
     out = capsys.readouterr().out
     assert "Found multiple candidates" in out, out
