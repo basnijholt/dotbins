@@ -149,7 +149,7 @@ Options:
 
 ### Commands
 
-1. **sync** - Download or sync tools
+1. **sync** - Install and update tools to their latest versions
 2. **get** - Download and install a tool directly without using a configuration file
 3. **init** - Initialize the tools directory structure
 4. **list** - List available tools defined in your configuration
@@ -444,17 +444,17 @@ List available tools:
 dotbins list
 ```
 
-Sync all tools for all platforms:
+Install or update all tools for all platforms:
 ```bash
 dotbins sync
 ```
 
-Sync specific tools only:
+Install or update specific tools only:
 ```bash
 dotbins sync fzf bat
 ```
 
-Sync tools for a specific platform/architecture:
+Install or update tools for a specific platform/architecture:
 ```bash
 dotbins sync -p macos -a arm64
 ```

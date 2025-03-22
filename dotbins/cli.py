@@ -125,37 +125,37 @@ def create_parser() -> argparse.ArgumentParser:
     # sync command
     sync_parser = subparsers.add_parser(
         "sync",
-        help="Sync tools",
+        help="Install and update tools to their latest versions",
         formatter_class=RichHelpFormatter,
     )
     sync_parser.add_argument(
         "tools",
         nargs="*",
-        help="Tools to sync (all if not specified)",
+        help="Tools to install or update (all if not specified)",
     )
     sync_parser.add_argument(
         "-p",
         "--platform",
-        help="Only sync for specific platform",
+        help="Only install or update for specific platform",
         type=str,
     )
     sync_parser.add_argument(
         "-a",
         "--architecture",
-        help="Only sync for specific architecture",
+        help="Only install or update for specific architecture",
         type=str,
     )
     sync_parser.add_argument(
         "-f",
         "--force",
         action="store_true",
-        help="Force sync even if binary exists",
+        help="Force install or update even if binary exists and is up to date",
     )
     sync_parser.add_argument(
         "-c",
         "--current",
         action="store_true",
-        help="Only sync for the current platform and architecture",
+        help="Only install or update for the current platform and architecture",
     )
     sync_parser.add_argument(
         "--no-shell-scripts",

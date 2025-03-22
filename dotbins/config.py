@@ -137,9 +137,11 @@ class Config:
         github_token: str | None = None,
         verbose: bool = False,
     ) -> None:
-        """Sync tools.
+        """Install and update tools to their latest versions.
 
-        Downloads and extracts tools based on the configuration.
+        Downloads, extracts, and installs tools based on the configuration.
+        For tools that are already installed, it checks if updates are available
+        and updates them if necessary.
 
         Args:
             tools: List of tool names to sync (all if None)
