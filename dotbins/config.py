@@ -96,14 +96,7 @@ class Config:
         if tools is None:
             tools = list(self.tools)
         tool_configs = [self.tools[tool] for tool in tools]
-        releases = _fetch_releases_in_parallel(
-            tool_configs,
-            self._update_summary,
-            verbose,
-            github_token,
-        )
-        for tool_config, release in zip(tool_configs, releases):
-            tool_config._latest_release = release
+        _fetch_releases_in_parallel(tool_configs, self._update_summary, verbose, github_token)
 
     @cached_property
     def version_store(self) -> VersionStore:
@@ -675,27 +668,27 @@ def _fetch_releases_in_parallel(
     update_summary: UpdateSummary,
     verbose: bool,
     github_token: str | None = None,
-) -> list[dict | None]:
+) -> None:
     """Fetch release information for multiple repositories in parallel."""
 
-    def fetch_release(tool_config: ToolConfig) -> dict | None:
+    def fetch_release(tool_config: ToolConfig) -> None:
         if tool_config._latest_release is not None:
-            return tool_config._latest_release
+            return
         try:
-            return latest_release_info(tool_config.repo, github_token)
+            latest_release = latest_release_info(tool_config.repo, github_token)
+            tool_config._latest_release = latest_release
         except Exception as e:
             update_summary.add_failed_tool(
                 tool_config.tool_name,
                 "Any",
                 "Any",
                 version="Unknown",
-                reason=f"Failed to fetch release for {tool_config.repo}",
+                reason=f"Failed to fetch release for {tool_config.repo}: {e}",
             )
             log(
                 f"Failed to fetch release for {tool_config.repo}: {e}",
                 "error",
                 print_exception=verbose,
             )
-            return None
 
-    return execute_in_parallel(tool_configs, fetch_release, 16)
+    execute_in_parallel(tool_configs, fetch_release, 16)
