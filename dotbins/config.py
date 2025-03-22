@@ -383,7 +383,7 @@ def build_tool_config(
 
     # Normalize asset patterns to dict[platform][arch].
     raw_patterns = raw_data.get("asset_patterns")
-    asset_patterns = _normalize_asset_patterns(raw_patterns, platforms)
+    asset_patterns = _normalize_asset_patterns(tool_name, raw_patterns, platforms)
 
     # Build our final data-class object
     return ToolConfig(
@@ -461,7 +461,8 @@ def config_from_url(config_url: str) -> Config:
         sys.exit(1)
 
 
-def _normalize_asset_patterns(
+def _normalize_asset_patterns(  # noqa: PLR0912
+    tool_name: str,
     patterns: str | dict[str, str] | dict[str, dict[str, str | None]] | None,
     platforms: dict[str, list[str]],
 ) -> dict[str, dict[str, str | None]]:
@@ -489,6 +490,10 @@ def _normalize_asset_patterns(
         for platform, p_val in patterns.items():
             # Skip unknown platforms
             if platform not in normalized:
+                log(
+                    f"Tool [b]{tool_name}[/]: [b]'asset_patterns'[/] uses unknown platform [b]'{platform}'[/]",
+                    "error",
+                )
                 continue
 
             # If p_val is a single string, apply to all arch
@@ -500,6 +505,11 @@ def _normalize_asset_patterns(
                 for arch, pattern_str in p_val.items():
                     if arch in normalized[platform]:
                         normalized[platform][arch] = pattern_str
+                    else:
+                        log(
+                            f"Tool [b]{tool_name}[/]: [b]'asset_patterns'[/] uses unknown arch [b]'{arch}'[/]",
+                            "error",
+                        )
     return normalized
 
 
