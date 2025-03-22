@@ -6,7 +6,10 @@ import json
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from .utils import log
+from rich.console import Console
+from rich.table import Table
+
+from .utils import humanize_time_ago, log
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -87,18 +90,38 @@ class VersionStore:
         return self.versions
 
     def print(self) -> None:
-        """Show versions of installed tools."""
+        """Show versions of installed tools in a formatted table."""
         versions = self.list_all()
 
         if not versions:
             log("No tool versions recorded yet.", "info")
             return
 
-        log("Installed tool versions:", "info", "📋")
-        for key, info in versions.items():
+        console = Console()
+        table = Table(title="Installed Tool Versions")
+
+        # Add columns
+        table.add_column("Tool", style="cyan")
+        table.add_column("Platform", style="green")
+        table.add_column("Architecture", style="green")
+        table.add_column("Version", style="yellow")
+        table.add_column("Last Updated", style="blue")
+        table.add_column("SHA256", style="dim")
+
+        # Add rows
+        for key, info in sorted(versions.items()):
             tool, platform, arch = key.split("/")
-            sha256_info = f" [SHA256: {info.get('sha256', 'N/A')}]" if info.get("sha256") else ""
-            log(
-                f"  {tool} ({platform}/{arch}): {info['version']} - Updated on {info['updated_at']}{sha256_info}",
-                "success",
+            updated_str = humanize_time_ago(info["updated_at"])
+            sha256 = info.get("sha256", "N/A")
+
+            table.add_row(
+                tool,
+                platform,
+                arch,
+                info["version"],
+                updated_str,
+                sha256[:8] + "..." if sha256 and sha256 != "N/A" and len(sha256) > 16 else sha256,
             )
+
+        # Print the table
+        console.print(table)
