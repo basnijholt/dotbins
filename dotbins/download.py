@@ -74,7 +74,10 @@ def _process_binaries(
     bin_spec: BinSpec,
 ) -> None:
     """Process each binary by finding it and copying to destination."""
-    for binary_path_pattern, binary_name in zip(binary_paths, bin_spec.tool_config.binary_name):
+    for binary_path_pattern, binary_name in zip(
+        binary_paths,
+        bin_spec.tool_config.binary_name,
+    ):
         source_path = _find_binary_in_extracted_files(
             temp_dir,
             binary_path_pattern,
@@ -100,7 +103,12 @@ def _find_binary_in_extracted_files(
     tool_platform: str,
 ) -> Path:
     """Find a specific binary in the extracted files."""
-    binary_path = _replace_variables_in_path(binary_path, version, tool_arch, tool_platform)
+    binary_path = _replace_variables_in_path(
+        binary_path,
+        version,
+        tool_arch,
+        tool_platform,
+    )
 
     if "*" in binary_path:
         matches = list(temp_dir.glob(binary_path))
@@ -130,7 +138,12 @@ def _copy_binary_to_destination(
     log(f"Copied binary to {replace_home_in_path(dest_path, '~')}", "success")
 
 
-def _replace_variables_in_path(path: str, version: str, arch: str, platform: str) -> str:
+def _replace_variables_in_path(
+    path: str,
+    version: str,
+    arch: str,
+    platform: str,
+) -> str:
     """Replace variables in a path with their values."""
     if "{version}" in path and version:
         path = path.replace("{version}", version)
@@ -271,7 +284,14 @@ def prepare_download_tasks(
                 continue
 
             for arch in archs_to_update:
-                task = _prepare_download_task(tool_name, platform, arch, config, force, verbose)
+                task = _prepare_download_task(
+                    tool_name,
+                    platform,
+                    arch,
+                    config,
+                    force,
+                    verbose,
+                )
                 if task:
                     download_tasks.append(task)
 
@@ -293,7 +313,11 @@ def _download_task(
         download_file(task.asset_url, str(task.temp_path), github_token, verbose)
         return True
     except Exception as e:
-        log(f"Error downloading {task.asset_name}: {e!s}", "error", print_exception=verbose)
+        log(
+            f"Error downloading {task.asset_name}: {e!s}",
+            "error",
+            print_exception=verbose,
+        )
         return False
 
 
@@ -302,7 +326,7 @@ def download_files_in_parallel(
     github_token: str | None,
     verbose: bool,
 ) -> list[bool]:
-    """Download files in parallel using ThreadPoolExecutor."""
+    """Download files in parallel."""
     if not download_tasks:
         return []
     log(f"Downloading {len(download_tasks)} tools in parallel...", "info", "🔄")
@@ -366,7 +390,11 @@ def _process_downloaded_task(
                 )
                 return False
             binary_name = binary_names[0]
-            _copy_binary_to_destination(task.temp_path, task.destination_dir, binary_name)
+            _copy_binary_to_destination(
+                task.temp_path,
+                task.destination_dir,
+                binary_name,
+            )
     except Exception as e:
         # Differentiate error types for better reporting
         error_prefix = "Error processing"
@@ -374,7 +402,11 @@ def _process_downloaded_task(
             error_prefix = "Auto-detect binary paths error"
         elif isinstance(e, FileNotFoundError):
             error_prefix = "Binary not found"
-        log(f"Error processing {task.tool_name}: {e!s}", "error", print_exception=verbose)
+        log(
+            f"Error processing {task.tool_name}: {e!s}",
+            "error",
+            print_exception=verbose,
+        )
         summary.add_failed_tool(
             task.tool_name,
             task.platform,
@@ -389,7 +421,11 @@ def _process_downloaded_task(
             task.platform,
             task.arch,
             task.version,
-            old_version=version_store.get_tool_version(task.tool_name, task.platform, task.arch)
+            old_version=version_store.get_tool_version(
+                task.tool_name,
+                task.platform,
+                task.arch,
+            )
             or "—",
         )
         version_store.update_tool_info(
@@ -422,7 +458,13 @@ def process_downloaded_files(
         return
     log(f"Processing {len(download_successes)} downloaded tools...", "info", "🔄")
     for task, download_success in zip(download_tasks, download_successes):
-        _process_downloaded_task(task, download_success, version_store, summary, verbose)
+        _process_downloaded_task(
+            task,
+            download_success,
+            version_store,
+            summary,
+            verbose,
+        )
 
 
 def _determine_architectures(

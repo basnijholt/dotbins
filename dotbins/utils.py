@@ -24,12 +24,17 @@ from rich.console import Console
 console = Console()
 
 
-def _maybe_github_token_header(github_token: str | None) -> dict[str, str]:  # pragma: no cover
+def _maybe_github_token_header(
+    github_token: str | None,
+) -> dict[str, str]:  # pragma: no cover
     return {} if github_token is None else {"Authorization": f"token {github_token}"}
 
 
 @functools.cache
-def latest_release_info(repo: str, github_token: str | None) -> dict:  # pragma: no cover
+def latest_release_info(
+    repo: str,
+    github_token: str | None,
+) -> dict:  # pragma: no cover
     """Fetch release information from GitHub for a single repository."""
     url = f"https://api.github.com/repos/{repo}/releases/latest"
     log(f"Fetching latest release from {url}", "info", "🔍")
@@ -43,12 +48,20 @@ def latest_release_info(repo: str, github_token: str | None) -> dict:  # pragma:
         raise RuntimeError(msg) from e
 
 
-def _try_fetch_release_info(repo: str, github_token: str | None, verbose: bool) -> dict | None:
+def _try_fetch_release_info(
+    repo: str,
+    github_token: str | None,
+    verbose: bool,
+) -> dict | None:
     """Try to fetch release information from GitHub for a single repository."""
     try:
         return latest_release_info(repo, github_token)
     except Exception:  # pragma: no cover
-        log(f"Failed to fetch latest release for {repo}", "error", print_exception=verbose)
+        log(
+            f"Failed to fetch latest release for {repo}",
+            "error",
+            print_exception=verbose,
+        )
         return None
 
 
@@ -56,14 +69,18 @@ def fetch_releases_in_parallel(
     repos: list[str],
     github_token: str | None = None,
     verbose: bool = False,
-) -> dict[str, dict | None]:
+) -> list[dict | None]:
     """Fetch release information for multiple repositories in parallel."""
     func = partial(_try_fetch_release_info, github_token=github_token, verbose=verbose)
-    releases = execute_in_parallel(repos, func, 16)
-    return dict(zip(repos, releases))
+    return execute_in_parallel(repos, func, 16)
 
 
-def download_file(url: str, destination: str, github_token: str | None, verbose: bool) -> str:
+def download_file(
+    url: str,
+    destination: str,
+    github_token: str | None,
+    verbose: bool,
+) -> str:
     """Download a file from a URL to a destination path."""
     log(f"Downloading from {url}", "info", "📥")
     # Already verbose when fetching release info
@@ -210,7 +227,10 @@ def write_shell_scripts(tools_dir: Path, print_shell_setup: bool = False) -> Non
         log(f"  Nushell: source {tools_dir2}/shell/nushell.nu", "info", "👉")
 
 
-def print_shell_setup(tools_dir: Path, shell: Literal["bash", "zsh", "fish", "nushell"]) -> None:
+def print_shell_setup(
+    tools_dir: Path,
+    shell: Literal["bash", "zsh", "fish", "nushell"],
+) -> None:
     """Print shell setup instructions."""
     instructions = _format_shell_instructions(tools_dir, shell)
     log(f"\n# Add this to your {shell} configuration file (e.g., .bashrc, .zshrc):")
@@ -316,7 +336,10 @@ def extract_archive(archive_path: str | Path, dest_dir: str | Path) -> None:
         # Helper function for single-file decompression
         def extract_compressed(open_func: Callable[[Path, str], Any]) -> None:
             output_path = dest_dir / archive_path.stem
-            with open_func(archive_path, "rb") as f_in, open(output_path, "wb") as f_out:
+            with (
+                open_func(archive_path, "rb") as f_in,
+                open(output_path, "wb") as f_out,
+            ):
                 shutil.copyfileobj(f_in, f_out)
             output_path.chmod(output_path.stat().st_mode | 0o755)
 
@@ -329,7 +352,9 @@ def extract_archive(archive_path: str | Path, dest_dir: str | Path) -> None:
             extract_compressed(bz2.open)
             return
 
-        if filename.endswith((".xz", ".lzma")) or header.startswith(b"\xfd\x37\x7a\x58\x5a\x00"):
+        if filename.endswith((".xz", ".lzma")) or header.startswith(
+            b"\xfd\x37\x7a\x58\x5a\x00",
+        ):
             extract_compressed(lzma.open)
             return
 
