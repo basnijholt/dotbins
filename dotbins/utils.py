@@ -111,11 +111,16 @@ def current_platform() -> tuple[str, str]:
             arch = "amd64"
     else:
         # Linux/macOS architecture detection
-        machine = os.uname().machine.lower()
-        arch = {
-            "aarch64": "arm64",
-            "x86_64": "amd64",
-        }.get(machine, machine)
+        try:
+            machine = os.uname().machine.lower()
+            arch = {
+                "aarch64": "arm64",
+                "x86_64": "amd64",
+            }.get(machine, machine)
+        except AttributeError:
+            # os.uname is not available on Windows
+            # This shouldn't happen as we already handled Windows separately
+            arch = "amd64"  # Default to amd64 if detection fails
 
     return platform, arch
 

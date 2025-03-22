@@ -62,10 +62,25 @@ Using the amazing [`uv`](https://docs.astral.sh/uv/) package manager:
 uvx dotbins get junegunn/fzf
 
 # Set up multiple tools with a config file
-uvx dotbins sync
+uvx dotbins update
 
 # Bootstrap a collection of tools from a remote config
 uvx dotbins get https://github.com/basnijholt/.dotbins/blob/main/dotbins.yaml
+```
+
+### Windows Support
+
+dotbins fully supports Windows! On Windows:
+
+```powershell
+# Initialize shell scripts (includes PowerShell support)
+dotbins init
+
+# Add to your PowerShell profile
+. $HOME\.dotbins\shell\powershell.ps1
+
+# Download and use tools just like on Linux/macOS
+dotbins update
 ```
 
 **See it in action:**

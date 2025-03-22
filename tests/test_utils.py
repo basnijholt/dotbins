@@ -8,11 +8,17 @@ import tarfile
 import zipfile
 from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
 
-from dotbins.utils import extract_archive, github_url_to_raw_url, humanize_time_ago
+from dotbins.utils import (
+    current_platform,
+    extract_archive,
+    github_url_to_raw_url,
+    humanize_time_ago,
+)
 
 
 def test_github_url_to_raw_url() -> None:
@@ -243,3 +249,55 @@ def test_humanize_time_ago() -> None:
 
         # Test zero difference
         assert humanize_time_ago("2023-05-15T12:30:00") == "0s"
+
+
+@pytest.mark.parametrize(
+    "sys_platform,machine,expected",
+    [
+        ("linux", "x86_64", ("linux", "amd64")),
+        ("darwin", "arm64", ("macos", "arm64")),
+    ],
+)
+def test_current_platform(
+    monkeypatch: pytest.MonkeyPatch,
+    sys_platform: str,
+    machine: str,
+    expected: tuple[str, str],
+) -> None:
+    """Test platform detection."""
+    monkeypatch.setattr("sys.platform", sys_platform)
+    monkeypatch.setattr("os.uname", lambda: SimpleNamespace(machine=machine))
+    assert current_platform() == expected
+
+
+@pytest.mark.parametrize(
+    "sys_platform,processor_arch,processor_architew6432,expected",
+    [
+        ("win32", "AMD64", None, ("windows", "amd64")),
+        ("win32", "ARM64", None, ("windows", "arm64")),
+        ("win32", "x86", "AMD64", ("windows", "amd64")),  # 32-bit Windows on 64-bit processor
+    ],
+)
+def test_current_platform_windows(
+    monkeypatch: pytest.MonkeyPatch,
+    sys_platform: str,
+    processor_arch: str,
+    processor_architew6432: str | None,
+    expected: tuple[str, str],
+) -> None:
+    """Test Windows platform detection."""
+    monkeypatch.setattr("sys.platform", sys_platform)
+    monkeypatch.setattr("os.name", "nt")
+    env = {}
+    env["PROCESSOR_ARCHITECTURE"] = processor_arch
+    if processor_architew6432:
+        env["PROCESSOR_ARCHITEW6432"] = processor_architew6432
+    monkeypatch.setattr("os.environ", env)
+
+    # Mock os.uname to raise an error (not available on Windows)
+    def mock_uname_error():
+        raise AttributeError("'module' object has no attribute 'uname'")
+
+    monkeypatch.setattr("os.uname", mock_uname_error)
+
+    assert current_platform() == expected

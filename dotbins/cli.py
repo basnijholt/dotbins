@@ -183,6 +183,17 @@ def create_parser() -> argparse.ArgumentParser:
         "init",
         help="Initialize directory structure",
     )
+    _init_parser.add_argument(
+        "--print-shell-setup",
+        action="store_true",
+        help="Print shell setup instructions instead of writing shell files",
+    )
+    _init_parser.add_argument(
+        "--shell",
+        choices=["bash", "zsh", "fish", "nushell", "powershell"],
+        default="bash",
+        help="Shell to print setup instructions for (only used with --print-shell-setup)",
+    )
 
     # version command
     _version_parser = subparsers.add_parser(

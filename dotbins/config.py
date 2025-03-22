@@ -39,6 +39,9 @@ DEFAULT_TOOLS_DIR = "~/.dotbins"
 
 def _default_platforms() -> dict[str, list[str]]:
     platform, arch = current_platform()
+    # For Windows, we want to support both amd64 and arm64 by default
+    if platform == "windows":
+        return {platform: ["amd64", "arm64"]}
     return {platform: [arch]}
 
 

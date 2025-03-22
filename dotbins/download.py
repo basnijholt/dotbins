@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import tempfile
 from functools import partial
@@ -126,7 +127,9 @@ def _copy_binary_to_destination(
     destination_dir.mkdir(parents=True, exist_ok=True)
     dest_path = destination_dir / binary_name
     shutil.copy2(source_path, dest_path)
-    dest_path.chmod(dest_path.stat().st_mode | 0o755)
+    # Only set executable permissions on non-Windows platforms
+    if os.name != "nt":
+        dest_path.chmod(dest_path.stat().st_mode | 0o755)
     log(f"Copied binary to [b]{replace_home_in_path(dest_path, '~')}[/]", "success")
 
 
