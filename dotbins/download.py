@@ -390,11 +390,7 @@ def _process_downloaded_task(
                 )
                 return False
             binary_name = binary_names[0]
-            _copy_binary_to_destination(
-                task.temp_path,
-                task.destination_dir,
-                binary_name,
-            )
+            _copy_binary_to_destination(task.temp_path, task.destination_dir, binary_name)
     except Exception as e:
         # Differentiate error types for better reporting
         error_prefix = "Error processing"
@@ -402,11 +398,7 @@ def _process_downloaded_task(
             error_prefix = "Auto-detect binary paths error"
         elif isinstance(e, FileNotFoundError):
             error_prefix = "Binary not found"
-        log(
-            f"Error processing {task.tool_name}: {e!s}",
-            "error",
-            print_exception=verbose,
-        )
+        log(f"Error processing {task.tool_name}: {e!s}", "error", print_exception=verbose)
         summary.add_failed_tool(
             task.tool_name,
             task.platform,
