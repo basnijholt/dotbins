@@ -121,28 +121,34 @@ dotbins --help
 Usage: dotbins [-h] [-v] [--tools-dir TOOLS_DIR] [--config-file CONFIG_FILE]
                {list,sync,init,version,versions,readme,get} ...
 
-dotbins - Manage CLI tool binaries in your dotfiles repository
+dotbins - Download, manage, and update CLI tool binaries in your dotfiles
+repository
 
 Positional Arguments:
   {list,sync,init,version,versions,readme,get}
                         Command to execute
-    list                List available tools
+    list                List all available tools defined in your configuration
     sync                Install and update tools to their latest versions
-    init                Initialize directory structure
-    version             Print version information
-    versions            Show installed tool versions and their last update
-                        times
-    readme              Generate README.md file with tool information
-    get                 Download and install a tool directly from GitHub or
-                        from a remote configuration
+    init                Initialize directory structure and generate shell
+                        integration scripts
+    version             Print dotbins version information
+    versions            Show installed tool versions and when they were last
+                        updated
+    readme              Generate README.md file with information about
+                        installed tools
+    get                 Download and install a tool directly without
+                        configuration file
 
 Options:
   -h, --help            show this help message and exit
-  -v, --verbose         Enable verbose output
+  -v, --verbose         Enable verbose output with detailed logs and error
+                        messages
   --tools-dir TOOLS_DIR
-                        Tools directory
+                        Tools directory to use (overrides the value in the
+                        config file)
   --config-file CONFIG_FILE
-                        Path to configuration file
+                        Path to configuration file (default: looks in standard
+                        locations)
 ```
 
 <!-- OUTPUT:END -->
