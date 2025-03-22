@@ -127,7 +127,7 @@ Positional Arguments:
   {list,sync,init,version,versions,readme,get}
                         Command to execute
     list                List available tools
-    sync                Update tools
+    sync                Sync tools
     init                Initialize directory structure
     version             Print version information
     versions            Show installed tool versions and their last update
