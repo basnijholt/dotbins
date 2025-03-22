@@ -36,6 +36,7 @@ def _sync_tools(
     generate_shell_scripts: bool,
     github_token: str | None,
     verbose: bool,
+    cleanup: bool = False,
 ) -> None:
     """Install and update tools based on command line arguments.
 
@@ -54,6 +55,7 @@ def _sync_tools(
         generate_shell_scripts: Whether to generate shell integration scripts
         github_token: GitHub token for API authentication
         verbose: Whether to show detailed logs
+        cleanup: Whether to remove binaries that are not in the configuration
 
     """
     config.sync_tools(
@@ -66,6 +68,7 @@ def _sync_tools(
         copy_config_file,
         github_token,
         verbose,
+        cleanup,
     )
     if generate_shell_scripts:
         config.generate_shell_scripts(print_shell_setup=False)
@@ -199,6 +202,11 @@ def create_parser() -> argparse.ArgumentParser:
         help="Skip copying the config file to the tools directory",
     )
     sync_parser.add_argument(
+        "--cleanup",
+        action="store_true",
+        help="Remove binaries that are not in the configuration",
+    )
+    sync_parser.add_argument(
         "--github-token",
         type=str,
         help="GitHub token to use for API requests (helps with rate limits and private repos)",
@@ -300,6 +308,7 @@ def main() -> None:  # pragma: no cover
                 not args.no_shell_scripts,
                 args.github_token,
                 args.verbose,
+                args.cleanup,
             )
         elif args.command == "readme":
             write_readme_file(

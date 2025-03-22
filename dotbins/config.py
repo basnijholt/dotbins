@@ -158,6 +158,7 @@ class Config:
         copy_config_file: bool = False,
         github_token: str | None = None,
         verbose: bool = False,
+        cleanup: bool = False,
     ) -> None:
         """Install and update tools to their latest versions.
 
@@ -165,6 +166,7 @@ class Config:
         1. First-time installation of tools
         2. Updating existing tools to their latest versions
         3. Organizing binaries by platform and architecture
+        4. Optionally removing binaries that are not in the configuration
 
         The process:
         - Fetches the latest releases from GitHub for each tool
@@ -172,6 +174,7 @@ class Config:
         - Downloads and extracts binaries for each platform/architecture
         - Makes binaries executable and tracks their versions
         - Optionally generates documentation and shell integration
+        - Optionally removes binaries that are not in the configuration
 
         Args:
             tools: Specific tools to process (None = all tools in config)
@@ -183,6 +186,7 @@ class Config:
             copy_config_file: If True, copy config file to tools directory
             github_token: GitHub API token for authentication (helps with rate limits)
             verbose: If True, show detailed logs during the process
+            cleanup: If True, remove binaries that are not in the configuration
 
         """
         if not self.tools:
@@ -218,12 +222,87 @@ class Config:
         )
         self.make_binaries_executable()
 
+        # Cleanup binaries that are not in the configuration if requested
+        if cleanup:
+            self._cleanup_unused_binaries(
+                tools_list=tools_to_sync,
+                platforms_list=platforms_to_sync,
+                arch=architecture,
+                verbose=verbose,
+            )
+
         # Display the summary
         display_update_summary(self._update_summary)
 
         if generate_readme:
             self.generate_readme(verbose=verbose)
         _maybe_copy_config_file(copy_config_file, self.config_path, self.tools_dir)
+
+    def _cleanup_unused_binaries(
+        self,
+        tools_list: list[str] | None = None,
+        platforms_list: list[str] | None = None,
+        arch: str | None = None,
+        verbose: bool = False,
+    ) -> None:
+        """Remove binaries that are not in the configuration.
+
+        Args:
+            tools_list: List of tools to consider (None = all tools in config)
+            platforms_list: List of platforms to consider (None = all platforms in config)
+            arch: Architecture to consider (None = all architectures for the platforms)
+            verbose: If True, show detailed logs during the process
+
+        """
+        if not tools_list:
+            tools_list = list(self.tools.keys())
+
+        if not platforms_list:
+            platforms_list = list(self.platforms.keys())
+
+        # Build a set of expected binary names
+        expected_binaries = set()
+        for tool_name in tools_list:
+            tool_config = self.tools.get(tool_name)
+            if not tool_config:
+                continue
+            expected_binaries.update(tool_config.binary_name)
+
+        # Only process specific architectures if requested
+        for platform in platforms_list:
+            if platform not in self.platforms:
+                continue
+
+            archs_to_process = (
+                [arch] if arch and arch in self.platforms[platform] else self.platforms[platform]
+            )
+
+            for architecture in archs_to_process:
+                bin_dir = self.bin_dir(platform, architecture)
+                if not bin_dir.exists():
+                    continue
+
+                log(f"Cleaning up binaries in {bin_dir}...", "info", "🧹")
+                for binary_path in bin_dir.iterdir():
+                    if not binary_path.is_file():
+                        continue
+
+                    binary_name = binary_path.name
+                    if binary_name not in expected_binaries:
+                        try:
+                            binary_path.unlink()
+                            log(f"Removed unused binary: {binary_name}", "success")
+                            self._update_summary.add_removed_binary(
+                                binary_name,
+                                platform,
+                                architecture,
+                            )
+                        except OSError as e:
+                            log(
+                                f"Failed to remove {binary_name}: {e}",
+                                "error",
+                                print_exception=verbose,
+                            )
 
     def generate_shell_scripts(self: Config, print_shell_setup: bool = True) -> None:
         """Generate shell script files for different shells.

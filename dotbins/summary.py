@@ -48,12 +48,23 @@ class FailedToolSummary(ToolSummaryBase):
 
 
 @dataclass
+class RemovedBinarySummary:
+    """Summary information for a removed binary."""
+
+    binary_name: str
+    platform: str
+    arch: str
+    timestamp: str = field(default_factory=_get_current_timestamp)
+
+
+@dataclass
 class UpdateSummary:
     """Complete summary of a tool update operation."""
 
     updated: list[UpdatedToolSummary] = field(default_factory=list)
     skipped: list[SkippedToolSummary] = field(default_factory=list)
     failed: list[FailedToolSummary] = field(default_factory=list)
+    removed: list[RemovedBinarySummary] = field(default_factory=list)
 
     def add_updated_tool(
         self,
@@ -112,9 +123,24 @@ class UpdateSummary:
             ),
         )
 
+    def add_removed_binary(
+        self,
+        binary_name: str,
+        platform: str,
+        arch: str,
+    ) -> None:
+        """Add a removed binary to the summary."""
+        self.removed.append(
+            RemovedBinarySummary(
+                binary_name=binary_name,
+                platform=platform,
+                arch=arch,
+            ),
+        )
+
     def has_entries(self) -> bool:
         """Check if the summary has any entries."""
-        return bool(self.updated or self.skipped or self.failed)
+        return bool(self.updated or self.skipped or self.failed or self.removed)
 
 
 def display_update_summary(summary: UpdateSummary) -> None:
@@ -168,6 +194,23 @@ def display_update_summary(summary: UpdateSummary) -> None:
                 updated_item.arch,
                 updated_item.old_version,
                 updated_item.version,
+            )
+
+        console.print(table)
+        console.print("")
+
+    # Table for removed binaries
+    if summary.removed:
+        table = Table(title="🗑️ Removed Binaries")
+        table.add_column("Binary", style="cyan")
+        table.add_column("Platform", style="blue")
+        table.add_column("Architecture", style="blue")
+
+        for removed_item in summary.removed:
+            table.add_row(
+                removed_item.binary_name,
+                removed_item.platform,
+                removed_item.arch,
             )
 
         console.print(table)
