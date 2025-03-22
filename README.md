@@ -76,7 +76,7 @@ uvx dotbins get https://github.com/basnijholt/.dotbins/blob/main/dotbins.yaml
 
 * 🌐 Supports multiple platforms (macOS, Linux, etc.) and architectures (amd64, arm64, etc.)
 * 📦 Downloads and organizes binaries from GitHub releases
-* 🔄 Syncs tools to their latest versions with a single command
+* 🔄 Installs and updates tools to their latest versions with a single command
 * 📊 Tracks installed versions and update timestamps for all tools
 * 🧩 Extracts binaries from various archive formats (zip, tar.gz)
 * 📂 Organizes tools by platform and architecture for easy access
@@ -257,11 +257,7 @@ tools:
   fzf: junegunn/fzf
 ```
 
-This minimal configuration works because dotbins will:
-1. Auto-detect the latest release from GitHub
-2. Choose an appropriate asset based on your platform/architecture
-3. Extract the binary with a matching name (e.g., "fzf" for the fzf tool)
-4. Track the installed version and timestamp
+dotbins will auto-detect the latest release, choose the appropriate asset for your platform, and install binaries to the specified `tools_dir` (defaults to `~/.dotbins`).
 
 When auto-detection isn't possible or you need more control, you can provide detailed configuration:
 
