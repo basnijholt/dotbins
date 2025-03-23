@@ -160,7 +160,7 @@ Options:
 3. **init** - Initialize the tools directory structure
 4. **list** - List available tools defined in your configuration
 5. **version** - Print version information
-6. **versions** - Show detailed information about installed tool versions
+6. **status** - Show detailed information about available and installed tool versions
 
 ### Quick Install with `dotbins get`
 
