@@ -455,11 +455,15 @@ tools:
     asset_patterns:
       linux: micromamba-linux-{arch}
       macos: micromamba-osx-arm64
+    shell_code: |
+      alias mm="micromamba"
 
   uv:
     repo: astral-sh/uv
     binary_name: [uv, uvx]
     binary_path: [uv-*/uv, uv-*/uvx]
+    shell_code: |
+      eval "$(uv generate-shell-completion zsh)"
 
   starship:
     repo: starship/starship
