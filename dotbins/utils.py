@@ -16,12 +16,15 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Literal, TypeVar
 
 import requests
 from rich.console import Console
 
 console = Console()
+
+if TYPE_CHECKING:
+    from .config import ToolConfig
 
 
 def _maybe_github_token_header(github_token: str | None) -> dict[str, str]:  # pragma: no cover
@@ -94,11 +97,14 @@ def replace_home_in_path(path: Path, home: str = "$HOME") -> str:
 def _format_shell_instructions(
     tools_dir: Path,
     shell: Literal["bash", "zsh", "fish", "nushell"],
+    tools: dict[str, ToolConfig] | None = None,
 ) -> str:
     """Format shell instructions for a given shell."""
     tools_dir_str = replace_home_in_path(tools_dir)
+
+    # Base script that sets up PATH
     if shell in {"bash", "zsh"}:
-        return textwrap.dedent(
+        base_script = textwrap.dedent(
             f"""\
             # dotbins - Add platform-specific binaries to PATH
             _os=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -112,8 +118,28 @@ def _format_shell_instructions(
             """,
         )
 
+        # Add tool-specific shell code if provided
+        if tools:
+            tool_scripts = []
+            for tool_name, tool_config in tools.items():
+                if tool_config.shell_code:
+                    tool_scripts.append(
+                        textwrap.dedent(
+                            f"""\
+                        # Configuration for {tool_name}
+                        if command -v {tool_name} >/dev/null 2>&1; then
+                            {tool_config.shell_code}
+                        fi
+                        """,
+                        ),
+                    )
+            if tool_scripts:
+                base_script += "\n# Tool-specific configurations\n" + "\n".join(tool_scripts)
+
+        return base_script
+
     if shell == "fish":
-        return textwrap.dedent(
+        base_script = textwrap.dedent(
             f"""\
             # dotbins - Add platform-specific binaries to PATH
             set -l _os (uname -s | tr '[:upper:]' '[:lower:]')
@@ -127,24 +153,63 @@ def _format_shell_instructions(
             """,
         )
 
+        # Add tool-specific shell code if provided
+        if tools:
+            tool_scripts = []
+            for tool_name, tool_config in tools.items():
+                if tool_config.shell_code:
+                    tool_scripts.append(
+                        textwrap.dedent(
+                            f"""\
+                        # Configuration for {tool_name}
+                        if command -v {tool_name} >/dev/null 2>&1
+                            {tool_config.shell_code}
+                        end
+                        """,
+                        ),
+                    )
+            if tool_scripts:
+                base_script += "\n# Tool-specific configurations\n" + "\n".join(tool_scripts)
+
+        return base_script
+
     if shell == "nushell":
-        return "\n".join(
-            [
-                "# dotbins - Add platform-specific binaries to PATH",
-                "let _os = (sys).host.name | str downcase",
-                'let _os = if $_os == "darwin" { "macos" } else { $_os }',
-                "",
-                "let _arch = (sys).host.arch",
-                'let _arch = if $_arch == "x86_64" { "amd64" } else if $_arch in ["aarch64", "arm64"] { "arm64" } else { $_arch }',
-                "",
-                f'$env.PATH = ($env.PATH | prepend $"{tools_dir}/$_os/$_arch/bin")',
-            ],
-        )
+        script_lines = [
+            "# dotbins - Add platform-specific binaries to PATH",
+            "let _os = (sys).host.name | str downcase",
+            'let _os = if $_os == "darwin" { "macos" } else { $_os }',
+            "",
+            "let _arch = (sys).host.arch",
+            'let _arch = if $_arch == "x86_64" { "amd64" } else if $_arch in ["aarch64", "arm64"] { "arm64" } else { $_arch }',
+            "",
+            f'$env.PATH = ($env.PATH | prepend $"{tools_dir}/$_os/$_arch/bin")',
+        ]
+
+        # Add tool-specific shell code if provided
+        if tools:
+            for tool_name, tool_config in tools.items():
+                if tool_config.shell_code:
+                    script_lines.extend(
+                        [
+                            "",
+                            f"# Configuration for {tool_name}",
+                            f"if (which {tool_name}) != null {{",
+                            f"    {tool_config.shell_code}",
+                            "}",
+                        ],
+                    )
+
+        return "\n".join(script_lines)
+
     msg = f"Unsupported shell: {shell}"  # pragma: no cover
     raise ValueError(msg)  # pragma: no cover
 
 
-def write_shell_scripts(tools_dir: Path, print_shell_setup: bool = False) -> None:
+def write_shell_scripts(
+    tools_dir: Path,
+    print_shell_setup: bool = False,
+    tools: dict[str, ToolConfig] | None = None,
+) -> None:
     """Generate shell script files for different shells.
 
     Creates a 'shell' directory in the tools_dir and writes script files
@@ -154,6 +219,7 @@ def write_shell_scripts(tools_dir: Path, print_shell_setup: bool = False) -> Non
     Args:
         tools_dir: The base directory where tools are installed
         print_shell_setup: Whether to print the shell setup instructions
+        tools: Dictionary of tool configurations with shell_code to include
 
     """
     # Create shell directory
@@ -169,7 +235,7 @@ def write_shell_scripts(tools_dir: Path, print_shell_setup: bool = False) -> Non
     }
 
     for shell, filename in shell_files.items():
-        script_content = _format_shell_instructions(tools_dir, shell)  # type: ignore[arg-type]
+        script_content = _format_shell_instructions(tools_dir, shell, tools)  # type: ignore[arg-type]
 
         if shell in ["bash", "zsh"]:
             script_content = f"#!/usr/bin/env {shell}\n{script_content}"

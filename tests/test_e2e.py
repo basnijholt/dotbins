@@ -14,8 +14,13 @@ import pytest
 import requests
 
 from dotbins.cli import _get_tool
-from dotbins.config import Config, RawConfigDict, RawToolConfigDict, _config_from_dict
-from dotbins.utils import current_platform, log
+from dotbins.config import (
+    Config,
+    RawConfigDict,
+    RawToolConfigDict,
+    _config_from_dict,
+)
+from dotbins.utils import current_platform, log, write_shell_scripts
 
 if TYPE_CHECKING:
     from requests_mock import Mocker
@@ -1384,3 +1389,267 @@ def test_failed_to_download_file(
     out = capsys.readouterr().out
     assert "Failed to download" in out
     assert "limit exceeded" in out
+
+
+def test_tool_shell_code_in_shell_scripts(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+) -> None:
+    """Test that tool shell_code is included in the generated shell scripts."""
+    tools_dir = tmp_path / "tools"
+
+    # Create a config with tools that have shell_code and some that don't
+    tool_configs: dict[str, RawToolConfigDict] = {
+        "fzf": {
+            "repo": "junegunn/fzf",
+            "shell_code": "source <(fzf --zsh)",
+        },
+        "bat": {
+            "repo": "sharkdp/bat",  # No shell_code
+        },
+        "zoxide": {
+            "repo": "ajeetdsouza/zoxide",
+            "shell_code": 'eval "$(zoxide init zsh)"',
+        },
+    }
+
+    # Mock the download_file function
+    def mock_download_file(
+        url: str,
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        # Create a dummy archive with the binary
+        if "fzf" in url:
+            binary_name = "fzf"
+        elif "bat" in url:
+            binary_name = "bat"
+        elif "zoxide" in url:
+            binary_name = "zoxide"
+        else:
+            binary_name = "unknown"
+
+        create_dummy_archive(destination, binary_name)
+        return destination
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr("dotbins.utils.download_file", mock_download_file)
+
+    # Run the e2e test
+    run_e2e_test(tools_dir, tool_configs, create_dummy_archive)
+
+    # Check that shell scripts were generated
+    shell_files = {
+        "bash": "bash.sh",
+        "zsh": "zsh.sh",
+        "fish": "fish.fish",
+        "nushell": "nushell.nu",
+    }
+
+    for shell, filename in shell_files.items():
+        shell_script_path = tools_dir / "shell" / filename
+        assert shell_script_path.exists(), f"Shell script for {shell} not created"
+
+        # Read the shell script content
+        content = shell_script_path.read_text()
+
+        # Verify that the shell_code for tools is included
+        if shell in ("bash", "zsh"):
+            # The shell code for fzf should be included
+            assert "if command -v fzf >/dev/null 2>&1; then" in content
+            assert "source <(fzf --zsh)" in content
+
+            # The shell code for zoxide should be included
+            assert "if command -v zoxide >/dev/null 2>&1; then" in content
+            assert 'eval "$(zoxide init zsh)"' in content
+
+            # No shell code for bat should be included
+            assert "if command -v bat >/dev/null 2>&1; then" not in content
+
+        elif shell == "fish":
+            # The shell code for fzf should be included in fish syntax
+            assert "if command -v fzf >/dev/null 2>&1" in content
+            assert "source <(fzf --zsh)" in content
+
+            # The shell code for zoxide should be included
+            assert "if command -v zoxide >/dev/null 2>&1" in content
+            assert 'eval "$(zoxide init zsh)"' in content
+
+            # No shell code for bat should be included
+            assert "if command -v bat >/dev/null 2>&1" not in content
+
+        elif shell == "nushell":
+            # The shell code for fzf should be included in nushell syntax
+            assert "if (which fzf) != null {" in content
+            assert "source <(fzf --zsh)" in content
+
+            # The shell code for zoxide should be included
+            assert "if (which zoxide) != null {" in content
+            assert 'eval "$(zoxide init zsh)"' in content
+
+            # No shell code for bat should be included
+            assert "if (which bat) != null {" not in content
+
+
+def test_sync_tools_generates_shell_scripts_with_shell_code(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+) -> None:
+    """Test that sync_tools generates shell scripts with the shell_code."""
+    tools_dir = tmp_path / "tools"
+    # Create a config with tools that have shell_code
+    raw_config: RawConfigDict = {
+        "tools_dir": str(tools_dir),
+        "platforms": {"linux": ["amd64"]},
+        "tools": {
+            "mytool": {
+                "repo": "fakeuser/mytool",
+                "shell_code": "echo 'mytool is configured'",
+            },
+            "othertool": {
+                "repo": "fakeuser/othertool",
+            },
+        },
+    }
+
+    # Create the configuration
+    config = _config_from_dict(raw_config)
+
+    # Mock the release info
+    def mock_latest_release_info(
+        repo: str,  # noqa: ARG001
+        github_token: str | None,  # noqa: ARG001
+    ) -> dict:
+        return {
+            "tag_name": "v1.2.3",
+            "assets": [
+                {
+                    "name": "mytool-1.2.3-linux_amd64.tar.gz",
+                    "browser_download_url": "https://example.com/mytool.tar.gz",
+                },
+                {
+                    "name": "othertool-1.2.3-linux_amd64.tar.gz",
+                    "browser_download_url": "https://example.com/othertool.tar.gz",
+                },
+            ],
+        }
+
+    def mock_download_file(
+        url: str,
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        # Create a dummy archive
+        if "mytool" in url:
+            create_dummy_archive(destination, "mytool")
+        else:
+            create_dummy_archive(destination, "othertool")
+        return destination
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr("dotbins.utils.latest_release_info", mock_latest_release_info)
+    monkeypatch.setattr("dotbins.utils.download_file", mock_download_file)
+
+    # Run sync_tools
+    config.sync_tools()
+
+    # Check that shell scripts were generated
+    shell_script_path = tools_dir / "shell" / "zsh.sh"
+    assert shell_script_path.exists(), "Shell script for zsh not created"
+
+    # Read the shell script content
+    content = shell_script_path.read_text()
+
+    # Verify that the shell_code for mytool is included
+    assert "if command -v mytool >/dev/null 2>&1; then" in content
+    assert "echo 'mytool is configured'" in content
+
+    # No shell code for othertool should be included
+    assert "if command -v othertool >/dev/null 2>&1; then" not in content
+
+
+def test_write_shell_scripts_with_shell_code(
+    tmp_path: Path,
+) -> None:
+    """Test the write_shell_scripts function with tools that have shell_code."""
+    from dotbins.config import ToolConfig
+
+    # Create a temp dir for the shell scripts
+    tools_dir = tmp_path / "tools"
+    tools_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create tool configs with and without shell_code
+    tools = {
+        "eza": ToolConfig(
+            tool_name="eza",
+            repo="eza-community/eza",
+            shell_code="alias l='eza -lah --git'",
+        ),
+        "bat": ToolConfig(
+            tool_name="bat",
+            repo="sharkdp/bat",
+            # No shell_code
+        ),
+        "starship": ToolConfig(
+            tool_name="starship",
+            repo="starship/starship",
+            shell_code='eval "$(starship init zsh)"',
+        ),
+    }
+
+    # Call write_shell_scripts directly
+    write_shell_scripts(tools_dir, print_shell_setup=False, tools=tools)
+
+    # Check that shell scripts were generated
+    shell_files = {
+        "bash": "bash.sh",
+        "zsh": "zsh.sh",
+        "fish": "fish.fish",
+        "nushell": "nushell.nu",
+    }
+
+    for shell, filename in shell_files.items():
+        shell_script_path = tools_dir / "shell" / filename
+        assert shell_script_path.exists(), f"Shell script for {shell} not created"
+
+        # Read the shell script content
+        content = shell_script_path.read_text()
+
+        # Test different syntax for different shells
+        if shell in ("bash", "zsh"):
+            # Check eza config is included
+            assert "if command -v eza >/dev/null 2>&1; then" in content
+            assert "alias l='eza -lah --git'" in content
+
+            # Check starship config is included
+            assert "if command -v starship >/dev/null 2>&1; then" in content
+            assert 'eval "$(starship init zsh)"' in content
+
+            # Check bat has no config
+            assert "if command -v bat >/dev/null 2>&1; then" not in content
+
+        elif shell == "fish":
+            # Check eza config is included with fish syntax
+            assert "if command -v eza >/dev/null 2>&1" in content
+            assert "alias l='eza -lah --git'" in content
+
+            # Check starship config is included
+            assert "if command -v starship >/dev/null 2>&1" in content
+            assert 'eval "$(starship init zsh)"' in content
+
+            # Check bat has no config
+            assert "if command -v bat >/dev/null 2>&1" not in content
+
+        elif shell == "nushell":
+            # Check eza config is included with nushell syntax
+            assert "if (which eza) != null {" in content
+            assert "alias l='eza -lah --git'" in content
+
+            # Check starship config is included
+            assert "if (which starship) != null {" in content
+            assert 'eval "$(starship init zsh)"' in content
+
+            # Check bat has no config
+            assert "if (which bat) != null {" not in content
