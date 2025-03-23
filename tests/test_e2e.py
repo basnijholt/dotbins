@@ -1390,7 +1390,14 @@ def test_tool_shell_code_in_shell_scripts(
     tmp_path: Path,
     create_dummy_archive: Callable,
 ) -> None:
-    """Test that tool shell_code is included in the generated shell scripts."""
+    """Test that tool shell_code is included in the generated shell scripts.
+
+    It verifies that:
+    1. shell_code is properly included for tools that have it
+    2. tools without shell_code don't have code blocks generated
+    3. syntax is appropriate for different shells (bash, zsh, fish, nushell)
+    4. sync_tools correctly triggers shell script generation
+    """
     tools_dir = tmp_path / "tools"
 
     # Create a config with tools that have shell_code and some that don't
@@ -1406,7 +1413,24 @@ def test_tool_shell_code_in_shell_scripts(
             "repo": "ajeetdsouza/zoxide",
             "shell_code": 'eval "$(zoxide init zsh)"',
         },
+        "eza": {
+            "repo": "eza-community/eza",
+            "shell_code": "alias l='eza -lah --git'",
+        },
+        "starship": {
+            "repo": "starship/starship",
+            "shell_code": {
+                "zsh": 'eval "$(starship init zsh)"',
+                "bash": 'eval "$(starship init bash)"',
+                "fish": "starship init fish | source",
+                "nushell": (
+                    'mkdir ($nu.data-dir | path join "vendor/autoload")'
+                    '\nstarship init nu | save -f ($nu.data-dir | path join "vendor/autoload/starship.nu")'
+                ),
+            },
+        },
     }
+
     config = Config.from_dict(
         {
             "tools_dir": str(tools_dir),
@@ -1424,13 +1448,14 @@ def test_tool_shell_code_in_shell_scripts(
         verbose: bool,  # noqa: ARG001
     ) -> str:
         binary_name = url.split("/")[-1].split("-")[0]
-        create_dummy_archive(destination, binary_name)
+        create_dummy_archive(Path(destination), binary_name)
         return destination
 
+    # Run sync_tools to generate the shell scripts
     with patch("dotbins.download.download_file", side_effect=mock_download_file):
         config.sync_tools()
 
-    # Check that shell scripts were generated
+    # Check that shell scripts were generated for all supported shells
     shell_files = {
         "bash": "bash.sh",
         "zsh": "zsh.sh",
@@ -1445,192 +1470,45 @@ def test_tool_shell_code_in_shell_scripts(
         # Read the shell script content
         content = shell_script_path.read_text()
 
-        # Verify that the shell_code for tools is included
+        # Verify shell_code is included with correct syntax for each shell
         if shell in ("bash", "zsh"):
-            # The shell code for fzf should be included
-            assert "if command -v fzf >/dev/null 2>&1; then" in content
+            # Check tools with shell_code
+            for tool in ["fzf", "zoxide", "eza", "starship"]:
+                assert f"if command -v {tool} >/dev/null 2>&1; then" in content
+
+            # Verify specific shell code for each tool
             assert "source <(fzf --zsh)" in content
-
-            # The shell code for zoxide should be included
-            assert "if command -v zoxide >/dev/null 2>&1; then" in content
             assert 'eval "$(zoxide init zsh)"' in content
+            assert "alias l='eza -lah --git'" in content
+            assert 'eval "$(starship init zsh)"' in content
 
-            # No shell code for bat should be included
+            # Check tool without shell_code has no block
             assert "if command -v bat >/dev/null 2>&1; then" not in content
 
         elif shell == "fish":
-            # The shell code for fzf should be included in fish syntax
-            assert "if command -v fzf >/dev/null 2>&1" in content
+            # Check tools with shell_code (fish syntax)
+            for tool in ["fzf", "zoxide", "eza", "starship"]:
+                assert f"if command -v {tool} >/dev/null 2>&1" in content
+
+            # Verify specific shell code
             assert "source <(fzf --zsh)" in content
-
-            # The shell code for zoxide should be included
-            assert "if command -v zoxide >/dev/null 2>&1" in content
             assert 'eval "$(zoxide init zsh)"' in content
+            assert "alias l='eza -lah --git'" in content
+            assert 'eval "$(starship init zsh)"' in content
 
-            # No shell code for bat should be included
+            # Check tool without shell_code has no block
             assert "if command -v bat >/dev/null 2>&1" not in content
 
         elif shell == "nushell":
-            # The shell code for fzf should be included in nushell syntax
-            assert "if (which fzf) != null {" in content
+            # Check tools with shell_code (nushell syntax)
+            for tool in ["fzf", "zoxide", "eza", "starship"]:
+                assert f"if (which {tool}) != null {{" in content
+
+            # Verify specific shell code
             assert "source <(fzf --zsh)" in content
-
-            # The shell code for zoxide should be included
-            assert "if (which zoxide) != null {" in content
             assert 'eval "$(zoxide init zsh)"' in content
-
-            # No shell code for bat should be included
-            assert "if (which bat) != null {" not in content
-
-
-def test_sync_tools_generates_shell_scripts_with_shell_code(
-    tmp_path: Path,
-    create_dummy_archive: Callable,
-) -> None:
-    """Test that sync_tools generates shell scripts with the shell_code."""
-    tools_dir = tmp_path / "tools"
-    # Create a config with tools that have shell_code
-    tool_configs: dict[str, RawToolConfigDict] = {
-        "mytool": {
-            "repo": "fakeuser/mytool",
-            "shell_code": "echo 'mytool is configured'",
-        },
-        "othertool": {"repo": "fakeuser/othertool"},
-    }
-    raw_config: RawConfigDict = {
-        "tools_dir": str(tools_dir),
-        "platforms": {"linux": ["amd64"]},
-        "tools": tool_configs,  # type: ignore[typeddict-item]
-    }
-
-    config = Config.from_dict(raw_config)
-    _set_mock_release_info(config, version="1.2.3")
-
-    def mock_download_file(
-        url: str,
-        destination: str,
-        github_token: str | None,  # noqa: ARG001
-        verbose: bool,  # noqa: ARG001
-    ) -> str:
-        # Create a dummy archive
-        if "mytool" in url:
-            create_dummy_archive(destination, "mytool")
-        else:
-            create_dummy_archive(destination, "othertool")
-        return destination
-
-    # Run sync_tools
-    with patch("dotbins.download.download_file", side_effect=mock_download_file):
-        config.sync_tools()
-
-    # Check that shell scripts were generated
-    shell_script_path = tools_dir / "shell" / "zsh.sh"
-    assert shell_script_path.exists(), "Shell script for zsh not created"
-
-    # Read the shell script content
-    content = shell_script_path.read_text()
-
-    # Verify that the shell_code for mytool is included
-    assert "if command -v mytool >/dev/null 2>&1; then" in content
-    assert "echo 'mytool is configured'" in content
-
-    # No shell code for othertool should be included
-    assert "if command -v othertool >/dev/null 2>&1; then" not in content
-
-
-def test_write_shell_scripts_with_shell_code(
-    tmp_path: Path,
-    create_dummy_archive: Callable,
-) -> None:
-    """Test the write_shell_scripts function with tools that have shell_code."""
-    # Create a temp dir for the shell scripts
-    tools_dir = tmp_path / "tools"
-    tools_dir.mkdir(parents=True, exist_ok=True)
-
-    # Create tool configs with and without shell_code
-    tool_configs: dict[str, RawToolConfigDict] = {
-        "eza": {
-            "repo": "eza-community/eza",
-            "shell_code": "alias l='eza -lah --git'",
-        },
-        "bat": {
-            "repo": "sharkdp/bat",
-            # No shell_code
-        },
-        "starship": {
-            "repo": "starship/starship",
-            "shell_code": 'eval "$(starship init zsh)"',
-        },
-    }
-
-    def mock_download_file(
-        url: str,
-        destination: str,
-        github_token: str | None,  # noqa: ARG001
-        verbose: bool,  # noqa: ARG001
-    ) -> str:
-        name = url.split("/")[-1].split("-")[0]
-        create_dummy_archive(Path(destination), name)
-        return destination
-
-    config = Config.from_dict(
-        {
-            "tools_dir": str(tools_dir),
-            "tools": tool_configs,  # type: ignore[typeddict-item]
-        },
-    )
-    _set_mock_release_info(config, version="1.2.3")
-    with patch("dotbins.download.download_file", side_effect=mock_download_file):
-        config.sync_tools(generate_shell_scripts=True)
-
-    # Check that shell scripts were generated
-    shell_files = {
-        "bash": "bash.sh",
-        "zsh": "zsh.sh",
-        "fish": "fish.fish",
-        "nushell": "nushell.nu",
-    }
-
-    for shell, filename in shell_files.items():
-        shell_script_path = tools_dir / "shell" / filename
-        assert shell_script_path.exists(), f"Shell script for {shell} not created"
-
-        # Read the shell script content
-        content = shell_script_path.read_text()
-
-        # Test different syntax for different shells
-        if shell in ("bash", "zsh"):
-            # Check eza config is included
-            assert "if command -v eza >/dev/null 2>&1; then" in content
             assert "alias l='eza -lah --git'" in content
-
-            # Check starship config is included
-            assert "if command -v starship >/dev/null 2>&1; then" in content
             assert 'eval "$(starship init zsh)"' in content
 
-            # Check bat has no config
-            assert "if command -v bat >/dev/null 2>&1; then" not in content
-
-        elif shell == "fish":
-            # Check eza config is included with fish syntax
-            assert "if command -v eza >/dev/null 2>&1" in content
-            assert "alias l='eza -lah --git'" in content
-
-            # Check starship config is included
-            assert "if command -v starship >/dev/null 2>&1" in content
-            assert 'eval "$(starship init zsh)"' in content
-
-            # Check bat has no config
-            assert "if command -v bat >/dev/null 2>&1" not in content
-
-        elif shell == "nushell":
-            # Check eza config is included with nushell syntax
-            assert "if (which eza) != null {" in content
-            assert "alias l='eza -lah --git'" in content
-
-            # Check starship config is included
-            assert "if (which starship) != null {" in content
-            assert 'eval "$(starship init zsh)"' in content
-
-            # Check bat has no config
+            # Check tool without shell_code has no block
             assert "if (which bat) != null {" not in content
