@@ -47,6 +47,7 @@ See this example `.dotbins` repository: [basnijholt/.dotbins](https://github.com
 - [:bulb: Examples](#bulb-examples)
 - [:books: Examples with 50+ Tools](#books-examples-with-50-tools)
 - [:computer: Shell Integration](#computer-shell-integration)
+  - [Tool-Specific Shell Configuration](#tool-specific-shell-configuration)
 - [:heart: Support and Contributions](#heart-support-and-contributions)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
