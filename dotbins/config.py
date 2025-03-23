@@ -7,7 +7,7 @@ import re
 import shutil
 import sys
 from dataclasses import dataclass, field
-from functools import cached_property
+from functools import cached_property, partial
 from pathlib import Path
 from typing import TypedDict
 
@@ -20,9 +20,10 @@ from .readme import write_readme_file
 from .summary import UpdateSummary, display_update_summary
 from .utils import (
     current_platform,
-    fetch_releases_in_parallel,
+    execute_in_parallel,
     github_url_to_raw_url,
     humanize_time_ago,
+    latest_release_info,
     log,
     replace_home_in_path,
     write_shell_scripts,
@@ -35,18 +36,28 @@ else:  # pragma: no cover
     from typing_extensions import Required
 
 DEFAULT_TOOLS_DIR = "~/.dotbins"
-DEFAULT_PLATFORMS = {
-    "linux": ["amd64", "arm64"],
-    "macos": ["arm64"],
-}
+
+
+def _default_platforms() -> dict[str, list[str]]:
+    platform, arch = current_platform()
+    return {platform: [arch]}
 
 
 @dataclass
 class Config:
-    """Overall configuration for dotbins."""
+    """Main configuration for managing CLI tool binaries.
+
+    This class represents the overall configuration for dotbins, including:
+    - The tools directory where binaries will be stored
+    - Supported platforms and architectures
+    - Tool definitions and their settings
+
+    The configuration is typically loaded from a YAML file, with tools
+    organized by platform and architecture.
+    """
 
     tools_dir: Path = field(default=Path(os.path.expanduser(DEFAULT_TOOLS_DIR)))
-    platforms: dict[str, list[str]] = field(default_factory=lambda: DEFAULT_PLATFORMS)
+    platforms: dict[str, list[str]] = field(default_factory=_default_platforms)
     tools: dict[str, ToolConfig] = field(default_factory=dict)
     config_path: Path | None = field(default=None, init=False)
     _bin_dir: Path | None = field(default=None, init=False)
@@ -54,7 +65,20 @@ class Config:
     _latest_releases: dict | None = field(default=None, init=False)
 
     def bin_dir(self, platform: str, arch: str, *, create: bool = False) -> Path:
-        """Return the bin directory for a given platform and architecture."""
+        """Return the bin directory path for a specific platform and architecture.
+
+        This method constructs the appropriate bin directory path following the
+        structure: {tools_dir}/{platform}/{arch}/bin
+
+        Args:
+            platform: The platform name (e.g., "linux", "macos")
+            arch: The architecture name (e.g., "amd64", "arm64")
+            create: If True, ensure the directory exists by creating it if necessary
+
+        Returns:
+            The Path object pointing to the bin directory
+
+        """
         bin_dir = (
             self.tools_dir / platform / arch / "bin" if self._bin_dir is None else self._bin_dir
         )
@@ -71,11 +95,14 @@ class Config:
         """Set the latest releases for all tools."""
         if tools is None:
             tools = list(self.tools)
-        cfgs = [cfg for tool in tools if (cfg := self.tools[tool])._latest_release is None]
-        repos = [cfg.repo for cfg in cfgs]
-        releases = fetch_releases_in_parallel(repos, github_token, verbose)
-        for cfg, release in zip(cfgs, releases):
-            cfg._latest_release = release
+        tool_configs = [self.tools[tool] for tool in tools]
+        fetch = partial(
+            _fetch_release,
+            update_summary=self._update_summary,
+            verbose=verbose,
+            github_token=github_token,
+        )
+        execute_in_parallel(tool_configs, fetch, max_workers=16)
 
     @cached_property
     def version_store(self) -> VersionStore:
@@ -85,7 +112,7 @@ class Config:
     def validate(self) -> None:
         """Check for missing repos, unknown platforms, etc."""
         for tool_name, tool_config in self.tools.items():
-            _validate_tool_config(self.platforms, tool_name, tool_config)
+            _validate_tool_config(tool_name, tool_config)
 
     @classmethod
     def from_file(cls, config_path: str | Path | None = None) -> Config:
@@ -124,8 +151,8 @@ class Config:
         if write_file:
             write_readme_file(self, verbose=verbose)
 
-    def update_tools(
-        self: Config,
+    def sync_tools(
+        self,
         tools: list[str] | None = None,
         platform: str | None = None,
         architecture: str | None = None,
@@ -135,36 +162,54 @@ class Config:
         copy_config_file: bool = False,
         github_token: str | None = None,
         verbose: bool = False,
+        generate_shell_scripts: bool = True,
     ) -> None:
-        """Update tools.
+        """Install and update tools to their latest versions.
+
+        This is the core functionality of dotbins. It handles:
+        1. First-time installation of tools
+        2. Updating existing tools to their latest versions
+        3. Organizing binaries by platform and architecture
+
+        The process:
+        - Fetches the latest releases from GitHub for each tool
+        - Determines which tools need to be installed or updated
+        - Downloads and extracts binaries for each platform/architecture
+        - Makes binaries executable and tracks their versions
+        - Optionally generates documentation and shell integration
 
         Args:
-            tools: List of tools to update.
-            platform: Platform to update, if not provided, all platforms will be updated.
-            architecture: Architecture to update, if not provided, all architectures will be updated.
-            current: Whether to update only the current platform and architecture. Overrides platform and architecture.
-            force: Whether to force update.
-            generate_readme: Whether to generate a README.md file with tool information.
-            copy_config_file: Whether to write the config to the tools directory.
-            github_token: GitHub token for better rate limiting.
-            verbose: Whether to print verbose output.
+            tools: Specific tools to process (None = all tools in config)
+            platform: Only process tools for this platform (None = all platforms)
+            architecture: Only process tools for this architecture (None = all architectures)
+            current: If True, only process tools for current platform/architecture
+            force: If True, reinstall tools even if already up to date
+            generate_readme: If True, create or update README.md with tool info
+            copy_config_file: If True, copy config file to tools directory
+            github_token: GitHub API token for authentication (helps with rate limits)
+            verbose: If True, show detailed logs during the process
+            generate_shell_scripts: If True, generate shell scripts for the tools
 
         """
+        if not self.tools:
+            log("No tools configured", "error")
+            return
+
         if github_token is None and "GITHUB_TOKEN" in os.environ:  # pragma: no cover
             log("Using GitHub token for authentication", "info", "🔑")
             github_token = os.environ["GITHUB_TOKEN"]
 
-        tools_to_update = _tools_to_update(self, tools)
-        self.set_latest_releases(tools_to_update, github_token, verbose)
-        platforms_to_update, architecture = _platforms_and_archs_to_update(
+        tools_to_sync = _tools_to_sync(self, tools)
+        self.set_latest_releases(tools_to_sync, github_token, verbose)
+        platforms_to_sync, architecture = _platforms_and_archs_to_sync(
             platform,
             architecture,
             current,
         )
         download_tasks = prepare_download_tasks(
             self,
-            tools_to_update,
-            platforms_to_update,
+            tools_to_sync,
+            platforms_to_sync,
             architecture,
             force,
             verbose,
@@ -184,6 +229,8 @@ class Config:
 
         if generate_readme:
             self.generate_readme(verbose=verbose)
+        if generate_shell_scripts:
+            self.generate_shell_scripts(print_shell_setup=False)
         _maybe_copy_config_file(copy_config_file, self.config_path, self.tools_dir)
 
     def generate_shell_scripts(self: Config, print_shell_setup: bool = True) -> None:
@@ -192,7 +239,7 @@ class Config:
         Creates shell scripts in the tools_dir/shell directory that users
         can source in their shell configuration files.
         """
-        write_shell_scripts(self.tools_dir, print_shell_setup)
+        write_shell_scripts(self.tools_dir, self.tools, print_shell_setup)
 
 
 def _maybe_copy_config_file(
@@ -217,7 +264,7 @@ def _maybe_copy_config_file(
     shutil.copy(config_path, tools_config_path)
 
 
-def _platforms_and_archs_to_update(
+def _platforms_and_archs_to_sync(
     platform: str | None,
     architecture: str | None,
     current: bool,
@@ -230,7 +277,7 @@ def _platforms_and_archs_to_update(
     return platforms_to_update, architecture
 
 
-def _tools_to_update(config: Config, tools: list[str] | None) -> list[str] | None:
+def _tools_to_sync(config: Config, tools: list[str] | None) -> list[str] | None:
     if tools:
         for tool in tools:
             if tool not in config.tools:
@@ -252,6 +299,7 @@ class ToolConfig:
     asset_patterns: dict[str, dict[str, str | None]] = field(default_factory=dict)
     platform_map: dict[str, str] = field(default_factory=dict)
     arch_map: dict[str, str] = field(default_factory=dict)
+    shell_code: str | dict[str, str] | None = None
     _latest_release: dict | None = field(default=None, init=False)
 
     def bin_spec(self, arch: str, platform: str) -> BinSpec:
@@ -320,7 +368,7 @@ class BinSpec:
             log(
                 f"[b]{self.tool_config.tool_name} v{self.version}[/] for"
                 f" [b]{self.platform}/{self.arch}[/] is already up to date"
-                f" (installed [b]{dt}[/b] ago) use --force to re-download.",
+                f" (installed [b]{dt}[/] ago) use --force to re-download.",
                 "success",
             )
             return True
@@ -345,6 +393,7 @@ class RawToolConfigDict(TypedDict, total=False):
     binary_name: str | list[str]  # Name(s) of the binary file(s)
     binary_path: str | list[str]  # Path(s) to binary within archive
     asset_patterns: str | dict[str, str] | dict[str, dict[str, str | None]]
+    shell_code: str | dict[str, str] | None  # Shell code to configure the tool
 
 
 class _AssetDict(TypedDict):
@@ -365,7 +414,7 @@ def build_tool_config(
     or normalization that used to happen inside the constructor.
     """
     if not platforms:
-        platforms = DEFAULT_PLATFORMS
+        platforms = _default_platforms()
 
     # Safely grab data from raw_data (or set default if missing).
     repo = raw_data.get("repo") or ""
@@ -382,7 +431,7 @@ def build_tool_config(
 
     # Normalize asset patterns to dict[platform][arch].
     raw_patterns = raw_data.get("asset_patterns")
-    asset_patterns = _normalize_asset_patterns(raw_patterns, platforms)
+    asset_patterns = _normalize_asset_patterns(tool_name, raw_patterns, platforms)
 
     # Build our final data-class object
     return ToolConfig(
@@ -394,6 +443,7 @@ def build_tool_config(
         asset_patterns=asset_patterns,
         platform_map=platform_map,
         arch_map=arch_map,
+        shell_code=raw_data.get("shell_code"),
     )
 
 
@@ -423,7 +473,7 @@ def config_from_file(config_path: str | Path | None = None) -> Config:
 
 def _config_from_dict(data: RawConfigDict) -> Config:
     tools_dir = data.get("tools_dir", DEFAULT_TOOLS_DIR)
-    platforms = data.get("platforms", DEFAULT_PLATFORMS)
+    platforms = data.get("platforms", _default_platforms())
     raw_tools = data.get("tools", {})
 
     tools_dir_path = Path(os.path.expanduser(tools_dir))
@@ -460,7 +510,8 @@ def config_from_url(config_url: str) -> Config:
         sys.exit(1)
 
 
-def _normalize_asset_patterns(
+def _normalize_asset_patterns(  # noqa: PLR0912
+    tool_name: str,
     patterns: str | dict[str, str] | dict[str, dict[str, str | None]] | None,
     platforms: dict[str, list[str]],
 ) -> dict[str, dict[str, str | None]]:
@@ -488,6 +539,10 @@ def _normalize_asset_patterns(
         for platform, p_val in patterns.items():
             # Skip unknown platforms
             if platform not in normalized:
+                log(
+                    f"Tool [b]{tool_name}[/]: [b]'asset_patterns'[/] uses unknown platform [b]'{platform}'[/]",
+                    "error",
+                )
                 continue
 
             # If p_val is a single string, apply to all arch
@@ -499,6 +554,11 @@ def _normalize_asset_patterns(
                 for arch, pattern_str in p_val.items():
                     if arch in normalized[platform]:
                         normalized[platform][arch] = pattern_str
+                    else:
+                        log(
+                            f"Tool [b]{tool_name}[/]: [b]'asset_patterns'[/] uses unknown arch [b]'{arch}'[/]",
+                            "error",
+                        )
     return normalized
 
 
@@ -535,30 +595,17 @@ def _ensure_list(value: str | list[str]) -> list[str]:
     return [value]
 
 
-def _validate_tool_config(
-    platforms: dict[str, list[str]],
-    tool_name: str,
-    tool_config: ToolConfig,
-) -> None:
+def _validate_tool_config(tool_name: str, tool_config: ToolConfig) -> None:
     # Basic checks
     if not tool_config.repo:
-        log(f"Tool {tool_name} is missing required field 'repo'", "error")
+        log(f"Tool [b]{tool_name}[/] is missing required field [b]'repo'[/]", "error")
 
     # If binary lists differ in length, log an error
     if len(tool_config.binary_name) != len(tool_config.binary_path) and tool_config.binary_path:
         log(
-            f"Tool {tool_name}: 'binary_name' and 'binary_path' must have the same length if both are specified as lists.",
+            f"Tool [b]{tool_name}[/]: [b]'binary_name'[/] and [b]'binary_path'[/] must have the same length if both are specified as lists.",
             "error",
         )
-
-    # Check for unknown platforms/arch in asset_patterns
-    for platform in tool_config.asset_patterns:
-        if platform not in platforms:
-            log(
-                f"Tool {tool_name}: 'asset_patterns' uses unknown platform '{platform}'",
-                "error",
-            )
-            continue
 
 
 def _maybe_asset_pattern(
@@ -573,7 +620,7 @@ def _maybe_asset_pattern(
     search_pattern = tool_config.asset_patterns[platform][arch]
     if search_pattern is None:
         log(
-            f"No [b]asset_pattern[/] provided for [b]{platform}/{arch}[/b]",
+            f"No [b]asset_pattern[/] provided for [b]{platform}/{arch}[/]",
             "info",
             "ℹ️",  # noqa: RUF001
         )
@@ -596,7 +643,7 @@ def _auto_detect_asset(
     assets: list[_AssetDict],
 ) -> _AssetDict | None:
     """Auto-detect an asset for the tool."""
-    log(f"Auto-detecting asset for [b]{platform}/{arch}[/b]", "info", "🔍")
+    log(f"Auto-detecting asset for [b]{platform}/{arch}[/]", "info", "🔍")
     detect_fn = create_system_detector(platform, arch)
     asset_names = [x["name"] for x in assets]
     asset_name, candidates, err = detect_fn(asset_names)
@@ -627,3 +674,26 @@ def _find_matching_asset(
             return asset
     log(f"No asset matching '{asset_pattern}' found in {assets}", "warning")
     return None
+
+
+def _fetch_release(
+    tool_config: ToolConfig,
+    update_summary: UpdateSummary,
+    verbose: bool,
+    github_token: str | None = None,
+) -> None:
+    if tool_config._latest_release is not None:
+        return
+    try:
+        latest_release = latest_release_info(tool_config.repo, github_token)
+        tool_config._latest_release = latest_release
+    except Exception as e:
+        msg = f"Failed to fetch latest release for {tool_config.repo}: {e}"
+        update_summary.add_failed_tool(
+            tool_config.tool_name,
+            "Any",
+            "Any",
+            version="Unknown",
+            reason=msg,
+        )
+        log(msg, "error", print_exception=verbose)

@@ -169,11 +169,11 @@ def _detect_system(os_obj: _OS, arch: _Arch) -> DetectFunc:
             return matches[0], None, None
         if len(matches) > 1:
             return "", matches, f"{len(matches)} matches found"
-        if len(candidates) == 1:
+        if len(candidates) == 1:  # TODO(Bas): seems wrong?  # noqa: FIX002, TD003
             return candidates[0], None, None
         if len(candidates) > 1:
             return ("", candidates, f"{len(candidates)} candidates found (unsure architecture)")
-        if len(all_assets) == 1:
+        if len(all_assets) == 1:  # TODO(Bas): seems wrong?  # noqa: FIX002, TD003
             return all_assets[0], None, None
 
         return "", all_assets, "no candidates found"

@@ -127,7 +127,7 @@ def _copy_binary_to_destination(
     dest_path = destination_dir / binary_name
     shutil.copy2(source_path, dest_path)
     dest_path.chmod(dest_path.stat().st_mode | 0o755)
-    log(f"Copied binary to [b]{replace_home_in_path(dest_path, '~')}[/b]", "success")
+    log(f"Copied binary to [b]{replace_home_in_path(dest_path, '~')}[/]", "success")
 
 
 def _replace_variables_in_path(path: str, version: str, arch: str, platform: str) -> str:
@@ -185,6 +185,9 @@ def _prepare_download_task(
     """Prepare a download task, checking if update is needed based on version."""
     try:
         tool_config = config.tools[tool_name]
+        if tool_config._latest_release is None:
+            # Means we failed to fetch the release info
+            return None
         bin_spec = tool_config.bin_spec(arch, platform)
         if bin_spec.skip_download(config, force):
             config._update_summary.add_skipped_tool(
@@ -232,21 +235,21 @@ def _prepare_download_task(
 
 def prepare_download_tasks(
     config: Config,
-    tools_to_update: list[str] | None,
-    platforms_to_update: list[str] | None,
+    tools_to_sync: list[str] | None,
+    platforms_to_sync: list[str] | None,
     architecture: str | None,
     force: bool,
     verbose: bool,
 ) -> list[_DownloadTask]:
     """Prepare download tasks for all tools and platforms."""
     download_tasks = []
-    if tools_to_update is None:
-        tools_to_update = list(config.tools)
-    if platforms_to_update is None:
-        platforms_to_update = list(config.platforms)
+    if tools_to_sync is None:
+        tools_to_sync = list(config.tools)
+    if platforms_to_sync is None:
+        platforms_to_sync = list(config.platforms)
 
-    for tool_name in tools_to_update:
-        for platform in platforms_to_update:
+    for tool_name in tools_to_sync:
+        for platform in platforms_to_sync:
             if platform not in config.platforms:
                 config._update_summary.add_skipped_tool(
                     tool_name,
@@ -286,7 +289,7 @@ def _download_task(
     """Download a file for a DownloadTask."""
     try:
         log(
-            f"Downloading [b]{task.asset_name}[/b] for [b]{task.tool_name}[/b] ([b]{task.platform}/{task.arch}[/b])...",
+            f"Downloading [b]{task.asset_name}[/] for [b]{task.tool_name}[/] ([b]{task.platform}/{task.arch}[/])...",
             "info",
             "📥",
         )
@@ -338,7 +341,7 @@ def _process_downloaded_task(
         if extract_binary is None:
             extract_binary = auto_detect_extract_binary(str(task.temp_path))
             log(
-                f"Auto-detected [b]extract_binary[/] for [b]{task.tool_name}[/b]: {extract_binary}",
+                f"Auto-detected [b]extract_binary[/] for [b]{task.tool_name}[/]: {extract_binary}",
                 "info",
                 "🔍",
             )

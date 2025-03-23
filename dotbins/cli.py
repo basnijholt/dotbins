@@ -15,13 +15,16 @@ from .utils import current_platform, log, replace_home_in_path
 
 
 def _list_tools(config: Config) -> None:
-    """List available tools."""
+    """List all tools defined in the configuration file.
+
+    Prints each tool name along with its GitHub repository.
+    """
     log("Available tools:", "info", "🔧")
     for tool, tool_config in config.tools.items():
         log(f"  {tool} (from {tool_config.repo})", "success")
 
 
-def _update_tools(
+def _sync_tools(
     config: Config,
     tools: list[str],
     platform: str | None,
@@ -34,8 +37,26 @@ def _update_tools(
     github_token: str | None,
     verbose: bool,
 ) -> None:
-    """Update tools based on command line arguments."""
-    config.update_tools(
+    """Install and update tools based on command line arguments.
+
+    This function handles both installing tools for the first time and updating
+    existing tools to their latest versions according to user-specified options.
+
+    Args:
+        config: Configuration containing all tool definitions
+        tools: List of specific tools to process (all tools if None)
+        platform: Filter to a specific platform (e.g., "linux", "macos")
+        architecture: Filter to a specific architecture (e.g., "amd64", "arm64")
+        current: Only process tools for the current platform/architecture
+        force: Force reinstall even if already up to date
+        generate_readme: Whether to generate a README.md file
+        copy_config_file: Whether to copy the config file to tools directory
+        generate_shell_scripts: Whether to generate shell integration scripts
+        github_token: GitHub token for API authentication
+        verbose: Whether to show detailed logs
+
+    """
+    config.sync_tools(
         tools,
         platform,
         architecture,
@@ -52,7 +73,11 @@ def _update_tools(
 
 
 def _initialize(config: Config) -> None:
-    """Initialize the tools directory structure."""
+    """Initialize the tools directory structure and shell integration.
+
+    Creates the necessary directories for all platforms and architectures,
+    generates shell integration scripts, and creates a README.md file.
+    """
     for platform, architectures in config.platforms.items():
         for arch in architectures:
             config.bin_dir(platform, arch, create=True)
@@ -63,15 +88,16 @@ def _initialize(config: Config) -> None:
 
 
 def _get_tool(source: str, dest_dir: str | Path, name: str | None = None) -> None:
-    """Get a specific tool from a GitHub repository and install it directly.
+    """Get a specific tool and install it directly to a location.
 
-    This command bypasses the configuration file and installs the tool directly
-    to the specified directory.
+    This command bypasses the standard configuration and tools directory,
+    downloading a specific tool directly to the specified directory.
+    Useful for quick one-off installations.
 
     Args:
-        source: GitHub repository in the format 'owner/repo' or URL to a YAML configuration file
-        dest_dir: Directory to install the binary to
-        name: Name to use for the tool (if different from repo name)
+        source: GitHub repository in the format 'owner/repo' or URL to a YAML configuration
+        dest_dir: Directory to install the binary to (e.g., ~/.local/bin)
+        name: Optional name to use for the binary (defaults to repo name)
 
     """
     platform, arch = current_platform()
@@ -87,13 +113,13 @@ def _get_tool(source: str, dest_dir: str | Path, name: str | None = None) -> Non
             tools={tool_name: build_tool_config(tool_name, {"repo": source})},
         )
     config._bin_dir = dest_dir_path
-    config.update_tools(current=True, force=True, generate_readme=False, copy_config_file=False)
+    config.sync_tools(current=True, force=True, generate_readme=False, copy_config_file=False)
 
 
 def create_parser() -> argparse.ArgumentParser:
     """Create command-line argument parser."""
     parser = argparse.ArgumentParser(
-        description="dotbins - Manage CLI tool binaries in your dotfiles repository",
+        description="dotbins - Download, manage, and update CLI tool binaries in your dotfiles repository",
         formatter_class=RichHelpFormatter,
     )
 
@@ -101,17 +127,17 @@ def create_parser() -> argparse.ArgumentParser:
         "-v",
         "--verbose",
         action="store_true",
-        help="Enable verbose output",
+        help="Enable verbose output with detailed logs and error messages",
     )
     parser.add_argument(
         "--tools-dir",
         type=str,
-        help="Tools directory",
+        help="Tools directory to use (overrides the value in the config file)",
     )
     parser.add_argument(
         "--config-file",
         type=str,
-        help="Path to configuration file",
+        help="Path to configuration file (default: looks in standard locations)",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")
@@ -119,104 +145,104 @@ def create_parser() -> argparse.ArgumentParser:
     # list command
     _list_parser = subparsers.add_parser(
         "list",
-        help="List available tools",
+        help="List all available tools defined in your configuration",
     )
 
-    # update command
-    update_parser = subparsers.add_parser(
-        "update",
-        help="Update tools",
+    # sync command
+    sync_parser = subparsers.add_parser(
+        "sync",
+        help="Install and update tools to their latest versions",
         formatter_class=RichHelpFormatter,
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "tools",
         nargs="*",
-        help="Tools to update (all if not specified)",
+        help="Tools to install or update (if not specified, all tools will be processed)",
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "-p",
         "--platform",
-        help="Only update for specific platform",
+        help="Only install or update for specific platform (e.g., linux, macos)",
         type=str,
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "-a",
         "--architecture",
-        help="Only update for specific architecture",
+        help="Only install or update for specific architecture (e.g., amd64, arm64)",
         type=str,
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "-f",
         "--force",
         action="store_true",
-        help="Force update even if binary exists",
+        help="Force install or update even if binary exists and is up to date",
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "-c",
         "--current",
         action="store_true",
-        help="Only update for the current platform and architecture",
+        help="Only install or update for the current platform and architecture (convenient shorthand)",
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "--no-shell-scripts",
         action="store_true",
-        help="Skip generating shell scripts that can be sourced in shell configuration files",
+        help="Skip generating shell scripts that add the tools to your PATH",
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "--no-readme",
         action="store_true",
-        help="Skip generating README.md file",
+        help="Skip generating README.md file in the tools directory",
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "--no-copy-config-file",
         action="store_true",
-        help="Skip writing the config file to the tools directory",
+        help="Skip copying the config file to the tools directory",
     )
-    update_parser.add_argument(
+    sync_parser.add_argument(
         "--github-token",
         type=str,
-        help="GitHub token to use for private repositories",
+        help="GitHub token to use for API requests (helps with rate limits and private repos)",
     )
 
     # init command
     _init_parser = subparsers.add_parser(
         "init",
-        help="Initialize directory structure",
+        help="Initialize directory structure and generate shell integration scripts",
     )
 
     # version command
     _version_parser = subparsers.add_parser(
         "version",
-        help="Print version information",
+        help="Print dotbins version information",
     )
 
     # versions command
     _versions_parser = subparsers.add_parser(
         "versions",
-        help="Show installed tool versions and their last update times",
+        help="Show installed tool versions and when they were last updated",
     )
 
     # Add readme command
     readme_parser = subparsers.add_parser(
         "readme",
-        help="Generate README.md file with tool information",
+        help="Generate README.md file with information about installed tools",
         formatter_class=RichHelpFormatter,
     )
     readme_parser.add_argument(
         "--no-print",
         action="store_true",
-        help="Don't print the README content to the console",
+        help="Don't print the README content to the console (only write to file)",
     )
     readme_parser.add_argument(
         "--no-file",
         action="store_true",
-        help="Don't write the README to a file",
+        help="Don't write the README to a file (only print to console)",
     )
 
     # Add get command
     get_parser = subparsers.add_parser(
         "get",
-        help="Download and install a tool directly from GitHub or from a remote configuration",
+        help="Download and install a tool directly without configuration file",
         formatter_class=RichHelpFormatter,
     )
     get_parser.add_argument(
@@ -230,7 +256,8 @@ def create_parser() -> argparse.ArgumentParser:
     )
     get_parser.add_argument(
         "--name",
-        help="Name to use for the tool when installing from a repository (ignored for config URLs)",
+        help="Name to use for the binary (defaults to repository name if not specified)"
+        " and is ignored if source is a URL",
     )
 
     return parser
@@ -260,8 +287,8 @@ def main() -> None:  # pragma: no cover
             _initialize(config)
         elif args.command == "list":
             _list_tools(config)
-        elif args.command == "update":
-            _update_tools(
+        elif args.command == "sync":
+            _sync_tools(
                 config,
                 args.tools,
                 args.platform,

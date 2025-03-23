@@ -15,14 +15,16 @@ import textwrap
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Literal, TypeVar
 
 import requests
 from rich.console import Console
 
 console = Console()
+
+if TYPE_CHECKING:
+    from .config import ToolConfig
 
 
 def _maybe_github_token_header(github_token: str | None) -> dict[str, str]:  # pragma: no cover
@@ -30,7 +32,7 @@ def _maybe_github_token_header(github_token: str | None) -> dict[str, str]:  # p
 
 
 @functools.cache
-def latest_release_info(repo: str, github_token: str | None) -> dict:  # pragma: no cover
+def latest_release_info(repo: str, github_token: str | None) -> dict | None:
     """Fetch release information from GitHub for a single repository."""
     url = f"https://api.github.com/repos/{repo}/releases/latest"
     log(f"Fetching latest release from {url}", "info", "🔍")
@@ -42,25 +44,6 @@ def latest_release_info(repo: str, github_token: str | None) -> dict:  # pragma:
     except requests.RequestException as e:
         msg = f"Failed to fetch latest release for {repo}: {e}"
         raise RuntimeError(msg) from e
-
-
-def _try_fetch_release_info(repo: str, github_token: str | None, verbose: bool) -> dict | None:
-    """Try to fetch release information from GitHub for a single repository."""
-    try:
-        return latest_release_info(repo, github_token)
-    except Exception:  # pragma: no cover
-        log(f"Failed to fetch latest release for {repo}", "error", print_exception=verbose)
-        return None
-
-
-def fetch_releases_in_parallel(
-    repos: list[str],
-    github_token: str | None = None,
-    verbose: bool = False,
-) -> list[dict | None]:
-    """Fetch release information for multiple repositories in parallel."""
-    func = partial(_try_fetch_release_info, github_token=github_token, verbose=verbose)
-    return execute_in_parallel(repos, func, 16)
 
 
 def download_file(url: str, destination: str, github_token: str | None, verbose: bool) -> str:
@@ -114,11 +97,14 @@ def replace_home_in_path(path: Path, home: str = "$HOME") -> str:
 def _format_shell_instructions(
     tools_dir: Path,
     shell: Literal["bash", "zsh", "fish", "nushell"],
+    tools: dict[str, ToolConfig],
 ) -> str:
     """Format shell instructions for a given shell."""
     tools_dir_str = replace_home_in_path(tools_dir)
+
+    # Base script that sets up PATH
     if shell in {"bash", "zsh"}:
-        return textwrap.dedent(
+        base_script = textwrap.dedent(
             f"""\
             # dotbins - Add platform-specific binaries to PATH
             _os=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -131,9 +117,14 @@ def _format_shell_instructions(
             export PATH="{tools_dir_str}/$_os/$_arch/bin:$PATH"
             """,
         )
+        if_start = "if command -v {name} >/dev/null 2>&1; then"
+        if_end = "fi"
+        base_script += _add_shell_code_to_script(tools, shell, if_start, if_end)
+
+        return base_script
 
     if shell == "fish":
-        return textwrap.dedent(
+        base_script = textwrap.dedent(
             f"""\
             # dotbins - Add platform-specific binaries to PATH
             set -l _os (uname -s | tr '[:upper:]' '[:lower:]')
@@ -147,24 +138,61 @@ def _format_shell_instructions(
             """,
         )
 
+        if_start = "if command -v {name} >/dev/null 2>&1"
+        if_end = "end"
+        base_script += _add_shell_code_to_script(tools, shell, if_start, if_end)
+        return base_script
+
     if shell == "nushell":
-        return "\n".join(
-            [
-                "# dotbins - Add platform-specific binaries to PATH",
-                "let _os = (sys).host.name | str downcase",
-                'let _os = if $_os == "darwin" { "macos" } else { $_os }',
-                "",
-                "let _arch = (sys).host.arch",
-                'let _arch = if $_arch == "x86_64" { "amd64" } else if $_arch in ["aarch64", "arm64"] { "arm64" } else { $_arch }',
-                "",
-                f'$env.PATH = ($env.PATH | prepend $"{tools_dir}/$_os/$_arch/bin")',
-            ],
-        )
+        script_lines = [
+            "# dotbins - Add platform-specific binaries to PATH",
+            "let _os = (sys).host.name | str downcase",
+            'let _os = if $_os == "darwin" { "macos" } else { $_os }',
+            "",
+            "let _arch = (sys).host.arch",
+            'let _arch = if $_arch == "x86_64" { "amd64" } else if $_arch in ["aarch64", "arm64"] { "arm64" } else { $_arch }',
+            "",
+            f'$env.PATH = ($env.PATH | prepend $"{tools_dir}/$_os/$_arch/bin")',
+        ]
+        base_script = "\n".join(script_lines)
+        if_start = "if (which {name}) != null {{"
+        if_end = "}"
+        base_script += _add_shell_code_to_script(tools, shell, if_start, if_end)
+        return base_script
     msg = f"Unsupported shell: {shell}"  # pragma: no cover
     raise ValueError(msg)  # pragma: no cover
 
 
-def write_shell_scripts(tools_dir: Path, print_shell_setup: bool = False) -> None:
+def _add_shell_code_to_script(
+    tools: dict[str, ToolConfig],
+    shell: Literal["bash", "zsh", "fish", "nushell"],
+    if_start: str,
+    if_end: str,
+) -> str:
+    lines = []
+    for name, config in tools.items():
+        shell_code = config.shell_code
+        if isinstance(shell_code, dict):
+            shell_code = shell_code.get(shell)
+        if shell_code:
+            config_lines = [
+                f"# Configuration for {name}",
+                if_start.format(name=name),
+                *[f"    {line}" for line in shell_code.strip().split("\n")],
+                if_end,
+                "",
+            ]
+            lines.extend(config_lines)
+    if lines:
+        return "\n# Tool-specific configurations\n" + "\n".join(lines)
+    return ""
+
+
+def write_shell_scripts(
+    tools_dir: Path,
+    tools: dict[str, ToolConfig],
+    print_shell_setup: bool = False,
+) -> None:
     """Generate shell script files for different shells.
 
     Creates a 'shell' directory in the tools_dir and writes script files
@@ -174,6 +202,7 @@ def write_shell_scripts(tools_dir: Path, print_shell_setup: bool = False) -> Non
     Args:
         tools_dir: The base directory where tools are installed
         print_shell_setup: Whether to print the shell setup instructions
+        tools: Dictionary of tool configurations with shell_code to include
 
     """
     # Create shell directory
@@ -189,7 +218,7 @@ def write_shell_scripts(tools_dir: Path, print_shell_setup: bool = False) -> Non
     }
 
     for shell, filename in shell_files.items():
-        script_content = _format_shell_instructions(tools_dir, shell)  # type: ignore[arg-type]
+        script_content = _format_shell_instructions(tools_dir, shell, tools)  # type: ignore[arg-type]
 
         if shell in ["bash", "zsh"]:
             script_content = f"#!/usr/bin/env {shell}\n{script_content}"
@@ -199,6 +228,7 @@ def write_shell_scripts(tools_dir: Path, print_shell_setup: bool = False) -> Non
             f.write(script_content + "\n")
 
         script_path.chmod(script_path.stat().st_mode | 0o755)
+
     tools_dir1 = replace_home_in_path(tools_dir, "~")
     log(f"Generated shell scripts in {tools_dir1}/shell/", "success", "📝")
     if print_shell_setup:
@@ -208,13 +238,6 @@ def write_shell_scripts(tools_dir: Path, print_shell_setup: bool = False) -> Non
         log(f"  Zsh:     source {tools_dir2}/shell/zsh.sh", "info", "👉")
         log(f"  Fish:    source {tools_dir2}/shell/fish.fish", "info", "👉")
         log(f"  Nushell: source {tools_dir2}/shell/nushell.nu", "info", "👉")
-
-
-def print_shell_setup(tools_dir: Path, shell: Literal["bash", "zsh", "fish", "nushell"]) -> None:
-    """Print shell setup instructions."""
-    instructions = _format_shell_instructions(tools_dir, shell)
-    log(f"\n# Add this to your {shell} configuration file (e.g., .bashrc, .zshrc):")
-    log(f"\n{instructions}")
 
 
 STYLE_EMOJI_MAP = {
@@ -382,8 +405,6 @@ def execute_in_parallel(
         List of results from process_func applied to each item
 
     """
-    if not items:
-        return []
     with ThreadPoolExecutor(max_workers=min(max_workers, len(items) or 1)) as ex:
         futures = ex.map(process_func, items)
         return list(futures)

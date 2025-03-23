@@ -68,11 +68,11 @@ def test_list_tools(
     assert "test/tool" in captured.out
 
 
-def test_update_tool(
+def test_sync_tool(
     tmp_path: Path,
     create_dummy_archive: Callable,
 ) -> None:
-    """Test updating a specific tool."""
+    """Test syncing a specific tool."""
     # Set up mock environment
     test_tool_config = build_tool_config(
         tool_name="test-tool",
@@ -84,6 +84,7 @@ def test_update_tool(
             "asset_patterns": "test-tool-{version}-{platform}_{arch}.tar.gz",
             "platform_map": {"macos": "darwin"},
         },
+        platforms={"linux": ["amd64"]},
     )
     test_tool_config._latest_release = {
         "tag_name": "v1.0.0",
@@ -112,9 +113,9 @@ def test_update_tool(
         create_dummy_archive(dest_path=Path(destination), binary_names="test-tool")
         return destination
 
-    # Directly call update_tools
+    # Directly call sync_tools
     with patch("dotbins.download.download_file", mock_download_file):
-        cli._update_tools(
+        cli._sync_tools(
             config,
             tools=["test-tool"],
             platform="linux",
@@ -142,18 +143,34 @@ def test_cli_no_command(capsys: pytest.CaptureFixture[str]) -> None:
     assert "Usage: dotbins" in captured.out
 
 
-def test_cli_unknown_tool() -> None:
-    """Test updating an unknown tool."""
-    with (
-        pytest.raises(SystemExit),
-        patch.object(sys, "argv", ["dotbins", "update", "unknown-tool"]),
-        patch.object(
-            Config,
-            "from_file",
-            return_value=Config(),
-        ),
-    ):
-        cli.main()
+def test_cli_unknown_tool(tmp_path: Path) -> None:
+    """Test syncing an unknown tool."""
+    platforms = {"linux": ["amd64"]}
+    config = Config(
+        tools_dir=tmp_path,
+        platforms=platforms,
+        tools={
+            "test-tool": build_tool_config(
+                tool_name="test-tool",
+                raw_data={"repo": "test/tool"},
+                platforms=platforms,
+            ),
+        },
+    )
+    with pytest.raises(SystemExit):
+        cli._sync_tools(
+            config,
+            tools=["unknown-tool"],
+            platform=None,
+            architecture=None,
+            current=False,
+            force=False,
+            generate_readme=True,
+            copy_config_file=True,
+            generate_shell_scripts=True,
+            github_token=None,
+            verbose=True,
+        )
 
 
 def test_cli_tools_dir_override(tmp_path: Path) -> None:
@@ -166,8 +183,8 @@ def test_cli_tools_dir_override(tmp_path: Path) -> None:
         **kwargs: Any,  # noqa: ARG001
     ) -> Config:
         return Config(
-            tools_dir=tmp_path / "default_tools",  # Default dir
-            platforms={"linux": ["amd64"]},  # Use new format
+            tools_dir=tmp_path / "default_tools",
+            platforms={"linux": ["amd64"]},
         )
 
     # Patch config loading
@@ -189,12 +206,12 @@ def test_cli_argument_parsing() -> None:
     args = parser.parse_args(["readme"])
     assert args.command == "readme"
 
-    # Test update with --no-readme
-    args = parser.parse_args(["update", "--no-readme"])
-    assert args.command == "update"
+    # Test sync with --no-readme
+    args = parser.parse_args(["sync", "--no-readme"])
+    assert args.command == "sync"
     assert args.no_readme is True
 
-    # Test update without --no-readme (default)
-    args = parser.parse_args(["update"])
-    assert args.command == "update"
+    # Test sync without --no-readme (default)
+    args = parser.parse_args(["sync"])
+    assert args.command == "sync"
     assert args.no_readme is False

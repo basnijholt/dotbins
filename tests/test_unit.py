@@ -6,7 +6,7 @@ import os
 import tarfile
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Literal
+from typing import TYPE_CHECKING, Callable
 from unittest.mock import patch
 
 import pytest
@@ -81,6 +81,7 @@ def test_find_asset() -> None:
                 },
             },
         },
+        platforms={"linux": ["amd64", "arm64"]},
     )
     tool_config._latest_release = {
         "tag_name": "v1.0.0",
@@ -264,19 +265,6 @@ def test_make_binaries_executable(tmp_path: Path) -> None:
     # Verify the binary is now executable - use platform-independent check
     mode = bin_file.stat().st_mode
     assert mode & 0o100 != 0, f"File should be executable, mode={mode:o}"
-
-
-@pytest.mark.parametrize("shell", ["bash", "zsh", "fish", "nushell"])
-def test_print_shell_setup(
-    capsys: pytest.CaptureFixture[str],
-    shell: Literal["bash", "zsh", "fish", "nushell"],
-) -> None:
-    """Test printing shell setup instructions."""
-    config = Config()
-    dotbins.utils.print_shell_setup(config.tools_dir, shell)
-    assert config.tools_dir == Path(os.path.expanduser("~/.dotbins"))
-    captured = capsys.readouterr()
-    assert f"Add this to your {shell} configuration file" in captured.out
 
 
 def test_download_tool_already_exists(requests_mock: Mocker, tmp_path: Path) -> None:
@@ -538,8 +526,12 @@ def test_build_tool_config_skips_unknown_platforms() -> None:
         },
     }
 
+    platforms = {
+        "linux": ["amd64", "arm64"],
+        "macos": ["arm64"],
+    }
     # Build the tool config
-    tool_config = build_tool_config(tool_name="tool", raw_data=raw_data)  # type: ignore[arg-type]
+    tool_config = build_tool_config(tool_name="tool", raw_data=raw_data, platforms=platforms)  # type: ignore[arg-type]
     assert tool_config.asset_patterns == {
         "linux": {
             "amd64": "tool-{version}-linux_{arch}.tar.gz",

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import os
+import tarfile
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, NoReturn
+from typing import TYPE_CHECKING, Any, Callable, NoReturn
 from unittest.mock import patch
 
 import pytest
@@ -15,6 +16,9 @@ import requests
 from dotbins.cli import _get_tool
 from dotbins.config import Config, RawConfigDict, RawToolConfigDict, _config_from_dict
 from dotbins.utils import current_platform, log
+
+if TYPE_CHECKING:
+    from requests_mock import Mocker
 
 
 def _create_mock_release_info(
@@ -96,10 +100,10 @@ def run_e2e_test(
         create_dummy_archive(Path(destination), tool_name)
         return destination
 
-    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
-        log("Running update_tools")
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        log("Running sync_tools")
         # Run the update
-        config.update_tools(
+        config.sync_tools(
             tools=filter_tools,
             platform=filter_platform,
             architecture=filter_arch,
@@ -280,12 +284,12 @@ def test_auto_detect_binary_and_asset_patterns(
         },
     ],
 )
-def test_e2e_update_tools(
+def test_e2e_sync_tools(
     tmp_path: Path,
     raw_config: RawConfigDict,
     create_dummy_archive: Callable,
 ) -> None:
-    """Shows an end-to-end test."""
+    """Test the end-to-end tool sync workflow with different configurations."""
     config = _config_from_dict(raw_config)
     config.tools_dir = tmp_path
     _set_mock_release_info(config, version="1.2.3")
@@ -303,21 +307,17 @@ def test_e2e_update_tools(
             create_dummy_archive(Path(destination), binary_names="otherbin")
         return destination
 
-    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
-        config.update_tools()
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools()
 
     verify_binaries_installed(config)
 
 
-def test_e2e_update_tools_skip_up_to_date(
+def test_e2e_sync_tools_skip_up_to_date(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Demonstrates a scenario where we have a single tool that is already up-to-date.
-
-    - We populate the VersionStore with the exact version returned by mocked GitHub releases.
-    - The `config.update_tools` call should skip downloading or extracting anything.
-    """
+    """Test that tools are skipped if they are already up to date."""
     raw_config: RawConfigDict = {
         "tools_dir": str(tmp_path),
         "platforms": {"linux": ["amd64"]},
@@ -351,8 +351,8 @@ def test_e2e_update_tools_skip_up_to_date(
         msg = "This should never be called"
         raise NotImplementedError(msg)
 
-    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
-        config.update_tools()
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools()
 
     # If everything is skipped, no new binary is downloaded,
     # and the existing version_store is unchanged.
@@ -365,16 +365,11 @@ def test_e2e_update_tools_skip_up_to_date(
     assert "--force to re-download" in out
 
 
-def test_e2e_update_tools_partial_skip_and_update(
+def test_e2e_sync_tools_partial_skip_and_update(
     tmp_path: Path,
     create_dummy_archive: Callable,
 ) -> None:
-    """Partial skip & update.
-
-    Demonstrates:
-    - 'mytool' is already up-to-date => skip
-    - 'othertool' is on an older version => must update.
-    """
+    """Test that some tools are skipped and others are updated."""
     raw_config: RawConfigDict = {
         "tools_dir": str(tmp_path),
         "platforms": {"linux": ["amd64"]},
@@ -429,8 +424,8 @@ def test_e2e_update_tools_partial_skip_and_update(
         create_dummy_archive(Path(destination), binary_names="otherbin")
         return destination
 
-    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
-        config.update_tools()
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools()
 
     # 'mytool' should remain at version 2.0.0, unchanged
     mytool_info = config.version_store.get_tool_info("mytool", "linux", "amd64")
@@ -451,13 +446,8 @@ def test_e2e_update_tools_partial_skip_and_update(
     assert config._update_summary.updated[0].version == "2.0.0"
 
 
-def test_e2e_update_tools_force_re_download(tmp_path: Path, create_dummy_archive: Callable) -> None:
-    """Force a re-download.
-
-    Scenario:
-    - 'mytool' is already up to date at version 1.2.3
-    - We specify `force=True` => it MUST redownload
-    """
+def test_e2e_sync_tools_force_re_download(tmp_path: Path, create_dummy_archive: Callable) -> None:
+    """Test that the --force flag forces re-download of up-to-date tools."""
     raw_config: RawConfigDict = {
         "tools_dir": str(tmp_path),
         "platforms": {"linux": ["amd64"]},
@@ -491,9 +481,9 @@ def test_e2e_update_tools_force_re_download(tmp_path: Path, create_dummy_archive
         create_dummy_archive(Path(destination), binary_names="mybinary")
         return destination
 
-    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
         # Force a re-download, even though we're "up to date"
-        config.update_tools(
+        config.sync_tools(
             tools=["mytool"],
             platform="linux",
             architecture="amd64",
@@ -512,12 +502,8 @@ def test_e2e_update_tools_force_re_download(tmp_path: Path, create_dummy_archive
     assert tool_info["updated_at"] != original_updated_at
 
 
-def test_e2e_update_tools_specific_platform(tmp_path: Path, create_dummy_archive: Callable) -> None:
-    """Update a specific platform.
-
-    Scenario: We have a config with 'linux' & 'macos', but only request updates for 'macos'
-    => Only macOS assets are fetched and placed in the correct bin dir.
-    """
+def test_e2e_sync_tools_specific_platform(tmp_path: Path, create_dummy_archive: Callable) -> None:
+    """Test syncing tools for a specific platform only."""
     raw_config: RawConfigDict = {
         "tools_dir": str(tmp_path),
         "platforms": {
@@ -558,9 +544,9 @@ def test_e2e_update_tools_specific_platform(tmp_path: Path, create_dummy_archive
         create_dummy_archive(Path(destination), binary_names="mybinary")
         return destination
 
-    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
         # Only update macOS => We expect only the macos_arm64 asset
-        config.update_tools(platform="macos")
+        config.sync_tools(platform="macos")
 
     # Should only have downloaded the macos_arm64 file
     assert len(downloaded_files) == 1
@@ -583,7 +569,10 @@ def test_get_tool_command(tmp_path: Path, create_dummy_archive: Callable) -> Non
     dest_dir.mkdir(parents=True, exist_ok=True)
     platform, arch = current_platform()
 
-    def mock_latest_release_info(repo: str, github_token: str | None) -> dict:  # noqa: ARG001
+    def mock_latest_release_info(
+        repo: str,  # noqa: ARG001
+        github_token: str | None,  # noqa: ARG001
+    ) -> dict:
         return {
             "tag_name": "v1.0.0",
             "assets": [
@@ -605,7 +594,7 @@ def test_get_tool_command(tmp_path: Path, create_dummy_archive: Callable) -> Non
 
     with (
         patch("dotbins.download.download_file", side_effect=mock_download_file),
-        patch("dotbins.utils.latest_release_info", side_effect=mock_latest_release_info),
+        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
     ):
         _get_tool(source="basnijholt/mytool", dest_dir=dest_dir)
 
@@ -656,7 +645,10 @@ def test_get_tool_command_with_remote_config(
         log(f"Mock HTTP GET for URL: {url}", "info")
         return MockResponse(yaml_content.encode("utf-8"))
 
-    def mock_latest_release_info(repo: str, github_token: str | None) -> dict:  # noqa: ARG001
+    def mock_latest_release_info(
+        repo: str,
+        github_token: str | None,  # noqa: ARG001
+    ) -> dict:
         log(f"Getting release info for repo: {repo}", "info")
         tool_name = repo.split("/")[-1]
         return {
@@ -684,7 +676,7 @@ def test_get_tool_command_with_remote_config(
     with (
         patch("dotbins.utils.requests.get", side_effect=mock_requests_get),
         patch("dotbins.download.download_file", side_effect=mock_download_file),
-        patch("dotbins.utils.latest_release_info", side_effect=mock_latest_release_info),
+        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
     ):
         _get_tool(source="https://example.com/config.yaml", dest_dir=dest_dir)
 
@@ -745,8 +737,8 @@ def test_copy_config_file(
         create_dummy_archive(Path(destination), binary_names=tool_name)
         return destination
 
-    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
-        config.update_tools(copy_config_file=True)
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools(copy_config_file=True)
 
     # Should have been copied to the tools directory
     assert (dest_dir / "dotbins.yaml").exists()
@@ -775,11 +767,11 @@ def test_update_nonexistent_platform(tmp_path: Path, capsys: pytest.CaptureFixtu
     config = Config.from_file(config_path)
     _set_mock_release_info(config, version="1.0.0")
 
-    config.update_tools(platform="windows")
+    config.sync_tools(platform="windows")
     captured = capsys.readouterr()
     assert "Skipping unknown platform: windows" in captured.out
 
-    config.update_tools(architecture="nonexistent")
+    config.sync_tools(architecture="nonexistent")
     captured = capsys.readouterr()
     assert "Skipping unknown architecture: nonexistent" in captured.out
 
@@ -826,9 +818,9 @@ def test_non_extract_with_multiple_binary_names(
         Path(destination).write_text("dummy binary content")
         return destination
 
-    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
         # Run the update which should fail for the multi-bin tool
-        config.update_tools()
+        config.sync_tools()
 
     # Capture the output
     captured = capsys.readouterr()
@@ -889,9 +881,9 @@ def test_non_extract_single_binary_copy(
         Path(destination).write_text("#!/bin/sh\necho 'Hello from tool-binary'")
         return destination
 
-    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
         # Run the update which should succeed for the single binary tool
-        config.update_tools()
+        config.sync_tools()
 
     # Capture the output
     captured = capsys.readouterr()
@@ -946,7 +938,7 @@ def test_error_preparing_download(
 
     # Use patch to inject our exception
     with patch("dotbins.config.BinSpec.matching_asset", mock_matching_asset):
-        config.update_tools(verbose=True)
+        config.sync_tools(verbose=True)
 
     # Capture the output
     captured = capsys.readouterr()
@@ -1018,8 +1010,8 @@ def test_binary_not_found_error_handling(
         create_dummy_archive(Path(destination), binary_names="different-binary-name")
         return destination
 
-    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
-        config.update_tools()
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools()
 
     # Capture the output
     captured = capsys.readouterr()
@@ -1090,8 +1082,8 @@ def test_auto_detect_binary_paths_error(
         create_dummy_archive(Path(destination), binary_names="different-binary-name")
         return destination
 
-    with (patch("dotbins.download.download_file", side_effect=mock_download_file),):
-        config.update_tools()
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools()
 
     # Capture the output
     captured = capsys.readouterr()
@@ -1152,7 +1144,7 @@ def test_download_file_request_exception(
         raise requests.RequestException(err_msg)
 
     with (patch("dotbins.utils.requests.get", side_effect=mock_requests_get),):
-        config.update_tools(verbose=False)  # Turn off verbose to reduce processing
+        config.sync_tools(verbose=False)  # Turn off verbose to reduce processing
 
     # Capture the output
     captured = capsys.readouterr()
@@ -1183,3 +1175,351 @@ def test_download_file_request_exception(
     # Verify version store doesn't have an entry for this tool
     tool_info = config.version_store.get_tool_info("download-error-tool", "linux", "amd64")
     assert tool_info is None
+
+
+def test_no_matching_asset(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test error handling when no matching asset is found."""
+    config = Config.from_dict(
+        {
+            "tools_dir": str(tmp_path),
+            "platforms": {"linux": ["amd64"]},
+            "tools": {
+                "mytool": {
+                    "repo": "fakeuser/mytool",
+                    "asset_patterns": "mytool-{version}-linux_{arch}.tar.gz",
+                },
+            },
+        },
+    )
+    config.tools["mytool"]._latest_release = {"tag_name": "v1.0.0", "assets": []}
+
+    config.sync_tools()
+
+    # Capture the output
+    captured = capsys.readouterr()
+
+    # Verify error message in the log output
+    assert "No matching asset found" in captured.out
+
+
+def test_no_tools(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Test syncing with no tools."""
+    config = Config(tools_dir=tmp_path)
+    config.sync_tools()
+
+    captured = capsys.readouterr()
+    assert "No tools configured" in captured.out
+
+
+def test_auto_detect_asset_multiple_perfect_matches(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test handling of multiple perfect matches."""
+    raw_config: RawConfigDict = {
+        "tools_dir": str(tmp_path),
+        "platforms": {"linux": ["amd64"]},
+        "tools": {"mytool": {"repo": "fakeuser/mytool"}},
+    }
+    config = _config_from_dict(raw_config)
+
+    config.tools["mytool"]._latest_release = {
+        "tag_name": "v1.2.3",
+        "assets": [
+            {
+                "name": "mytool-1.2.3-linux_amd64.tar.gz",
+                "browser_download_url": "https://example.com/mytool-1.2.3-linux_amd64.tar.gz",
+            },
+            {
+                "name": "mytool-1.2.3-linux_x86_64.tar.gz",
+                "browser_download_url": "https://example.com/mytool-1.2.3-linux_x86_64.tar.gz",
+            },
+        ],
+    }
+
+    def mock_download_file(
+        url: str,  # noqa: ARG001
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        # Create a dummy archive with a binary that won't match the expected name
+        create_dummy_archive(Path(destination), binary_names="mytool")
+        return destination
+
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools()
+
+    out = capsys.readouterr().out
+    assert "Found multiple candidates" in out
+    assert "selecting first" in out
+
+    # Verify that the correct binary was downloaded
+    bin_dir = config.bin_dir("linux", "amd64")
+    assert bin_dir.exists()
+    assert (bin_dir / "mytool").exists()
+
+
+def test_auto_detect_asset_no_matches(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test handling of no matching assets."""
+    raw_config: RawConfigDict = {
+        "tools_dir": str(tmp_path),
+        "platforms": {"linux": ["arm64"]},
+        "tools": {"mytool": {"repo": "fakeuser/mytool"}},
+    }
+    config = _config_from_dict(raw_config)
+
+    config.tools["mytool"]._latest_release = _create_mock_release_info(
+        "mytool",
+        "1.2.3",
+        {"linux": ["amd64", "i386"]},  # Different arch
+    )
+
+    config.sync_tools()
+
+    out = capsys.readouterr().out
+    assert "Found multiple candidates" in out, out
+    assert "manually select one" in out
+
+
+def test_sync_tools_with_empty_archive(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test syncing tools with an empty archive."""
+    raw_config: RawConfigDict = {
+        "tools_dir": str(tmp_path),
+        "platforms": {"linux": ["amd64"]},
+        "tools": {
+            "mytool": {"repo": "fakeuser/mytool", "binary_path": "*", "extract_binary": True},
+        },
+    }
+    config = _config_from_dict(raw_config)
+    _set_mock_release_info(config, version="1.2.3")
+
+    def mock_download_file(
+        url: str,  # noqa: ARG001
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        # Create an empty archive
+        Path(destination).touch()
+        with tarfile.open(destination, "w:gz") as tar:
+            tar.add(destination, arcname="empty.tar.gz")
+        return destination
+
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools()
+
+    out = capsys.readouterr().out
+    assert "Error extracting archive: No files matching *" in out
+    assert "Error processing mytool: No files matching *" in out
+
+
+def test_failed_to_fetch_release_info(
+    tmp_path: Path,
+    requests_mock: Mocker,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test handling of failed to fetch release info."""
+    raw_config: RawConfigDict = {
+        "tools_dir": str(tmp_path),
+        "platforms": {"linux": ["amd64"]},
+        "tools": {"mytool": {"repo": "fakeuser/mytool"}},
+    }
+    config = _config_from_dict(raw_config)
+    requests_mock.get(
+        "https://api.github.com/repos/fakeuser/mytool/releases/latest",
+        status_code=403,
+        # Same as on real GitHub API
+        reason="rate limit exceeded for url: https://api.github.com/repos/fakeuser/mytool/releases/latest",
+    )
+    config.sync_tools()
+
+    out = capsys.readouterr().out
+    assert "Failed to fetch latest release for" in out
+    assert "limit exceeded" in out
+
+
+def test_failed_to_download_file(
+    tmp_path: Path,
+    requests_mock: Mocker,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test handling of failed to download file."""
+    raw_config: RawConfigDict = {
+        "tools_dir": str(tmp_path),
+        "platforms": {"linux": ["amd64"]},
+        "tools": {"mytool": {"repo": "fakeuser/mytool"}},
+    }
+    config = _config_from_dict(raw_config)
+    url = "https://example.com/mytool-1.2.3-linux_amd64.tar.gz"
+    requests_mock.get(
+        "https://api.github.com/repos/fakeuser/mytool/releases/latest",
+        json={
+            "tag_name": "v1.2.3",
+            "assets": [
+                {
+                    "name": "mytool-1.2.3-linux_amd64.tar.gz",
+                    "browser_download_url": url,
+                },
+            ],
+        },
+    )
+    requests_mock.get(
+        url=url,
+        status_code=403,
+        reason="rate limit exceeded for url: https://api.github.com/repos/fakeuser/mytool/releases/latest",
+    )
+    config.sync_tools()
+
+    out = capsys.readouterr().out
+    assert "Failed to download" in out
+    assert "limit exceeded" in out
+
+
+def test_tool_shell_code_in_shell_scripts(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+) -> None:
+    """Test that tool shell_code is included in the generated shell scripts.
+
+    It verifies that:
+    1. shell_code is properly included for tools that have it
+    2. tools without shell_code don't have code blocks generated
+    3. syntax is appropriate for different shells (bash, zsh, fish, nushell)
+    4. sync_tools correctly triggers shell script generation
+    """
+    tools_dir = tmp_path / "tools"
+
+    # Create a config with tools that have shell_code and some that don't
+    tool_configs: dict[str, RawToolConfigDict] = {
+        "fzf": {
+            "repo": "junegunn/fzf",
+            "shell_code": "source <(fzf --zsh)",
+        },
+        "bat": {
+            "repo": "sharkdp/bat",  # No shell_code
+        },
+        "zoxide": {
+            "repo": "ajeetdsouza/zoxide",
+            "shell_code": 'eval "$(zoxide init zsh)"',
+        },
+        "eza": {
+            "repo": "eza-community/eza",
+            "shell_code": "alias l='eza -lah --git'",
+        },
+        "starship": {
+            "repo": "starship/starship",
+            "shell_code": {
+                "zsh": 'eval "$(starship init zsh)"',
+                "bash": 'eval "$(starship init bash)"',
+                "fish": "starship init fish | source",
+                "nushell": (
+                    'mkdir ($nu.data-dir | path join "vendor/autoload")'
+                    '\nstarship init nu | save -f ($nu.data-dir | path join "vendor/autoload/starship.nu")'
+                ),
+            },
+        },
+    }
+
+    config = Config.from_dict(
+        {
+            "tools_dir": str(tools_dir),
+            "platforms": {"linux": ["amd64"]},
+            "tools": tool_configs,  # type: ignore[typeddict-item]
+        },
+    )
+    _set_mock_release_info(config, version="1.2.3")
+
+    # Mock the download_file function
+    def mock_download_file(
+        url: str,
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        binary_name = url.split("/")[-1].split("-")[0]
+        create_dummy_archive(Path(destination), binary_name)
+        return destination
+
+    # Run sync_tools to generate the shell scripts
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools()
+
+    # Check that shell scripts were generated for all supported shells
+    shell_files = {
+        "bash": "bash.sh",
+        "zsh": "zsh.sh",
+        "fish": "fish.fish",
+        "nushell": "nushell.nu",
+    }
+
+    for shell, filename in shell_files.items():
+        shell_script_path = tools_dir / "shell" / filename
+        assert shell_script_path.exists(), f"Shell script for {shell} not created"
+
+        # Read the shell script content
+        content = shell_script_path.read_text()
+
+        # Verify shell_code is included with correct syntax for each shell
+        if shell in ("bash", "zsh"):
+            # Check tools with shell_code
+            for tool in ["fzf", "zoxide", "eza", "starship"]:
+                assert f"if command -v {tool} >/dev/null 2>&1; then" in content
+
+            # Verify specific shell code for each tool
+            assert "source <(fzf --zsh)" in content
+            assert 'eval "$(zoxide init zsh)"' in content
+            assert "alias l='eza -lah --git'" in content
+
+            # Check shell-specific starship code
+            if shell == "bash":
+                assert 'eval "$(starship init bash)"' in content
+            elif shell == "zsh":
+                assert 'eval "$(starship init zsh)"' in content
+
+            # Check tool without shell_code has no block
+            assert "if command -v bat >/dev/null 2>&1; then" not in content
+
+        elif shell == "fish":
+            # Check tools with shell_code (fish syntax)
+            for tool in ["fzf", "zoxide", "eza", "starship"]:
+                assert f"if command -v {tool} >/dev/null 2>&1" in content
+
+            # Verify specific shell code
+            assert "source <(fzf --zsh)" in content
+            assert 'eval "$(zoxide init zsh)"' in content
+            assert "alias l='eza -lah --git'" in content
+            assert "starship init fish | source" in content  # Fish-specific starship code
+
+            # Check tool without shell_code has no block
+            assert "if command -v bat >/dev/null 2>&1" not in content
+
+        elif shell == "nushell":
+            # Check tools with shell_code (nushell syntax)
+            for tool in ["fzf", "zoxide", "eza", "starship"]:
+                assert f"if (which {tool}) != null {{" in content
+
+            # Verify specific shell code
+            assert "source <(fzf --zsh)" in content
+            assert 'eval "$(zoxide init zsh)"' in content
+            assert "alias l='eza -lah --git'" in content
+
+            # Nushell-specific starship code
+            assert 'mkdir ($nu.data-dir | path join "vendor/autoload")' in content
+            assert (
+                'starship init nu | save -f ($nu.data-dir | path join "vendor/autoload/starship.nu")'
+                in content
+            )
+
+            # Check tool without shell_code has no block
+            assert "if (which bat) != null {" not in content
