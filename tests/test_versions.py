@@ -181,3 +181,112 @@ def test_version_store_print(
     assert "linux" in out
     assert "amd64" in out
     assert "1.0.0" in out
+
+    # Test filtering by platform
+    store.update_tool_info("test2", "macos", "arm64", "2.0.0")
+    store.print(platform="linux")
+    out, _ = capsys.readouterr()
+    assert "test" in out
+    assert "test2" not in out
+
+    # Test filtering by architecture
+    store.print(architecture="arm64")
+    out, _ = capsys.readouterr()
+    assert "test2" in out
+    # "test" might appear in the table headers, so we can't assert it's not in the output
+    # Instead check that we don't see "linux" which is unique to the test tool
+    assert "linux" not in out
+
+
+def test_version_store_print_condensed(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test printing condensed version information."""
+    store = VersionStore(tmp_path)
+    store.print_condensed()
+    out, _ = capsys.readouterr()
+    assert "No tool versions recorded yet." in out
+
+    # Add multiple versions of the same tool
+    store.update_tool_info("testtool", "linux", "amd64", "1.0.0")
+    store.update_tool_info("testtool", "macos", "arm64", "1.0.0")
+    store.update_tool_info("othertool", "linux", "amd64", "2.0.0")
+
+    store.print_condensed()
+    out, _ = capsys.readouterr()
+
+    # Check condensed format shows just one row per tool
+    assert "testtool" in out
+    assert "othertool" in out
+    assert "linux/amd64, macos/arm64" in out or "macos/arm64, linux/amd64" in out
+
+    # Test filtering in condensed view
+    store.print_condensed(platform="linux")
+    out, _ = capsys.readouterr()
+    assert "testtool" in out
+    assert "othertool" in out
+    assert "macos/arm64" not in out
+
+
+def test_print_with_missing(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test printing version information with missing tools."""
+    from dotbins.config import Config, ToolConfig
+
+    # Create a minimal Config mock
+    config = Config(tools_dir=tmp_path)
+
+    # Add some tools to the config
+    config.tools = {
+        "test": ToolConfig(tool_name="test", repo="test/repo"),
+        "missing": ToolConfig(tool_name="missing", repo="missing/repo"),
+        "another_missing": ToolConfig(tool_name="another_missing", repo="another/repo"),
+    }
+
+    # Create VersionStore with one installed tool
+    store = VersionStore(tmp_path)
+    store.update_tool_info("test", "linux", "amd64", "1.0.0")
+
+    # Call the method
+    store.print_with_missing(config)
+
+    # Check output
+    out, _ = capsys.readouterr()
+
+    # Should show the installed tool
+    assert "test" in out
+    assert "linux" in out
+    assert "amd64" in out
+    assert "1.0.0" in out
+
+    # Should also show missing tools
+    assert "Missing Tools" in out
+    assert "missing" in out
+    assert "missing/repo" in out
+    assert "another_missing" in out
+    assert "another/repo" in out
+    assert "dotbins sync" in out
+
+    # Test condensed view
+    store.print_with_missing(config, condensed=True)
+    out, _ = capsys.readouterr()
+
+    # Should not show platform/arch as separate columns
+    assert "Installed Tools Summary" in out
+    assert "test" in out
+    assert "Missing Tools" in out
+
+    # Test filtering
+    store.print_with_missing(config, platform="macos")
+    out, _ = capsys.readouterr()
+
+    # Should show missing tools but no installed tools
+    # We can't check for "test" not being in the output because it appears in the missing tools list
+    # Instead check for the specific text that would indicate the installed tool is shown
+    assert "No tool versions recorded yet." not in out
+    assert "linux/amd64" not in out
+    assert "Missing Tools" in out
+    assert "--platform macos" in out

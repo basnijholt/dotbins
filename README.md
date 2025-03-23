@@ -550,6 +550,22 @@ Show status (available versions, installed versions, and when they were last upd
 dotbins status
 ```
 
+Show a condensed view of installed tools (one line per tool):
+```bash
+dotbins status --condensed
+```
+
+Show tools only for the current platform/architecture:
+```bash
+dotbins status --current
+```
+
+Filter tools by platform or architecture:
+```bash
+dotbins status --platform macos
+dotbins status --architecture arm64
+```
+
 ## :books: Examples with 50+ Tools
 
 See the [examples/dotbins.yaml](examples/dotbins.yaml) file for a list of >50 tools that require no configuration.

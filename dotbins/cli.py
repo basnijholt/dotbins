@@ -10,7 +10,6 @@ from rich_argparse import RichHelpFormatter
 
 from . import __version__
 from .config import Config, build_tool_config
-from .readme import write_readme_file
 from .utils import current_platform, log, replace_home_in_path
 
 
@@ -220,6 +219,36 @@ def create_parser() -> argparse.ArgumentParser:
     _status_parser = subparsers.add_parser(
         "status",
         help="Show installed tool versions and when they were last updated",
+        formatter_class=RichHelpFormatter,
+    )
+    _status_parser.add_argument(
+        "-c",
+        "--condensed",
+        action="store_true",
+        help="Show a condensed view with one line per tool",
+    )
+    _status_parser.add_argument(
+        "-f",
+        "--full",
+        action="store_true",
+        help="Show the full detailed view (default)",
+    )
+    _status_parser.add_argument(
+        "--current",
+        action="store_true",
+        help="Only show tools for the current platform/architecture",
+    )
+    _status_parser.add_argument(
+        "-p",
+        "--platform",
+        type=str,
+        help="Filter by platform (e.g., linux, macos)",
+    )
+    _status_parser.add_argument(
+        "-a",
+        "--architecture",
+        type=str,
+        help="Filter by architecture (e.g., amd64, arm64)",
     )
 
     # Add readme command
@@ -302,14 +331,27 @@ def main() -> None:  # pragma: no cover
                 args.verbose,
             )
         elif args.command == "readme":
-            write_readme_file(
-                config,
-                not args.no_print,
+            config.generate_readme(
                 not args.no_file,
                 args.verbose,
             )
         elif args.command == "status":
-            config.version_store.print()
+            platform = args.platform
+            arch = args.architecture
+
+            if args.current:
+                current_platform_info = current_platform()
+                platform = current_platform_info[0]
+                arch = current_platform_info[1]
+
+            # If both --condensed and --full are specified, --condensed takes precedence
+            condensed = args.condensed
+            config.version_store.print_with_missing(
+                config,
+                condensed=condensed,
+                platform=platform,
+                architecture=arch,
+            )
 
     except Exception as e:
         log(f"Error: {e!s}", "error", print_exception=True)
