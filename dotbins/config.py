@@ -393,7 +393,7 @@ class RawToolConfigDict(TypedDict, total=False):
     binary_name: str | list[str]  # Name(s) of the binary file(s)
     binary_path: str | list[str]  # Path(s) to binary within archive
     asset_patterns: str | dict[str, str] | dict[str, dict[str, str | None]]
-    shell_code: str  # Shell code to configure the tool
+    shell_code: str | None  # Shell code to configure the tool
 
 
 class _AssetDict(TypedDict):
