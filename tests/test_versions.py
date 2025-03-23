@@ -239,19 +239,25 @@ def test_print_with_missing(
     # Create a minimal Config mock
     config = Config(tools_dir=tmp_path)
 
-    # Add some tools to the config
+    # Add some tools to the config with platform-specific configurations
     config.tools = {
         "test": ToolConfig(tool_name="test", repo="test/repo"),
         "missing": ToolConfig(tool_name="missing", repo="missing/repo"),
-        "another_missing": ToolConfig(tool_name="another_missing", repo="another/repo"),
+        "macos_only": ToolConfig(tool_name="macos_only", repo="macos/repo"),
+        "linux_only": ToolConfig(tool_name="linux_only", repo="linux/repo"),
     }
+
+    # Manually set asset_patterns after creation to avoid type errors in tests
+    # These type ignores are needed because we're setting directly for testing
+    config.tools["macos_only"].asset_patterns = {"macos": "macos-pattern", "linux": None}  # type: ignore[dict-item, assignment]
+    config.tools["linux_only"].asset_patterns = {"macos": None, "linux": "linux-pattern"}  # type: ignore[dict-item, assignment]
 
     # Create VersionStore with one installed tool
     store = VersionStore(tmp_path)
     store.update_tool_info("test", "linux", "amd64", "1.0.0")
 
-    # Call the method
-    store.print_with_missing(config)
+    # Call the method with explicit linux platform
+    store.print_with_missing(config, platform="linux")
 
     # Check output
     out, _ = capsys.readouterr()
@@ -266,8 +272,11 @@ def test_print_with_missing(
     assert "Missing Tools" in out
     assert "missing" in out
     assert "missing/repo" in out
-    assert "another_missing" in out
-    assert "another/repo" in out
+    assert "linux_only" in out
+    assert "linux/repo" in out
+    assert (
+        "macos_only" not in out
+    )  # Should not show because it's explicitly not available for linux
     assert "dotbins sync" in out
 
     # Test condensed view
@@ -279,14 +288,51 @@ def test_print_with_missing(
     assert "test" in out
     assert "Missing Tools" in out
 
-    # Test filtering
+    # Test filtering for macos - should show macos_only as missing but not linux_only
     store.print_with_missing(config, platform="macos")
     out, _ = capsys.readouterr()
 
     # Should show missing tools but no installed tools
-    # We can't check for "test" not being in the output because it appears in the missing tools list
-    # Instead check for the specific text that would indicate the installed tool is shown
     assert "No tool versions recorded yet." not in out
     assert "linux/amd64" not in out
     assert "Missing Tools" in out
+    assert "macos_only" in out
+    assert (
+        "linux_only" not in out
+    )  # Should not show because it's explicitly not available for macos
     assert "--platform macos" in out
+
+
+def test_print_with_missing_edge_cases(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test edge cases for platform-specific tools."""
+    from dotbins.config import Config, ToolConfig
+
+    # Create a minimal Config mock
+    config = Config(tools_dir=tmp_path)
+
+    # Add some tools to the config with various asset_patterns configurations
+    config.tools = {
+        "no_patterns": ToolConfig(tool_name="no_patterns", repo="no/patterns"),
+        "string_pattern": ToolConfig(tool_name="string_pattern", repo="string/pattern"),
+        "dict_no_platform": ToolConfig(tool_name="dict_no_platform", repo="dict/no_platform"),
+    }
+
+    # Manually set asset_patterns after creation to avoid type errors in tests
+    # These type ignores are needed because we're setting directly for testing
+    config.tools["string_pattern"].asset_patterns = "global-pattern-{platform}-{arch}.tar.gz"  # type: ignore[assignment]
+    config.tools["dict_no_platform"].asset_patterns = {"other_platform": "pattern"}  # type: ignore[dict-item, assignment]
+
+    # Create VersionStore with one installed tool
+    store = VersionStore(tmp_path)
+
+    # Test with a platform not specified in asset_patterns
+    store.print_with_missing(config, platform="linux")
+    out, _ = capsys.readouterr()
+
+    # Should show all tools as missing since none are installed and none are explicitly excluded
+    assert "no_patterns" in out
+    assert "string_pattern" in out
+    assert "dict_no_platform" in out

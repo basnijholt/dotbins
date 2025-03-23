@@ -211,7 +211,7 @@ class VersionStore:
 
         console.print(table)
 
-    def print_with_missing(
+    def print_with_missing(  # noqa: PLR0912
         self,
         config: Config,
         condensed: bool = False,
@@ -249,7 +249,37 @@ class VersionStore:
                 continue
             installed_tools.add(tool)
 
-        missing_tools = [tool for tool in available_tools if tool not in installed_tools]
+        # Instead of just checking membership, we need to check if the tool should be available
+        # for the specified platform/architecture according to the config.
+        # A tool is considered "missing" if:
+        # 1. It's not installed for the filtered platform/architecture
+        # 2. AND it's supposed to be available for that platform (not explicitly marked as unavailable with 'null')
+        missing_tools = []
+        for tool_name in available_tools:
+            tool_config = config.tools[tool_name]
+
+            # Skip if the tool is already installed for this platform/architecture
+            if tool_name in installed_tools:
+                continue
+
+            # Check if this tool is supposed to be available for the specified platform/architecture
+            should_be_available = True
+
+            if platform:
+                # Get the asset patterns for this tool
+                asset_patterns = getattr(tool_config, "asset_patterns", None)
+
+                # If asset_patterns is a dict and the platform has a null/None pattern, the tool isn't meant for this platform
+                if (
+                    isinstance(asset_patterns, dict)
+                    and platform in asset_patterns
+                    and asset_patterns[platform] is None
+                ):
+                    should_be_available = False
+
+            # If the tool should be available for this platform but isn't installed, add it to missing tools
+            if should_be_available:
+                missing_tools.append(tool_name)
 
         if missing_tools:
             console.print("\n")
