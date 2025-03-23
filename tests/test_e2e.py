@@ -12,7 +12,6 @@ from unittest.mock import patch
 
 import pytest
 import requests
-from pytest import MonkeyPatch
 
 from dotbins.cli import _get_tool
 from dotbins.config import (
@@ -1400,7 +1399,7 @@ def test_tool_shell_code_in_shell_scripts(
     tools_dir = tmp_path / "tools"
 
     # Create a config with tools that have shell_code and some that don't
-    tool_configs = {
+    tool_configs: dict[str, RawToolConfigDict] = {
         "fzf": {
             "repo": "junegunn/fzf",
             "shell_code": "source <(fzf --zsh)",
@@ -1434,14 +1433,13 @@ def test_tool_shell_code_in_shell_scripts(
         create_dummy_archive(destination, binary_name)
         return destination
 
-    monkeypatch = MonkeyPatch()
+    monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr("dotbins.utils.download_file", mock_download_file)
 
     # Run the e2e test
-    config = run_e2e_test(tools_dir, tool_configs, create_dummy_archive)
+    run_e2e_test(tools_dir, tool_configs, create_dummy_archive)
 
     # Check that shell scripts were generated
-    shells = ["bash", "zsh", "fish", "nushell"]
     shell_files = {
         "bash": "bash.sh",
         "zsh": "zsh.sh",
@@ -1501,7 +1499,7 @@ def test_sync_tools_generates_shell_scripts_with_shell_code(
     """Test that sync_tools generates shell scripts with the shell_code."""
     tools_dir = tmp_path / "tools"
     # Create a config with tools that have shell_code
-    raw_config = {
+    raw_config: RawConfigDict = {
         "tools_dir": str(tools_dir),
         "platforms": {"linux": ["amd64"]},
         "tools": {
@@ -1550,7 +1548,7 @@ def test_sync_tools_generates_shell_scripts_with_shell_code(
             create_dummy_archive(destination, "othertool")
         return destination
 
-    monkeypatch = MonkeyPatch()
+    monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr("dotbins.utils.latest_release_info", mock_latest_release_info)
     monkeypatch.setattr("dotbins.utils.download_file", mock_download_file)
 
