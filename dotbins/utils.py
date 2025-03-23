@@ -126,11 +126,11 @@ def _format_shell_instructions(
                     tool_scripts.append(
                         textwrap.dedent(
                             f"""\
-                        # Configuration for {tool_name}
-                        if command -v {tool_name} >/dev/null 2>&1; then
-                            {tool_config.shell_code}
-                        fi
-                        """,
+                            # Configuration for {tool_name}
+                            if command -v {tool_name} >/dev/null 2>&1; then
+                                {tool_config.shell_code}
+                            fi
+                            """,
                         ),
                     )
             if tool_scripts:
@@ -161,11 +161,11 @@ def _format_shell_instructions(
                     tool_scripts.append(
                         textwrap.dedent(
                             f"""\
-                        # Configuration for {tool_name}
-                        if command -v {tool_name} >/dev/null 2>&1
-                            {tool_config.shell_code}
-                        end
-                        """,
+                            # Configuration for {tool_name}
+                            if command -v {tool_name} >/dev/null 2>&1
+                                {tool_config.shell_code}
+                            end
+                            """,
                         ),
                     )
             if tool_scripts:
