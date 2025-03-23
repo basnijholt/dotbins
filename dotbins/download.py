@@ -4,15 +4,13 @@ from __future__ import annotations
 
 import shutil
 import tempfile
-from functools import partial
+from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING
 
 from .detect_binary import auto_detect_binary_paths, auto_detect_extract_binary
 from .utils import (
     calculate_sha256,
-    download_file,
-    execute_in_parallel,
     extract_archive,
     log,
     replace_home_in_path,
@@ -144,7 +142,8 @@ def _replace_variables_in_path(path: str, version: str, arch: str, platform: str
     return path
 
 
-class _DownloadTask(NamedTuple):
+@dataclass(frozen=True)
+class _DownloadTask:
     """Represents a single download task."""
 
     bin_spec: BinSpec
@@ -281,38 +280,6 @@ def prepare_download_tasks(
     return sorted(download_tasks, key=lambda t: (t.tool_name, t.platform, t.arch))
 
 
-def _download_task(
-    task: _DownloadTask,
-    github_token: str | None,
-    verbose: bool,
-) -> bool:
-    """Download a file for a DownloadTask."""
-    try:
-        log(
-            f"Downloading [b]{task.asset_name}[/] for [b]{task.tool_name}[/] ([b]{task.platform}/{task.arch}[/])...",
-            "info",
-            "📥",
-        )
-        download_file(task.asset_url, str(task.temp_path), github_token, verbose)
-        return True
-    except Exception as e:
-        log(f"Error downloading {task.asset_name}: {e!s}", "error", print_exception=verbose)
-        return False
-
-
-def download_files_in_parallel(
-    download_tasks: list[_DownloadTask],
-    github_token: str | None,
-    verbose: bool,
-) -> list[bool]:
-    """Download files in parallel."""
-    if not download_tasks:
-        return []
-    log(f"Downloading {len(download_tasks)} tools in parallel...", "info", "🔄")
-    func = partial(_download_task, github_token=github_token, verbose=verbose)
-    return execute_in_parallel(download_tasks, func, 16)
-
-
 def _process_downloaded_task(
     task: _DownloadTask,
     success: bool,
@@ -322,13 +289,6 @@ def _process_downloaded_task(
 ) -> bool:
     """Process a downloaded file."""
     if not success:
-        summary.add_failed_tool(
-            task.tool_name,
-            task.platform,
-            task.arch,
-            task.version,
-            reason="Download failed",
-        )
         return False
 
     try:

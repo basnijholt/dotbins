@@ -15,11 +15,12 @@ import requests
 import yaml
 
 from .detect_asset import create_system_detector
-from .download import download_files_in_parallel, prepare_download_tasks, process_downloaded_files
+from .download import _DownloadTask, prepare_download_tasks, process_downloaded_files
 from .readme import write_readme_file
 from .summary import UpdateSummary, display_update_summary
 from .utils import (
     current_platform,
+    download_file,
     execute_in_parallel,
     github_url_to_raw_url,
     humanize_time_ago,
@@ -214,7 +215,12 @@ class Config:
             force,
             verbose,
         )
-        download_successes = download_files_in_parallel(download_tasks, github_token, verbose)
+        download_successes = download_files_in_parallel(
+            download_tasks,
+            github_token,
+            self._update_summary,
+            verbose,
+        )
         process_downloaded_files(
             download_tasks,
             download_successes,
@@ -697,3 +703,49 @@ def _fetch_release(
             reason=msg,
         )
         log(msg, "error", print_exception=verbose)
+
+
+def download_files_in_parallel(
+    download_tasks: list[_DownloadTask],
+    github_token: str | None,
+    update_summary: UpdateSummary,
+    verbose: bool,
+) -> list[bool]:
+    """Download files in parallel."""
+    if not download_tasks:
+        return []
+    log(f"Downloading {len(download_tasks)} tools in parallel...", "info", "🔄")
+    func = partial(
+        _download_task,
+        update_summary=update_summary,
+        verbose=verbose,
+        github_token=github_token,
+    )
+    return execute_in_parallel(download_tasks, func, 16)
+
+
+def _download_task(
+    task: _DownloadTask,
+    github_token: str | None,
+    update_summary: UpdateSummary,
+    verbose: bool,
+) -> bool:
+    """Download a file for a DownloadTask."""
+    try:
+        log(
+            f"Downloading [b]{task.asset_name}[/] for [b]{task.tool_name}[/] ([b]{task.platform}/{task.arch}[/])...",
+            "info",
+            "📥",
+        )
+        download_file(task.asset_url, str(task.temp_path), github_token, verbose)
+        return True
+    except Exception as e:
+        log(f"Error downloading {task.asset_name}: {e!s}", "error", print_exception=verbose)
+        update_summary.add_failed_tool(
+            task.tool_name,
+            task.platform,
+            task.arch,
+            task.version,
+            reason=f"Download failed: {e!s}",
+        )
+        return False

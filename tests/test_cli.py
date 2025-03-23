@@ -114,7 +114,7 @@ def test_sync_tool(
         return destination
 
     # Directly call sync_tools
-    with patch("dotbins.download.download_file", mock_download_file):
+    with patch("dotbins.config.download_file", mock_download_file):
         cli._sync_tools(
             config,
             tools=["test-tool"],

@@ -112,7 +112,7 @@ def test_download_file(requests_mock: Mocker, tmp_path: Path) -> None:
 
     # Call the function
     dest_path = str(tmp_path / "downloaded.tar.gz")
-    result = dotbins.download.download_file(url, dest_path, github_token=None, verbose=True)
+    result = dotbins.config.download_file(url, dest_path, github_token=None, verbose=True)
 
     # Verify the file was downloaded correctly
     assert result == dest_path
