@@ -171,20 +171,19 @@ def _add_shell_code_to_script(
     before: list[str],
     after: list[str],
 ) -> str:
-    if tools:
-        lines = []
-        for name, config in tools.items():
-            if config.shell_code:
-                config_lines = [
-                    f"# Configuration for {name}",
-                    *(line.format(name=name) for line in before),
-                    *[f"    {line}" for line in config.shell_code.strip().split("\n")],
-                    *after,
-                    "",
-                ]
-                lines.extend(config_lines)
-        if lines:
-            return "\n# Tool-specific configurations\n" + "\n".join(lines)
+    lines = []
+    for name, config in tools.items():
+        if config.shell_code:
+            config_lines = [
+                f"# Configuration for {name}",
+                *(line.format(name=name) for line in before),
+                *[f"    {line}" for line in config.shell_code.strip().split("\n")],
+                *after,
+                "",
+            ]
+            lines.extend(config_lines)
+    if lines:
+        return "\n# Tool-specific configurations\n" + "\n".join(lines)
     return ""
 
 
