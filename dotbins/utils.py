@@ -119,7 +119,7 @@ def _format_shell_instructions(
         )
         if_start = "if command -v {name} >/dev/null 2>&1; then"
         if_end = "fi"
-        base_script += _add_shell_code_to_script(tools, if_start, if_end)
+        base_script += _add_shell_code_to_script(tools, shell, if_start, if_end)
 
         return base_script
 
@@ -140,7 +140,7 @@ def _format_shell_instructions(
 
         if_start = "if command -v {name} >/dev/null 2>&1"
         if_end = "end"
-        base_script += _add_shell_code_to_script(tools, if_start, if_end)
+        base_script += _add_shell_code_to_script(tools, shell, if_start, if_end)
         return base_script
 
     if shell == "nushell":
@@ -157,7 +157,7 @@ def _format_shell_instructions(
         base_script = "\n".join(script_lines)
         if_start = "if (which {name}) != null {{"
         if_end = "}"
-        base_script += _add_shell_code_to_script(tools, if_start, if_end)
+        base_script += _add_shell_code_to_script(tools, shell, if_start, if_end)
         return base_script
     msg = f"Unsupported shell: {shell}"  # pragma: no cover
     raise ValueError(msg)  # pragma: no cover
@@ -165,16 +165,20 @@ def _format_shell_instructions(
 
 def _add_shell_code_to_script(
     tools: dict[str, ToolConfig],
+    shell: Literal["bash", "zsh", "fish", "nushell"],
     if_start: str,
     if_end: str,
 ) -> str:
     lines = []
     for name, config in tools.items():
-        if config.shell_code:
+        shell_code = config.shell_code
+        if isinstance(shell_code, dict):
+            shell_code = shell_code.get(shell)
+        if shell_code:
             config_lines = [
                 f"# Configuration for {name}",
                 if_start.format(name=name),
-                *[f"    {line}" for line in config.shell_code.strip().split("\n")],
+                *[f"    {line}" for line in shell_code.strip().split("\n")],
                 if_end,
                 "",
             ]

@@ -299,7 +299,7 @@ class ToolConfig:
     asset_patterns: dict[str, dict[str, str | None]] = field(default_factory=dict)
     platform_map: dict[str, str] = field(default_factory=dict)
     arch_map: dict[str, str] = field(default_factory=dict)
-    shell_code: str | None = None
+    shell_code: str | dict[str, str] | None = None
     _latest_release: dict | None = field(default=None, init=False)
 
     def bin_spec(self, arch: str, platform: str) -> BinSpec:
@@ -393,7 +393,7 @@ class RawToolConfigDict(TypedDict, total=False):
     binary_name: str | list[str]  # Name(s) of the binary file(s)
     binary_path: str | list[str]  # Path(s) to binary within archive
     asset_patterns: str | dict[str, str] | dict[str, dict[str, str | None]]
-    shell_code: str | None  # Shell code to configure the tool
+    shell_code: str | dict[str, str] | None  # Shell code to configure the tool
 
 
 class _AssetDict(TypedDict):
