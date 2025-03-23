@@ -162,6 +162,7 @@ class Config:
         copy_config_file: bool = False,
         github_token: str | None = None,
         verbose: bool = False,
+        generate_shell_scripts: bool = True,
     ) -> None:
         """Install and update tools to their latest versions.
 
@@ -187,6 +188,7 @@ class Config:
             copy_config_file: If True, copy config file to tools directory
             github_token: GitHub API token for authentication (helps with rate limits)
             verbose: If True, show detailed logs during the process
+            generate_shell_scripts: If True, generate shell scripts for the tools
 
         """
         if not self.tools:
@@ -227,6 +229,8 @@ class Config:
 
         if generate_readme:
             self.generate_readme(verbose=verbose)
+        if generate_shell_scripts:
+            self.generate_shell_scripts(print_shell_setup=False)
         _maybe_copy_config_file(copy_config_file, self.config_path, self.tools_dir)
 
     def generate_shell_scripts(self: Config, print_shell_setup: bool = True) -> None:
@@ -235,7 +239,7 @@ class Config:
         Creates shell scripts in the tools_dir/shell directory that users
         can source in their shell configuration files.
         """
-        write_shell_scripts(self.tools_dir, print_shell_setup)
+        write_shell_scripts(self.tools_dir, self.tools, print_shell_setup)
 
 
 def _maybe_copy_config_file(
@@ -295,6 +299,7 @@ class ToolConfig:
     asset_patterns: dict[str, dict[str, str | None]] = field(default_factory=dict)
     platform_map: dict[str, str] = field(default_factory=dict)
     arch_map: dict[str, str] = field(default_factory=dict)
+    shell_code: str | None = None
     _latest_release: dict | None = field(default=None, init=False)
 
     def bin_spec(self, arch: str, platform: str) -> BinSpec:
@@ -388,6 +393,7 @@ class RawToolConfigDict(TypedDict, total=False):
     binary_name: str | list[str]  # Name(s) of the binary file(s)
     binary_path: str | list[str]  # Path(s) to binary within archive
     asset_patterns: str | dict[str, str] | dict[str, dict[str, str | None]]
+    shell_code: str  # Shell code to configure the tool
 
 
 class _AssetDict(TypedDict):
@@ -437,6 +443,7 @@ def build_tool_config(
         asset_patterns=asset_patterns,
         platform_map=platform_map,
         arch_map=arch_map,
+        shell_code=raw_data.get("shell_code"),
     )
 
 

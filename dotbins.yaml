@@ -8,16 +8,33 @@ platforms:
     - arm64
 
 tools:
-  bat: sharkdp/bat
   delta: dandavison/delta
-  direnv: direnv/direnv
   duf: muesli/duf
   fd: sharkdp/fd
-  fzf: junegunn/fzf
   git-lfs: git-lfs/git-lfs
-  lazygit: jesseduffield/lazygit
   yazi: sxyazi/yazi
-  zoxide: ajeetdsouza/zoxide
+
+  bat:
+    repo: sharkdp/bat
+    shell_code: |
+      alias bat="bat --paging=never"
+      alias cat="bat --plain --paging=never"
+  direnv:
+    repo: direnv/direnv
+    shell_code: |
+      eval "$(direnv hook zsh)"
+  fzf:
+    repo: junegunn/fzf
+    shell_code: |
+      source <(fzf --zsh)
+  lazygit:
+    repo: jesseduffield/lazygit
+    shell_code: |
+      alias lg="lazygit"
+  zoxide:
+    repo: ajeetdsouza/zoxide
+    shell_code: |
+      eval "$(zoxide init zsh)"
 
   ripgrep:
     repo: BurntSushi/ripgrep
@@ -31,6 +48,8 @@ tools:
     asset_patterns:
       linux: atuin-{arch}-unknown-linux-gnu.tar.gz
       macos: atuin-{arch}-apple-darwin.tar.gz
+    shell_code: |
+      source <(atuin init zsh --disable-up-arrow)
 
   eza:
     repo: eza-community/eza
@@ -40,6 +59,8 @@ tools:
     asset_patterns:
       linux: eza_{arch}-unknown-linux-gnu.tar.gz
       macos: null  # No macOS binaries available as of now
+    shell_code: |
+      alias l="eza -lah --git"
 
   micromamba:
     repo: mamba-org/micromamba-releases
@@ -51,8 +72,17 @@ tools:
     asset_patterns:
       linux: micromamba-linux-{arch}
       macos: micromamba-osx-arm64
+    shell_code: |
+      alias mm="micromamba"
 
   uv:
     repo: astral-sh/uv
     binary_name: [uv, uvx]
     binary_path: [uv-*/uv, uv-*/uvx]
+    shell_code: |
+      eval "$(uv generate-shell-completion zsh)"
+
+  starship:
+    repo: starship/starship
+    shell_code: |
+      eval "$(starship init zsh)"
