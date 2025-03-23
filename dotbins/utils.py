@@ -117,10 +117,7 @@ def _format_shell_instructions(
             export PATH="{tools_dir_str}/$_os/$_arch/bin:$PATH"
             """,
         )
-        before = [
-            "# Configuration for {name}",
-            "if command -v {name} >/dev/null 2>&1; then",
-        ]
+        before = ["if command -v {name} >/dev/null 2>&1; then"]
         after = ["fi"]
         base_script += _add_shell_code_to_script(tools, before, after)
 
@@ -161,11 +158,8 @@ def _format_shell_instructions(
             f'$env.PATH = ($env.PATH | prepend $"{tools_dir}/$_os/$_arch/bin")',
         ]
         base_script = "\n".join(script_lines)
-        before = [
-            "# Configuration for {name}",
-            "if (which {name}) != null {{",
-        ]
-        after = ["end"]
+        before = ["if (which {name}) != null {{"]
+        after = ["}"]
         base_script += _add_shell_code_to_script(tools, before, after)
         return base_script
     msg = f"Unsupported shell: {shell}"  # pragma: no cover
@@ -182,6 +176,7 @@ def _add_shell_code_to_script(
         for name, config in tools.items():
             if config.shell_code:
                 config_lines = [
+                    "# Configuration for {name}",
                     *(line.format(name=name) for line in before),
                     *[f"    {line}" for line in config.shell_code.strip().split("\n")],
                     *after,
@@ -233,6 +228,7 @@ def write_shell_scripts(
             f.write(script_content + "\n")
 
         script_path.chmod(script_path.stat().st_mode | 0o755)
+
     tools_dir1 = replace_home_in_path(tools_dir, "~")
     log(f"Generated shell scripts in {tools_dir1}/shell/", "success", "📝")
     if print_shell_setup:
