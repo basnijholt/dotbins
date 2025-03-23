@@ -14,12 +14,7 @@ import pytest
 import requests
 
 from dotbins.cli import _get_tool
-from dotbins.config import (
-    Config,
-    RawConfigDict,
-    RawToolConfigDict,
-    _config_from_dict,
-)
+from dotbins.config import Config, RawConfigDict, RawToolConfigDict, _config_from_dict
 from dotbins.utils import current_platform, log
 
 if TYPE_CHECKING:
