@@ -97,7 +97,7 @@ def replace_home_in_path(path: Path, home: str = "$HOME") -> str:
 def _format_shell_instructions(
     tools_dir: Path,
     shell: Literal["bash", "zsh", "fish", "nushell"],
-    tools: dict[str, ToolConfig] | None = None,
+    tools: dict[str, ToolConfig],
 ) -> str:
     """Format shell instructions for a given shell."""
     tools_dir_str = replace_home_in_path(tools_dir)
@@ -117,23 +117,12 @@ def _format_shell_instructions(
             export PATH="{tools_dir_str}/$_os/$_arch/bin:$PATH"
             """,
         )
-
-        # Add tool-specific shell code if provided
-        if tools:
-            lines = []
-            for name, config in tools.items():
-                if config.shell_code:
-                    lines.extend(
-                        [
-                            f"# Configuration for {name}",
-                            f"if command -v {name} >/dev/null 2>&1; then",
-                            *[f"    {line}" for line in config.shell_code.strip().split("\n")],
-                            "fi",
-                            "",
-                        ],
-                    )
-            if lines:
-                base_script += "\n# Tool-specific configurations\n" + "\n".join(lines)
+        before = [
+            "# Configuration for {name}",
+            "if command -v {name} >/dev/null 2>&1; then",
+        ]
+        after = ["fi"]
+        base_script += _add_shell_code_to_script(tools, before, after)
 
         return base_script
 
@@ -152,30 +141,12 @@ def _format_shell_instructions(
             """,
         )
 
-        # Add tool-specific shell code if provided
-        if tools:
-            tool_scripts = []
-            for tool_name, tool_config in tools.items():
-                if tool_config.shell_code:
-                    # Split the shell code into lines and indent each line properly
-                    shell_code_lines = tool_config.shell_code.strip().split("\n")
-                    # Use a consistent 4-space indentation within the if block
-                    indented_shell_code = "\n    ".join(shell_code_lines)
-
-                    # Create a dedented tool script with proper indentation
-                    tool_scripts.append(
-                        textwrap.dedent(
-                            f"""\
-                            # Configuration for {tool_name}
-                            if command -v {tool_name} >/dev/null 2>&1
-                                {indented_shell_code}
-                            end
-                            """,
-                        ),
-                    )
-            if tool_scripts:
-                base_script += "\n# Tool-specific configurations\n" + "\n\n".join(tool_scripts)
-
+        before = [
+            "# Configuration for {name}",
+            "if command -v {name} >/dev/null 2>&1",
+        ]
+        after = ["end"]
+        base_script += _add_shell_code_to_script(tools, before, after)
         return base_script
 
     if shell == "nushell":
@@ -189,37 +160,43 @@ def _format_shell_instructions(
             "",
             f'$env.PATH = ($env.PATH | prepend $"{tools_dir}/$_os/$_arch/bin")',
         ]
-
-        # Add tool-specific shell code if provided
-        if tools:
-            script_lines.append("\n# Tool-specific configurations")
-            for tool_name, tool_config in tools.items():
-                if tool_config.shell_code:
-                    # Split the shell code into lines and indent each line properly
-                    shell_code_lines = tool_config.shell_code.strip().split("\n")
-                    # Use a consistent 4-space indentation within the if block
-                    indented_shell_code = "\n    ".join(shell_code_lines)
-
-                    script_lines.extend(
-                        [
-                            "",
-                            f"# Configuration for {tool_name}",
-                            f"if (which {tool_name}) != null {{",
-                            f"    {indented_shell_code}",
-                            "}",
-                        ],
-                    )
-
-        return "\n".join(script_lines)
-
+        base_script = "\n".join(script_lines)
+        before = [
+            "# Configuration for {name}",
+            "if (which {name}) != null {{",
+        ]
+        after = ["end"]
+        base_script += _add_shell_code_to_script(tools, before, after)
+        return base_script
     msg = f"Unsupported shell: {shell}"  # pragma: no cover
     raise ValueError(msg)  # pragma: no cover
 
 
+def _add_shell_code_to_script(
+    tools: dict[str, ToolConfig],
+    before: list[str],
+    after: list[str],
+) -> str:
+    if tools:
+        lines = []
+        for name, config in tools.items():
+            if config.shell_code:
+                config_lines = [
+                    *(line.format(name=name) for line in before),
+                    *[f"    {line}" for line in config.shell_code.strip().split("\n")],
+                    *after,
+                    "",
+                ]
+                lines.extend(config_lines)
+        if lines:
+            return "\n# Tool-specific configurations\n" + "\n".join(lines)
+    return ""
+
+
 def write_shell_scripts(
     tools_dir: Path,
+    tools: dict[str, ToolConfig],
     print_shell_setup: bool = False,
-    tools: dict[str, ToolConfig] | None = None,
 ) -> None:
     """Generate shell script files for different shells.
 
@@ -265,13 +242,6 @@ def write_shell_scripts(
         log(f"  Zsh:     source {tools_dir2}/shell/zsh.sh", "info", "👉")
         log(f"  Fish:    source {tools_dir2}/shell/fish.fish", "info", "👉")
         log(f"  Nushell: source {tools_dir2}/shell/nushell.nu", "info", "👉")
-
-
-def print_shell_setup(tools_dir: Path, shell: Literal["bash", "zsh", "fish", "nushell"]) -> None:
-    """Print shell setup instructions."""
-    instructions = _format_shell_instructions(tools_dir, shell)
-    log(f"\n# Add this to your {shell} configuration file (e.g., .bashrc, .zshrc):")
-    log(f"\n{instructions}")
 
 
 STYLE_EMOJI_MAP = {

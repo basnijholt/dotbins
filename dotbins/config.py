@@ -239,7 +239,7 @@ class Config:
         Creates shell scripts in the tools_dir/shell directory that users
         can source in their shell configuration files.
         """
-        write_shell_scripts(self.tools_dir, print_shell_setup, self.tools)
+        write_shell_scripts(self.tools_dir, self.tools, print_shell_setup)
 
 
 def _maybe_copy_config_file(
