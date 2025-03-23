@@ -176,7 +176,7 @@ def _add_shell_code_to_script(
         for name, config in tools.items():
             if config.shell_code:
                 config_lines = [
-                    "# Configuration for {name}",
+                    f"# Configuration for {name}",
                     *(line.format(name=name) for line in before),
                     *[f"    {line}" for line in config.shell_code.strip().split("\n")],
                     *after,
