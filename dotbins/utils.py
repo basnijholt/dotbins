@@ -120,21 +120,20 @@ def _format_shell_instructions(
 
         # Add tool-specific shell code if provided
         if tools:
-            tool_scripts = []
-            for tool_name, tool_config in tools.items():
-                if tool_config.shell_code:
-                    tool_scripts.append(
-                        textwrap.dedent(
-                            f"""\
-                            # Configuration for {tool_name}
-                            if command -v {tool_name} >/dev/null 2>&1; then
-                                {tool_config.shell_code}
-                            fi
-                            """,
-                        ),
+            lines = []
+            for name, config in tools.items():
+                if config.shell_code:
+                    lines.extend(
+                        [
+                            f"# Configuration for {name}",
+                            f"if command -v {name} >/dev/null 2>&1; then",
+                            *[f"    {line}" for line in config.shell_code.strip().split("\n")],
+                            "fi",
+                            "",
+                        ],
                     )
-            if tool_scripts:
-                base_script += "\n# Tool-specific configurations\n" + "\n".join(tool_scripts)
+            if lines:
+                base_script += "\n# Tool-specific configurations\n" + "\n".join(lines)
 
         return base_script
 
@@ -158,18 +157,24 @@ def _format_shell_instructions(
             tool_scripts = []
             for tool_name, tool_config in tools.items():
                 if tool_config.shell_code:
+                    # Split the shell code into lines and indent each line properly
+                    shell_code_lines = tool_config.shell_code.strip().split("\n")
+                    # Use a consistent 4-space indentation within the if block
+                    indented_shell_code = "\n    ".join(shell_code_lines)
+
+                    # Create a dedented tool script with proper indentation
                     tool_scripts.append(
                         textwrap.dedent(
                             f"""\
                             # Configuration for {tool_name}
                             if command -v {tool_name} >/dev/null 2>&1
-                                {tool_config.shell_code}
+                                {indented_shell_code}
                             end
                             """,
                         ),
                     )
             if tool_scripts:
-                base_script += "\n# Tool-specific configurations\n" + "\n".join(tool_scripts)
+                base_script += "\n# Tool-specific configurations\n" + "\n\n".join(tool_scripts)
 
         return base_script
 
@@ -187,14 +192,20 @@ def _format_shell_instructions(
 
         # Add tool-specific shell code if provided
         if tools:
+            script_lines.append("\n# Tool-specific configurations")
             for tool_name, tool_config in tools.items():
                 if tool_config.shell_code:
+                    # Split the shell code into lines and indent each line properly
+                    shell_code_lines = tool_config.shell_code.strip().split("\n")
+                    # Use a consistent 4-space indentation within the if block
+                    indented_shell_code = "\n    ".join(shell_code_lines)
+
                     script_lines.extend(
                         [
                             "",
                             f"# Configuration for {tool_name}",
                             f"if (which {tool_name}) != null {{",
-                            f"    {tool_config.shell_code}",
+                            f"    {indented_shell_code}",
                             "}",
                         ],
                     )
