@@ -1480,7 +1480,12 @@ def test_tool_shell_code_in_shell_scripts(
             assert "source <(fzf --zsh)" in content
             assert 'eval "$(zoxide init zsh)"' in content
             assert "alias l='eza -lah --git'" in content
-            assert 'eval "$(starship init zsh)"' in content
+
+            # Check shell-specific starship code
+            if shell == "bash":
+                assert 'eval "$(starship init bash)"' in content
+            elif shell == "zsh":
+                assert 'eval "$(starship init zsh)"' in content
 
             # Check tool without shell_code has no block
             assert "if command -v bat >/dev/null 2>&1; then" not in content
@@ -1494,7 +1499,7 @@ def test_tool_shell_code_in_shell_scripts(
             assert "source <(fzf --zsh)" in content
             assert 'eval "$(zoxide init zsh)"' in content
             assert "alias l='eza -lah --git'" in content
-            assert 'eval "$(starship init zsh)"' in content
+            assert "starship init fish | source" in content  # Fish-specific starship code
 
             # Check tool without shell_code has no block
             assert "if command -v bat >/dev/null 2>&1" not in content
@@ -1508,7 +1513,13 @@ def test_tool_shell_code_in_shell_scripts(
             assert "source <(fzf --zsh)" in content
             assert 'eval "$(zoxide init zsh)"' in content
             assert "alias l='eza -lah --git'" in content
-            assert 'eval "$(starship init zsh)"' in content
+
+            # Nushell-specific starship code
+            assert 'mkdir ($nu.data-dir | path join "vendor/autoload")' in content
+            assert (
+                'starship init nu | save -f ($nu.data-dir | path join "vendor/autoload/starship.nu")'
+                in content
+            )
 
             # Check tool without shell_code has no block
             assert "if (which bat) != null {" not in content
