@@ -117,9 +117,9 @@ def _format_shell_instructions(
             export PATH="{tools_dir_str}/$_os/$_arch/bin:$PATH"
             """,
         )
-        before = ["if command -v {name} >/dev/null 2>&1; then"]
-        after = ["fi"]
-        base_script += _add_shell_code_to_script(tools, before, after)
+        if_start = "if command -v {name} >/dev/null 2>&1; then"
+        if_end = "fi"
+        base_script += _add_shell_code_to_script(tools, if_start, if_end)
 
         return base_script
 
@@ -138,12 +138,9 @@ def _format_shell_instructions(
             """,
         )
 
-        before = [
-            "# Configuration for {name}",
-            "if command -v {name} >/dev/null 2>&1",
-        ]
-        after = ["end"]
-        base_script += _add_shell_code_to_script(tools, before, after)
+        if_start = "if command -v {name} >/dev/null 2>&1"
+        if_end = "end"
+        base_script += _add_shell_code_to_script(tools, if_start, if_end)
         return base_script
 
     if shell == "nushell":
@@ -158,9 +155,9 @@ def _format_shell_instructions(
             f'$env.PATH = ($env.PATH | prepend $"{tools_dir}/$_os/$_arch/bin")',
         ]
         base_script = "\n".join(script_lines)
-        before = ["if (which {name}) != null {{"]
-        after = ["}"]
-        base_script += _add_shell_code_to_script(tools, before, after)
+        if_start = "if (which {name}) != null {{"
+        if_end = "}"
+        base_script += _add_shell_code_to_script(tools, if_start, if_end)
         return base_script
     msg = f"Unsupported shell: {shell}"  # pragma: no cover
     raise ValueError(msg)  # pragma: no cover
@@ -168,17 +165,17 @@ def _format_shell_instructions(
 
 def _add_shell_code_to_script(
     tools: dict[str, ToolConfig],
-    before: list[str],
-    after: list[str],
+    if_start: str,
+    if_end: str,
 ) -> str:
     lines = []
     for name, config in tools.items():
         if config.shell_code:
             config_lines = [
                 f"# Configuration for {name}",
-                *(line.format(name=name) for line in before),
+                if_start.format(name=name),
                 *[f"    {line}" for line in config.shell_code.strip().split("\n")],
-                *after,
+                if_end,
                 "",
             ]
             lines.extend(config_lines)
