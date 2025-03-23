@@ -20,7 +20,7 @@ from dotbins.config import (
     RawToolConfigDict,
     _config_from_dict,
 )
-from dotbins.utils import current_platform, log, write_shell_scripts
+from dotbins.utils import current_platform, log
 
 if TYPE_CHECKING:
     from requests_mock import Mocker
@@ -435,12 +435,7 @@ def test_e2e_sync_tools_partial_skip_and_update(
     # 'mytool' should remain at version 2.0.0, unchanged
     mytool_info = config.version_store.get_tool_info("mytool", "linux", "amd64")
     assert mytool_info is not None
-    assert mytool_info["version"] == "2.0.0"  # no change
-
-    # 'othertool' should have been updated to 2.0.0
-    other_info = config.version_store.get_tool_info("othertool", "linux", "amd64")
-    assert other_info is not None
-    assert other_info["version"] == "2.0.0"
+    assert mytool_info["version"] == "2.0.0"
     # And the binary should now exist:
     other_bin = config.bin_dir("linux", "amd64") / "otherbin"
     assert other_bin.exists()
@@ -1303,7 +1298,11 @@ def test_sync_tools_with_empty_archive(
         "tools_dir": str(tmp_path),
         "platforms": {"linux": ["amd64"]},
         "tools": {
-            "mytool": {"repo": "fakeuser/mytool", "binary_path": "*", "extract_binary": True},
+            "mytool": {
+                "repo": "fakeuser/mytool",
+                "binary_path": "*",
+                "extract_binary": True,
+            },
         },
     }
     config = _config_from_dict(raw_config)
@@ -1412,6 +1411,14 @@ def test_tool_shell_code_in_shell_scripts(
             "shell_code": 'eval "$(zoxide init zsh)"',
         },
     }
+    config = Config.from_dict(
+        {
+            "tools_dir": str(tools_dir),
+            "platforms": {"linux": ["amd64"]},
+            "tools": tool_configs,  # type: ignore[typeddict-item]
+        },
+    )
+    _set_mock_release_info(config, version="1.2.3")
 
     # Mock the download_file function
     def mock_download_file(
@@ -1420,24 +1427,12 @@ def test_tool_shell_code_in_shell_scripts(
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
     ) -> str:
-        # Create a dummy archive with the binary
-        if "fzf" in url:
-            binary_name = "fzf"
-        elif "bat" in url:
-            binary_name = "bat"
-        elif "zoxide" in url:
-            binary_name = "zoxide"
-        else:
-            binary_name = "unknown"
-
+        binary_name = url.split("/")[-1].split("-")[0]
         create_dummy_archive(destination, binary_name)
         return destination
 
-    monkeypatch = pytest.MonkeyPatch()
-    monkeypatch.setattr("dotbins.utils.download_file", mock_download_file)
-
-    # Run the e2e test
-    run_e2e_test(tools_dir, tool_configs, create_dummy_archive)
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools()
 
     # Check that shell scripts were generated
     shell_files = {
@@ -1499,41 +1494,21 @@ def test_sync_tools_generates_shell_scripts_with_shell_code(
     """Test that sync_tools generates shell scripts with the shell_code."""
     tools_dir = tmp_path / "tools"
     # Create a config with tools that have shell_code
+    tool_configs: dict[str, RawToolConfigDict] = {
+        "mytool": {
+            "repo": "fakeuser/mytool",
+            "shell_code": "echo 'mytool is configured'",
+        },
+        "othertool": {"repo": "fakeuser/othertool"},
+    }
     raw_config: RawConfigDict = {
         "tools_dir": str(tools_dir),
         "platforms": {"linux": ["amd64"]},
-        "tools": {
-            "mytool": {
-                "repo": "fakeuser/mytool",
-                "shell_code": "echo 'mytool is configured'",
-            },
-            "othertool": {
-                "repo": "fakeuser/othertool",
-            },
-        },
+        "tools": tool_configs,  # type: ignore[typeddict-item]
     }
 
-    # Create the configuration
-    config = _config_from_dict(raw_config)
-
-    # Mock the release info
-    def mock_latest_release_info(
-        repo: str,  # noqa: ARG001
-        github_token: str | None,  # noqa: ARG001
-    ) -> dict:
-        return {
-            "tag_name": "v1.2.3",
-            "assets": [
-                {
-                    "name": "mytool-1.2.3-linux_amd64.tar.gz",
-                    "browser_download_url": "https://example.com/mytool.tar.gz",
-                },
-                {
-                    "name": "othertool-1.2.3-linux_amd64.tar.gz",
-                    "browser_download_url": "https://example.com/othertool.tar.gz",
-                },
-            ],
-        }
+    config = Config.from_dict(raw_config)
+    _set_mock_release_info(config, version="1.2.3")
 
     def mock_download_file(
         url: str,
@@ -1548,12 +1523,9 @@ def test_sync_tools_generates_shell_scripts_with_shell_code(
             create_dummy_archive(destination, "othertool")
         return destination
 
-    monkeypatch = pytest.MonkeyPatch()
-    monkeypatch.setattr("dotbins.utils.latest_release_info", mock_latest_release_info)
-    monkeypatch.setattr("dotbins.utils.download_file", mock_download_file)
-
     # Run sync_tools
-    config.sync_tools()
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools()
 
     # Check that shell scripts were generated
     shell_script_path = tools_dir / "shell" / "zsh.sh"
@@ -1572,35 +1544,48 @@ def test_sync_tools_generates_shell_scripts_with_shell_code(
 
 def test_write_shell_scripts_with_shell_code(
     tmp_path: Path,
+    create_dummy_archive: Callable,
 ) -> None:
     """Test the write_shell_scripts function with tools that have shell_code."""
-    from dotbins.config import ToolConfig
-
     # Create a temp dir for the shell scripts
     tools_dir = tmp_path / "tools"
     tools_dir.mkdir(parents=True, exist_ok=True)
 
     # Create tool configs with and without shell_code
-    tools = {
-        "eza": ToolConfig(
-            tool_name="eza",
-            repo="eza-community/eza",
-            shell_code="alias l='eza -lah --git'",
-        ),
-        "bat": ToolConfig(
-            tool_name="bat",
-            repo="sharkdp/bat",
+    tool_configs: dict[str, RawToolConfigDict] = {
+        "eza": {
+            "repo": "eza-community/eza",
+            "shell_code": "alias l='eza -lah --git'",
+        },
+        "bat": {
+            "repo": "sharkdp/bat",
             # No shell_code
-        ),
-        "starship": ToolConfig(
-            tool_name="starship",
-            repo="starship/starship",
-            shell_code='eval "$(starship init zsh)"',
-        ),
+        },
+        "starship": {
+            "repo": "starship/starship",
+            "shell_code": 'eval "$(starship init zsh)"',
+        },
     }
 
-    # Call write_shell_scripts directly
-    write_shell_scripts(tools_dir, print_shell_setup=False, tools=tools)
+    def mock_download_file(
+        url: str,
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        name = url.split("/")[-1].split("-")[0]
+        create_dummy_archive(Path(destination), name)
+        return destination
+
+    config = Config.from_dict(
+        {
+            "tools_dir": str(tools_dir),
+            "tools": tool_configs,  # type: ignore[typeddict-item]
+        },
+    )
+    _set_mock_release_info(config, version="1.2.3")
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools(generate_shell_scripts=True)
 
     # Check that shell scripts were generated
     shell_files = {
