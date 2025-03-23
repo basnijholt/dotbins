@@ -430,7 +430,12 @@ def test_e2e_sync_tools_partial_skip_and_update(
     # 'mytool' should remain at version 2.0.0, unchanged
     mytool_info = config.version_store.get_tool_info("mytool", "linux", "amd64")
     assert mytool_info is not None
-    assert mytool_info["version"] == "2.0.0"
+    assert mytool_info["version"] == "2.0.0"  # no change
+
+    # 'othertool' should have been updated to 2.0.0
+    other_info = config.version_store.get_tool_info("othertool", "linux", "amd64")
+    assert other_info is not None
+    assert other_info["version"] == "2.0.0"
     # And the binary should now exist:
     other_bin = config.bin_dir("linux", "amd64") / "otherbin"
     assert other_bin.exists()
@@ -1293,11 +1298,7 @@ def test_sync_tools_with_empty_archive(
         "tools_dir": str(tmp_path),
         "platforms": {"linux": ["amd64"]},
         "tools": {
-            "mytool": {
-                "repo": "fakeuser/mytool",
-                "binary_path": "*",
-                "extract_binary": True,
-            },
+            "mytool": {"repo": "fakeuser/mytool", "binary_path": "*", "extract_binary": True},
         },
     }
     config = _config_from_dict(raw_config)
