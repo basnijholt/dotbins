@@ -92,7 +92,7 @@ class VersionStore:
         """Return all version information."""
         return self.versions
 
-    def print(self, platform: str = None, architecture: str = None) -> None:
+    def print(self, platform: str | None = None, architecture: str | None = None) -> None:
         """Show versions of installed tools in a formatted table.
 
         Args:
@@ -142,7 +142,11 @@ class VersionStore:
         # Print the table
         console.print(table)
 
-    def print_condensed(self, platform: str = None, architecture: str = None) -> None:
+    def print_condensed(
+        self,
+        platform: str | None = None,
+        architecture: str | None = None,
+    ) -> None:
         """Show a condensed view of installed tools with one line per tool.
 
         Args:
@@ -190,7 +194,7 @@ class VersionStore:
 
         for tool_name, instances in sorted(tools.items()):
             # Collect unique versions and platforms
-            versions = sorted({i["version"] for i in instances})
+            version_list = sorted({i["version"] for i in instances})
             platforms = sorted({f"{i['platform']}/{i['arch']}" for i in instances})
 
             # Find latest update time
@@ -198,10 +202,7 @@ class VersionStore:
             updated_str = humanize_time_ago(latest_update["updated_at"])
 
             # Format version string (show multiple if they differ)
-            if len(versions) == 1:
-                version_str = versions[0]
-            else:
-                version_str = ", ".join(versions)
+            version_str = version_list[0] if len(version_list) == 1 else ", ".join(version_list)
 
             # Format platforms string
             platforms_str = ", ".join(platforms)
@@ -214,8 +215,8 @@ class VersionStore:
         self,
         config: Config,
         condensed: bool = False,
-        platform: str = None,
-        architecture: str = None,
+        platform: str | None = None,
+        architecture: str | None = None,
     ) -> None:
         """Show versions of installed tools and list missing tools defined in config.
 
@@ -237,7 +238,7 @@ class VersionStore:
         available_tools = set(config.tools.keys())
 
         # Get all tools installed for the specified platform/architecture
-        installed_keys = self.versions.keys()
+        installed_keys = list(self.versions.keys())
         installed_tools = set()
 
         for key in installed_keys:
