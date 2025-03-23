@@ -216,9 +216,9 @@ def create_parser() -> argparse.ArgumentParser:
         help="Print dotbins version information",
     )
 
-    # versions command
-    _versions_parser = subparsers.add_parser(
-        "versions",
+    # status command
+    _status_parser = subparsers.add_parser(
+        "status",
         help="Show installed tool versions and when they were last updated",
     )
 
@@ -308,7 +308,7 @@ def main() -> None:  # pragma: no cover
                 not args.no_file,
                 args.verbose,
             )
-        elif args.command == "versions":
+        elif args.command == "status":
             config.version_store.print()
 
     except Exception as e:

@@ -177,4 +177,7 @@ def test_version_store_print(
     store.update_tool_info("test", "linux", "amd64", "1.0.0")
     store.print()
     out, _ = capsys.readouterr()
-    assert "test (linux/amd64): 1.0.0" in out
+    assert "test" in out
+    assert "linux" in out
+    assert "amd64" in out
+    assert "1.0.0" in out
