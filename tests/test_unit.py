@@ -288,6 +288,7 @@ def test_download_tool_already_exists(requests_mock: Mocker, tmp_path: Path) -> 
         "amd64",
         "1.0.0",
         "sha256",
+        ["test-tool"],
     )
 
     config = Config(

@@ -77,7 +77,7 @@ def test_version_store_update_tool_info(tmp_path: Path) -> None:
     assert store.get_tool_info("ripgrep", "linux", "amd64") is None
 
     # Update tool info
-    store.update_tool_info("ripgrep", "linux", "amd64", "13.0.0")
+    store.update_tool_info("ripgrep", "linux", "amd64", "13.0.0", "sha256", ["ripgrep"])
 
     # After update
     info = store.get_tool_info("ripgrep", "linux", "amd64")
@@ -104,7 +104,7 @@ def test_version_store_save_creates_parent_dirs(tmp_path: Path) -> None:
     store = VersionStore(nested_dir)
 
     # Update to trigger save
-    store.update_tool_info("test", "linux", "amd64", "1.0.0")
+    store.update_tool_info("test", "linux", "amd64", "1.0.0", "sha256", ["test"])
 
     # Verify directories and file were created
     assert os.path.exists(nested_dir)
@@ -137,7 +137,7 @@ def test_version_store_update_existing(
     assert info["version"] == "0.29.0"
 
     # Update to new version
-    store.update_tool_info("fzf", "linux", "amd64", "0.30.0")
+    store.update_tool_info("fzf", "linux", "amd64", "0.30.0", "sha256", ["fzf"])
 
     # Verify update
     updated_info = store.get_tool_info("fzf", "linux", "amd64")
@@ -160,7 +160,7 @@ def test_version_store_print(
     out, _ = capsys.readouterr()
     assert "No tool versions recorded yet." in out
 
-    store.update_tool_info("test", "linux", "amd64", "1.0.0")
+    store.update_tool_info("test", "linux", "amd64", "1.0.0", "sha256", ["test"])
     store._print_full()
     out, _ = capsys.readouterr()
     assert "test" in out
@@ -169,7 +169,7 @@ def test_version_store_print(
     assert "1.0.0" in out
 
     # Test filtering by platform
-    store.update_tool_info("test2", "macos", "arm64", "2.0.0")
+    store.update_tool_info("test2", "macos", "arm64", "2.0.0", "sha256", ["test2"])
     store._print_full(platform="linux")
     out, _ = capsys.readouterr()
     assert "test" in out
@@ -195,9 +195,9 @@ def test_version_store_print_compact(
     assert "No tool versions recorded yet." in out
 
     # Add multiple versions of the same tool
-    store.update_tool_info("testtool", "linux", "amd64", "1.0.0")
-    store.update_tool_info("testtool", "macos", "arm64", "1.0.0")
-    store.update_tool_info("othertool", "linux", "amd64", "2.0.0")
+    store.update_tool_info("testtool", "linux", "amd64", "1.0.0", "sha256", ["testtool"])
+    store.update_tool_info("testtool", "macos", "arm64", "1.0.0", "sha256", ["testtool"])
+    store.update_tool_info("othertool", "linux", "amd64", "2.0.0", "sha256", ["othertool"])
 
     store._print_compact()
     out, _ = capsys.readouterr()
@@ -237,7 +237,7 @@ def test_print_with_missing(
 
     # Create VersionStore with one installed tool
     store = VersionStore(tmp_path)
-    store.update_tool_info("test", "linux", "amd64", "1.0.0")
+    store.update_tool_info("test", "linux", "amd64", "1.0.0", "sha256", ["test"])
 
     # Call the method with explicit linux platform
     store.print(config, platform="linux")

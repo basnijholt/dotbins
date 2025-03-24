@@ -400,7 +400,8 @@ def _process_downloaded_task(
             task.platform,
             task.arch,
             task.version,
-            sha256=sha256_hash,
+            sha256_hash,
+            task.tool_config.binary_name,
         )
 
         log(

@@ -79,7 +79,8 @@ class VersionStore:
         platform: str,
         arch: str,
         version: str,
-        sha256: str = "",
+        sha256: str,
+        binary_names: list[str],
     ) -> None:
         """Update version info for a tool.
 
@@ -88,7 +89,8 @@ class VersionStore:
             platform: Platform (e.g., 'linux', 'macos')
             arch: Architecture (e.g., 'amd64', 'arm64')
             version: Version string
-            sha256: SHA256 hash of the downloaded archive (optional)
+            sha256: SHA256 hash of the downloaded archive
+            binary_names: List of binary names
 
         """
         key = f"{tool}/{platform}/{arch}"
@@ -96,6 +98,7 @@ class VersionStore:
             "version": version,
             "updated_at": datetime.now().isoformat(),
             "sha256": sha256,
+            "binary_names": binary_names,
         }
         self.save()
 
