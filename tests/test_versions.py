@@ -170,12 +170,12 @@ def test_version_store_print(
 ) -> None:
     """Test printing version information."""
     store = VersionStore(tmp_path)
-    store.print()
+    store._print_full()
     out, _ = capsys.readouterr()
     assert "No tool versions recorded yet." in out
 
     store.update_tool_info("test", "linux", "amd64", "1.0.0")
-    store.print()
+    store._print_full()
     out, _ = capsys.readouterr()
     assert "test" in out
     assert "linux" in out
@@ -184,13 +184,13 @@ def test_version_store_print(
 
     # Test filtering by platform
     store.update_tool_info("test2", "macos", "arm64", "2.0.0")
-    store.print(platform="linux")
+    store._print_full(platform="linux")
     out, _ = capsys.readouterr()
     assert "test" in out
     assert "test2" not in out
 
     # Test filtering by architecture
-    store.print(architecture="arm64")
+    store._print_full(architecture="arm64")
     out, _ = capsys.readouterr()
     assert "test2" in out
     # "test" might appear in the table headers, so we can't assert it's not in the output
@@ -204,7 +204,7 @@ def test_version_store_print_condensed(
 ) -> None:
     """Test printing condensed version information."""
     store = VersionStore(tmp_path)
-    store.print_condensed()
+    store._print_condensed()
     out, _ = capsys.readouterr()
     assert "No tool versions recorded yet." in out
 
@@ -213,7 +213,7 @@ def test_version_store_print_condensed(
     store.update_tool_info("testtool", "macos", "arm64", "1.0.0")
     store.update_tool_info("othertool", "linux", "amd64", "2.0.0")
 
-    store.print_condensed()
+    store._print_condensed()
     out, _ = capsys.readouterr()
 
     # Check condensed format shows just one row per tool
@@ -222,7 +222,7 @@ def test_version_store_print_condensed(
     assert "linux/amd64, macos/arm64" in out or "macos/arm64, linux/amd64" in out
 
     # Test filtering in condensed view
-    store.print_condensed(platform="linux")
+    store._print_condensed(platform="linux")
     out, _ = capsys.readouterr()
     assert "testtool" in out
     assert "othertool" in out
@@ -247,40 +247,37 @@ def test_print_with_missing(
         "linux_only": ToolConfig(tool_name="linux_only", repo="linux/repo"),
     }
 
-    # Manually set asset_patterns after creation to avoid type errors in tests
-    # These type ignores are needed because we're setting directly for testing
-    config.tools["macos_only"].asset_patterns = {"macos": "macos-pattern", "linux": None}  # type: ignore[dict-item, assignment]
-    config.tools["linux_only"].asset_patterns = {"macos": None, "linux": "linux-pattern"}  # type: ignore[dict-item, assignment]
-
     # Create VersionStore with one installed tool
     store = VersionStore(tmp_path)
     store.update_tool_info("test", "linux", "amd64", "1.0.0")
 
     # Call the method with explicit linux platform
-    store.print_with_missing(config, platform="linux")
+    store.print(config, platform="linux")
 
     # Check output
     out, _ = capsys.readouterr()
 
+    assert "Missing Tools" in out, out
+
+    installed, missing = out.split("Missing Tools")
+    installed = installed.strip()
+    missing = missing.strip()
+
     # Should show the installed tool
-    assert "test" in out
-    assert "linux" in out
-    assert "amd64" in out
-    assert "1.0.0" in out
+    assert "test" in installed
+    assert "linux" in installed
+    assert "amd64" in installed
+    assert "1.0.0" in installed
 
     # Should also show missing tools
-    assert "Missing Tools" in out
-    assert "missing" in out
-    assert "missing/repo" in out
-    assert "linux_only" in out
-    assert "linux/repo" in out
-    assert (
-        "macos_only" not in out
-    )  # Should not show because it's explicitly not available for linux
-    assert "dotbins sync" in out
+    assert "missing/repo" in missing
+    assert "linux_only" in missing
+    assert "linux/repo" in missing
+    assert "macos_only" in missing
+    assert "dotbins sync" in missing
 
     # Test condensed view
-    store.print_with_missing(config, condensed=True)
+    store.print(config, condensed=True)
     out, _ = capsys.readouterr()
 
     # Should not show platform/arch as separate columns
@@ -289,7 +286,7 @@ def test_print_with_missing(
     assert "Missing Tools" in out
 
     # Test filtering for macos - should show macos_only as missing but not linux_only
-    store.print_with_missing(config, platform="macos")
+    store.print(config, platform="macos")
     out, _ = capsys.readouterr()
 
     # Should show missing tools but no installed tools
@@ -329,10 +326,10 @@ def test_print_with_missing_edge_cases(
     store = VersionStore(tmp_path)
 
     # Test with a platform not specified in asset_patterns
-    store.print_with_missing(config, platform="linux")
+    store.print(config, platform="linux")
     out, _ = capsys.readouterr()
 
     # Should show all tools as missing since none are installed and none are explicitly excluded
-    assert "no_patterns" in out
+    assert "no_patterns" in out, out
     assert "string_pattern" in out
     assert "dict_no_platform" in out

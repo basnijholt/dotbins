@@ -92,7 +92,7 @@ class VersionStore:
         """Return all version information."""
         return self.versions
 
-    def print(self, platform: str | None = None, architecture: str | None = None) -> None:
+    def _print_full(self, platform: str | None = None, architecture: str | None = None) -> None:
         """Show versions of installed tools in a formatted table.
 
         Args:
@@ -142,7 +142,7 @@ class VersionStore:
         # Print the table
         console.print(table)
 
-    def print_condensed(
+    def _print_condensed(
         self,
         platform: str | None = None,
         architecture: str | None = None,
@@ -215,7 +215,7 @@ class VersionStore:
         """Return a list of tools that are expected to be installed."""
         return [
             (tool_name, platform, arch)
-            for tool_name, tool_config in config.tools.items()
+            for tool_name in config.tools
             for platform, architectures in config.platforms.items()
             for arch in architectures
         ]
@@ -228,7 +228,7 @@ class VersionStore:
             installed_tools.append((tool, tool_platform, tool_arch))
         return installed_tools
 
-    def print_with_missing(
+    def print(
         self,
         config: Config,
         condensed: bool = False,
@@ -247,9 +247,9 @@ class VersionStore:
         console = Console()
 
         if condensed:
-            self.print_condensed(platform, architecture)
+            self._print_condensed(platform, architecture)
         else:
-            self.print(platform, architecture)
+            self._print_full(platform, architecture)
 
         expected_tools = self._expected_tools(config)
         installed_tools = self._installed_tools()

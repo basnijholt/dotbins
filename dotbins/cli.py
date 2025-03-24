@@ -346,7 +346,7 @@ def main() -> None:  # pragma: no cover
 
             # If both --condensed and --full are specified, --condensed takes precedence
             condensed = args.condensed
-            config.version_store.print_with_missing(
+            config.version_store.print(
                 config,
                 condensed=condensed,
                 platform=platform,
