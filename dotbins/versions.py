@@ -265,10 +265,12 @@ class VersionStore:
             missing_table = Table(title="Missing Tools (defined in config but not installed)")
             missing_table.add_column("Tool", style="cyan")
             missing_table.add_column("Repository", style="yellow")
+            missing_table.add_column("Platform", style="red")
+            missing_table.add_column("Architecture", style="red")
 
-            for name, _, _ in sorted(missing_tools):
+            for name, _platform, _arch in sorted(missing_tools):
                 tool_config = config.tools[name]
-                missing_table.add_row(name, tool_config.repo)
+                missing_table.add_row(name, tool_config.repo, _platform, _arch)
 
             console.print(missing_table)
 
