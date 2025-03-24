@@ -117,15 +117,14 @@ class VersionStore:
         table.add_column("Last Updated", style="blue")
         table.add_column("SHA256", style="dim")
 
-        # Add rows
-        for key, info in sorted(versions.items()):
-            tool, tool_platform, tool_arch = key.split("/")
+        installed_tools = self._installed_tools()
+        if platform or architecture:
+            installed_tools = _filter_tools(installed_tools, platform, architecture)
 
-            # Skip if not matching platform/architecture filters
-            if platform and tool_platform != platform:
-                continue
-            if architecture and tool_arch != architecture:
-                continue
+        # Add rows
+        for tool, tool_platform, tool_arch in installed_tools:
+            info = self.get_tool_info(tool, tool_platform, tool_arch)
+            assert info is not None
 
             updated_str = humanize_time_ago(info["updated_at"])
             sha256 = info.get("sha256", "N/A")
@@ -165,7 +164,6 @@ class VersionStore:
         installed_tools = self._installed_tools()
         if platform or architecture:
             installed_tools = _filter_tools(installed_tools, platform, architecture)
-
         for tool, tool_platform, tool_arch in installed_tools:
             info = self.get_tool_info(tool, tool_platform, tool_arch)
             assert info is not None
