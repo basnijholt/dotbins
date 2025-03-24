@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import tempfile
 from functools import partial
@@ -52,7 +53,7 @@ class AutoDetectBinaryPathsError(Exception):
     """Error raised when auto-detecting binary paths fails."""
 
 
-def _detect_binary_paths(temp_dir: Path, tool_config: ToolConfig) -> list[str]:
+def _detect_binary_paths(temp_dir: Path, tool_config: ToolConfig) -> list[Path]:
     """Auto-detect binary paths if not specified in configuration."""
     if tool_config.binary_path:
         return tool_config.binary_path
@@ -63,21 +64,22 @@ def _detect_binary_paths(temp_dir: Path, tool_config: ToolConfig) -> list[str]:
         msg = f"Could not auto-detect binary paths for {', '.join(binary_names)}. Please specify binary_path in config."
         log(msg, "error")
         raise AutoDetectBinaryPathsError(msg)
-    log(f"Auto-detected binary paths: {binary_paths}", "success")
+    names = ", ".join(f"[b]{p}[/]" for p in binary_paths)
+    log(f"Auto-detected binary paths: {names}", "success")
     return binary_paths
 
 
 def _process_binaries(
     temp_dir: Path,
     destination_dir: Path,
-    binary_paths: list[str],
+    binary_paths: list[Path],
     bin_spec: BinSpec,
 ) -> None:
     """Process each binary by finding it and copying to destination."""
     for binary_path_pattern, binary_name in zip(binary_paths, bin_spec.tool_config.binary_name):
         source_path = _find_binary_in_extracted_files(
             temp_dir,
-            binary_path_pattern,
+            str(binary_path_pattern),
             bin_spec.version,
             bin_spec.tool_arch,
             bin_spec.tool_platform,
@@ -126,7 +128,11 @@ def _copy_binary_to_destination(
     destination_dir.mkdir(parents=True, exist_ok=True)
     dest_path = destination_dir / binary_name
     shutil.copy2(source_path, dest_path)
-    dest_path.chmod(dest_path.stat().st_mode | 0o755)
+    if os.name == "nt":
+        # Windows doesn't use the same executable bit concept, so just ensure write access
+        dest_path.chmod(dest_path.stat().st_mode)
+    else:
+        dest_path.chmod(dest_path.stat().st_mode | 0o755)
     log(f"Copied binary to [b]{replace_home_in_path(dest_path, '~')}[/]", "success")
 
 
@@ -392,8 +398,7 @@ def _process_downloaded_task(
             task.platform,
             task.arch,
             task.version,
-            old_version=version_store.get_tool_version(task.tool_name, task.platform, task.arch)
-            or "—",
+            old_version=version_store.get_tool_version(task.tool_name, task.platform, task.arch) or "—",
         )
         version_store.update_tool_info(
             task.tool_name,

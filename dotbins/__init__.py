@@ -2,7 +2,7 @@
 
 A utility for managing CLI tool binaries in your dotfiles repository.
 Downloads and organizes binaries for popular tools across multiple
-platforms (macOS, Linux, etc.) and architectures (amd64, arm64, etc.).
+platforms (macOS, Linux, Windows) and architectures (amd64, arm64, etc.).
 
 This tool helps maintain a consistent set of CLI utilities across all your
 environments, with binaries tracked in your dotfiles git repository.

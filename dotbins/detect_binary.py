@@ -31,6 +31,9 @@ def _is_exec(filename: str, mode: int) -> bool:
     if _is_definitely_not_exec(filename):
         return False
 
+    if os.name == "nt":  # Windows doesn't use executable bit
+        return _is_likely_exec(filename)
+
     if mode & 0o111:
         return True
 
@@ -40,9 +43,7 @@ def _is_exec(filename: str, mode: int) -> bool:
 def _binary_chooser(name: str, mode: int, target_name: str) -> tuple[bool, bool]:
     basename = Path(name).name
 
-    is_direct = (
-        basename in (target_name, f"{target_name}.exe", f"{target_name}.appimage")
-    ) and _is_exec(name, mode)
+    is_direct = (basename in (target_name, f"{target_name}.exe", f"{target_name}.appimage")) and _is_exec(name, mode)
 
     is_possible = _is_exec(name, mode)
 
@@ -106,7 +107,7 @@ def _find_best_binary_match(
     return None
 
 
-def auto_detect_binary_paths(extracted_dir: Path, binary_names: list[str]) -> list[str]:
+def auto_detect_binary_paths(extracted_dir: Path, binary_names: list[str]) -> list[Path]:
     """Automatically detect binary paths for multiple binaries.
 
     Args:
@@ -122,7 +123,7 @@ def auto_detect_binary_paths(extracted_dir: Path, binary_names: list[str]) -> li
     for binary_name in binary_names:
         binary_path = _find_best_binary_match(extracted_dir, binary_name)
         if binary_path:
-            detected_paths.append(str(binary_path))
+            detected_paths.append(binary_path)
 
     return detected_paths
 

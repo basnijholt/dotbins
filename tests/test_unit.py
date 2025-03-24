@@ -12,11 +12,19 @@ from unittest.mock import patch
 import pytest
 
 import dotbins
-from dotbins.config import BinSpec, Config, _find_config_file, build_tool_config
+from dotbins.config import BinSpec, Config, RawToolConfigDict, _find_config_file, build_tool_config
+from dotbins.utils import replace_home_in_path
 from dotbins.versions import VersionStore
 
 if TYPE_CHECKING:
     from requests_mock import Mocker
+
+
+def _is_executable_or_file(path: Path) -> bool:
+    if os.name == "nt":
+        # For Windows, skip the executable bit check, just check that the file exists
+        return path.is_file()
+    return path.stat().st_mode & 0o100 != 0 # Verify it's executable
 
 
 def test_load_config(tmp_path: Path) -> None:
@@ -151,7 +159,7 @@ def test_extract_from_archive_tar(tmp_path: Path, create_dummy_archive: Callable
     # Verify the binary was extracted and renamed correctly
     extracted_bin = dest_dir / "test-tool"
     assert extracted_bin.exists()
-    assert extracted_bin.stat().st_mode & 0o100  # Verify it's executable
+    assert _is_executable_or_file(extracted_bin)
 
 
 def test_extract_from_archive_zip(tmp_path: Path, create_dummy_archive: Callable) -> None:
@@ -195,7 +203,7 @@ def test_extract_from_archive_zip(tmp_path: Path, create_dummy_archive: Callable
     # Verify the binary was extracted and renamed correctly
     extracted_bin = dest_dir / "test-tool"
     assert extracted_bin.exists()
-    assert extracted_bin.stat().st_mode & 0o100  # Verify it's executable
+    assert _is_executable_or_file(extracted_bin)
 
 
 def test_extract_from_archive_nested(tmp_path: Path, create_dummy_archive: Callable) -> None:
@@ -239,7 +247,7 @@ def test_extract_from_archive_nested(tmp_path: Path, create_dummy_archive: Calla
     # Verify the binary was extracted and renamed correctly
     extracted_bin = dest_dir / "test-tool"
     assert extracted_bin.exists()
-    assert extracted_bin.stat().st_mode & 0o100  # Verify it's executable
+    assert _is_executable_or_file(extracted_bin)
 
 
 def test_make_binaries_executable(tmp_path: Path) -> None:
@@ -262,9 +270,7 @@ def test_make_binaries_executable(tmp_path: Path) -> None:
 
     config.make_binaries_executable()
 
-    # Verify the binary is now executable - use platform-independent check
-    mode = bin_file.stat().st_mode
-    assert mode & 0o100 != 0, f"File should be executable, mode={mode:o}"
+    assert _is_executable_or_file(bin_file)
 
 
 def test_download_tool_already_exists(requests_mock: Mocker, tmp_path: Path) -> None:
@@ -496,7 +502,7 @@ def test_extract_from_archive_multiple_binaries(
     for bin_name in ["primary-tool", "secondary-tool"]:
         extracted_bin = dest_dir / bin_name
         assert extracted_bin.exists(), f"Binary {bin_name} not found"
-        assert extracted_bin.stat().st_mode & 0o100, f"Binary {bin_name} not executable"
+        assert _is_executable_or_file(extracted_bin)
 
     # Verify the contents of both extracted files
     for bin_name in ["primary-tool", "secondary-tool"]:
@@ -508,11 +514,11 @@ def test_extract_from_archive_multiple_binaries(
 def test_build_tool_config_skips_unknown_platforms() -> None:
     """Test that build_tool_config correctly skips unknown platforms in asset_patterns."""
     # Define a tool config with both valid and unknown platforms in asset_patterns
-    raw_data = {
+    raw_data: RawToolConfigDict = {
         "repo": "test/repo",
         "binary_name": "tool",
         "binary_path": "tool",
-        "asset_patterns": {
+        "asset_patterns": {  # type: ignore[typeddict-item]
             "linux": {  # Valid platform
                 "amd64": "tool-{version}-linux_{arch}.tar.gz",
                 "arm64": "tool-{version}-linux_{arch}.tar.gz",
@@ -568,6 +574,7 @@ def test_extract_from_archive_with_arch_platform_version_in_path(
 
     # Create destination directory
     dest_dir = tmp_path / "bin"
+    dest_dir.mkdir(parents=True, exist_ok=True)
 
     # Extract the binary
     dotbins.download._extract_binary_from_archive(
@@ -585,7 +592,7 @@ def test_extract_from_archive_with_arch_platform_version_in_path(
     # Verify the binary was extracted and renamed correctly
     extracted_bin = dest_dir / "test-tool"
     assert extracted_bin.exists()
-    assert extracted_bin.stat().st_mode & 0o100  # Verify it's executable
+    assert _is_executable_or_file(extracted_bin)
 
 
 def test_find_config_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -596,7 +603,8 @@ def test_find_config_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]) ->
     result = _find_config_file(config_path)
     assert result == config_path
     out = capsys.readouterr().out.replace("\n", "")
-    assert f"Loading configuration from: {config_path}" in out
+    nice_path = replace_home_in_path(config_path, "~")
+    assert f"Loading configuration from: {nice_path}" in out, out
 
     # Case 2: Explicit path that doesn't exist
     non_existent_path = tmp_path / "non_existent.yaml"
@@ -629,7 +637,10 @@ def test_find_config_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]) ->
             result = _find_config_file(None)
             assert result == config_file
             out = capsys.readouterr().out.replace("\n", "")
-            assert f"Loading configuration from: {config_file}" in out
+
+            # Handle path format differences between OS
+            nice_path = replace_home_in_path(config_file, "~")
+            assert f"Loading configuration from: {nice_path}" in out, out
 
             # Remove this config file before testing the next one
             config_file.unlink()

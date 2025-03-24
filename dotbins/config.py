@@ -134,6 +134,8 @@ class Config:
         for platform, architectures in self.platforms.items():
             for arch in architectures:
                 bin_dir = self.bin_dir(platform, arch)
+                if os.name == "nt":
+                    continue
                 if bin_dir.exists():
                     for binary in bin_dir.iterdir():
                         if binary.is_file():
@@ -295,7 +297,7 @@ class ToolConfig:
     tool_name: str
     repo: str
     binary_name: list[str] = field(default_factory=list)
-    binary_path: list[str] = field(default_factory=list)
+    binary_path: list[Path] = field(default_factory=list)
     extract_binary: bool | None = None
     asset_patterns: dict[str, dict[str, str | None]] = field(default_factory=dict)
     platform_map: dict[str, str] = field(default_factory=dict)
@@ -428,7 +430,7 @@ def build_tool_config(
 
     # Convert to lists
     binary_name: list[str] = _ensure_list(raw_binary_name)
-    binary_path: list[str] = _ensure_list(raw_binary_path)
+    binary_path: list[Path] = [Path(p) for p in _ensure_list(raw_binary_path)]
 
     # Normalize asset patterns to dict[platform][arch].
     raw_patterns = raw_data.get("asset_patterns")

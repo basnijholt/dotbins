@@ -8,6 +8,7 @@ import gzip
 import hashlib
 import lzma
 import os
+import platform as platform_module
 import shutil
 import sys
 import tarfile
@@ -69,18 +70,18 @@ def current_platform() -> tuple[str, str]:
 
     Returns:
         Tuple containing (platform, architecture)
-        platform: 'linux' or 'macos'
+        platform: 'linux' or 'macos' or 'windows'
         architecture: 'amd64' or 'arm64'
 
     """
-    # Detect platform
-    platform = sys.platform
+    sys_platform = sys.platform
     platform = {
         "darwin": "macos",
-    }.get(platform, platform)
+        "win32": "windows",  # Returns "win32" on Windows on 32-bit and 64-bit
+    }.get(sys_platform, sys_platform)
 
-    # Detect architecture
-    machine = os.uname().machine.lower()
+    machine = platform_module.machine().lower()
+
     arch = {
         "aarch64": "arm64",
         "x86_64": "amd64",
@@ -91,7 +92,15 @@ def current_platform() -> tuple[str, str]:
 
 def replace_home_in_path(path: Path, home: str = "$HOME") -> str:
     """Replace ~ with $HOME in a path."""
-    return str(path.absolute()).replace(os.path.expanduser("~"), home)
+    abs_path = str(path.absolute())
+    home_path = os.path.expanduser("~")
+
+    # Convert Windows backslashes to forward slashes for consistent display
+    if os.name == "nt":
+        abs_path = abs_path.replace("\\", "/")
+        home_path = home_path.replace("\\", "/")
+
+    return abs_path.replace(home_path, home)
 
 
 def _format_shell_instructions(
@@ -227,7 +236,8 @@ def write_shell_scripts(
         with open(script_path, "w") as f:
             f.write(script_content + "\n")
 
-        script_path.chmod(script_path.stat().st_mode | 0o755)
+        if os.name != "nt":  # Skip on Windows
+            script_path.chmod(script_path.stat().st_mode | 0o755)
 
     tools_dir1 = replace_home_in_path(tools_dir, "~")
     log(f"Generated shell scripts in {tools_dir1}/shell/", "success", "📝")
@@ -344,7 +354,8 @@ def extract_archive(archive_path: str | Path, dest_dir: str | Path) -> None:
                 open(output_path, "wb") as f_out,
             ):
                 shutil.copyfileobj(f_in, f_out)
-            output_path.chmod(output_path.stat().st_mode | 0o755)
+            if os.name != "nt":  # Skip on Windows
+                output_path.chmod(output_path.stat().st_mode | 0o755)
 
         # Try each compression format based on extension or file header
         if filename.endswith(".gz") or header.startswith(b"\x1f\x8b"):

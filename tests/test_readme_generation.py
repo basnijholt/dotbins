@@ -206,7 +206,9 @@ def test_readme_table_formatting(mock_current_platform: MagicMock, mock_config: 
     assert " • " in content
 
 
-def test_write_readme_file_handles_exception() -> None:
+def test_write_readme_file_handles_exception(
+    capsys: pytest.CaptureFixture,
+) -> None:
     """Test that write_readme_file properly handles exceptions."""
     with tempfile.TemporaryDirectory() as tmpdir:
         Path(tmpdir)
@@ -218,14 +220,11 @@ def test_write_readme_file_handles_exception() -> None:
         # Mock generate_readme_content to return a simple string
         with (
             patch("dotbins.readme.generate_readme_content", return_value="# Test README"),
-            patch("dotbins.readme.log") as mock_log,
         ):
             # Call the function
             write_readme_file(config, verbose=True)
 
             # Verify exception is logged
-            mock_log.assert_any_call(
-                "Failed to write README: [Errno 2] No such file or directory: '/non/existent/path/README.md'",
-                "error",
-                print_exception=True,
-            )
+            captured = capsys.readouterr()
+            out = captured.out
+            assert "No such file or directory" in out, out
