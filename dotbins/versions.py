@@ -162,15 +162,13 @@ class VersionStore:
 
         # Group versions by tool
         tools = defaultdict(list)
-        for key, info in versions.items():
-            tool, tool_platform, tool_arch = key.split("/")
+        installed_tools = self._installed_tools()
+        if platform or architecture:
+            installed_tools = _filter_tools(installed_tools, platform, architecture)
 
-            # Skip if not matching platform/architecture filters
-            if platform and tool_platform != platform:
-                continue
-            if architecture and tool_arch != architecture:
-                continue
-
+        for tool, tool_platform, tool_arch in installed_tools:
+            info = self.get_tool_info(tool, tool_platform, tool_arch)
+            assert info is not None
             tools[tool].append(
                 {
                     "platform": tool_platform,
