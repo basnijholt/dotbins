@@ -896,7 +896,7 @@ def test_non_extract_single_binary_copy(
     # Verify that the binary file was created with the correct name
     bin_dir = config.bin_dir("linux", "amd64")
     binary_path = bin_dir / "tool-binary"
-    assert binary_path.exists()
+    assert binary_path.exists(), captured.out
 
     # Verify that the binary is executable
     assert os.access(binary_path, os.X_OK)
