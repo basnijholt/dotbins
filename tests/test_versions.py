@@ -260,7 +260,7 @@ def test_print_with_missing(
     # Check output
     out, _ = capsys.readouterr()
 
-    assert "Missing Tools" in out, out
+    assert "Missing Tools" in out
 
     installed, missing = out.split("Missing Tools")
     installed = installed.strip()
@@ -280,9 +280,15 @@ def test_print_with_missing(
     store.print(config, platform="windows")
 
     out, _ = capsys.readouterr()
-    assert "No tools found for the specified filters" in out, out
+    assert "No tools found for the specified filters" in out
 
     store.print(config, platform="windows", compact=True)
 
     out, _ = capsys.readouterr()
-    assert "No tools found for the specified filters" in out, out
+    assert "No tools found for the specified filters" in out
+
+    # Reset the store
+    store = VersionStore(tmp_path)
+    store.print(config, compact=True)
+    out, _ = capsys.readouterr()
+    assert "Run dotbins sync to install missing tools" in out
