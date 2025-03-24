@@ -546,7 +546,7 @@ Install tools from a remote configuration:
 dotbins get https://raw.githubusercontent.com/username/dotbins-config/main/tools.yaml --dest ~/bin
 ```
 
-Show status (available versions, installed versions, and when they were last updated) for all installed tools:
+Show status (installed, missing tools, last updated) for all installed tools:
 ```bash
 dotbins status
 ```
