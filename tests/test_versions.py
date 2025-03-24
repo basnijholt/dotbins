@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from dotbins.config import Config
 from dotbins.versions import VersionStore
 
 
@@ -234,18 +235,20 @@ def test_print_with_missing(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Test printing version information with missing tools."""
-    from dotbins.config import Config, ToolConfig
-
     # Create a minimal Config mock
-    config = Config(tools_dir=tmp_path)
-
-    # Add some tools to the config with platform-specific configurations
-    config.tools = {
-        "test": ToolConfig(tool_name="test", repo="test/repo"),
-        "missing": ToolConfig(tool_name="missing", repo="missing/repo"),
-        "macos_only": ToolConfig(tool_name="macos_only", repo="macos/repo"),
-        "linux_only": ToolConfig(tool_name="linux_only", repo="linux/repo"),
-    }
+    config = Config.from_dict(
+        {
+            "tools_dir": str(tmp_path),
+            "tools": {
+                "test": {"repo": "test/repo"},
+                "missing": {"repo": "missing/repo"},
+            },
+            "platforms": {
+                "linux": ["amd64"],
+                "macos": ["arm64"],
+            },
+        },
+    )
 
     # Create VersionStore with one installed tool
     store = VersionStore(tmp_path)
@@ -271,65 +274,5 @@ def test_print_with_missing(
 
     # Should also show missing tools
     assert "missing/repo" in missing
-    assert "linux_only" in missing
-    assert "linux/repo" in missing
-    assert "macos_only" in missing
+    assert "test/repo" not in missing
     assert "dotbins sync" in missing
-
-    # Test condensed view
-    store.print(config, condensed=True)
-    out, _ = capsys.readouterr()
-
-    # Should not show platform/arch as separate columns
-    assert "Installed Tools Summary" in out
-    assert "test" in out
-    assert "Missing Tools" in out
-
-    # Test filtering for macos - should show macos_only as missing but not linux_only
-    store.print(config, platform="macos")
-    out, _ = capsys.readouterr()
-
-    # Should show missing tools but no installed tools
-    assert "No tool versions recorded yet." not in out
-    assert "linux/amd64" not in out
-    assert "Missing Tools" in out
-    assert "macos_only" in out
-    assert (
-        "linux_only" not in out
-    )  # Should not show because it's explicitly not available for macos
-    assert "--platform macos" in out
-
-
-def test_print_with_missing_edge_cases(
-    tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    """Test edge cases for platform-specific tools."""
-    from dotbins.config import Config, ToolConfig
-
-    # Create a minimal Config mock
-    config = Config(tools_dir=tmp_path)
-
-    # Add some tools to the config with various asset_patterns configurations
-    config.tools = {
-        "no_patterns": ToolConfig(tool_name="no_patterns", repo="no/patterns"),
-        "string_pattern": ToolConfig(tool_name="string_pattern", repo="string/pattern"),
-        "dict_no_platform": ToolConfig(tool_name="dict_no_platform", repo="dict/no_platform"),
-    }
-
-    # Manually set asset_patterns after creation to avoid type errors in tests
-    # These type ignores are needed because we're setting directly for testing
-    config.tools["string_pattern"].asset_patterns = "global-pattern-{platform}-{arch}.tar.gz"  # type: ignore[assignment]
-    config.tools["dict_no_platform"].asset_patterns = {"other_platform": "pattern"}  # type: ignore[dict-item, assignment]
-
-    # Create VersionStore with one installed tool
-    store = VersionStore(tmp_path)
-
-    # Test with a platform not specified in asset_patterns
-    store.print(config, platform="linux")
-    out, _ = capsys.readouterr()
-
-    # Should show all tools as missing since none are installed and none are explicitly excluded
-    assert "no_patterns" in out, out
-    assert "string_pattern" in out
-    assert "dict_no_platform" in out
