@@ -93,10 +93,24 @@ def create_parser() -> argparse.ArgumentParser:
 
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")
 
-    # list command
-    _list_parser = subparsers.add_parser(
-        "list",
-        help="List all available tools defined in your configuration",
+    # Add get command
+    get_parser = subparsers.add_parser(
+        "get",
+        help="Download and install a tool directly without configuration file",
+        formatter_class=RichHelpFormatter,
+    )
+    get_parser.add_argument(
+        "source",
+        help="GitHub repository (owner/repo) or URL to a YAML configuration file",
+    )
+    get_parser.add_argument(
+        "--dest",
+        default="~/.local/bin",
+        help="Destination directory for the binary (default: ~/.local/bin)",
+    )
+    get_parser.add_argument(
+        "--name",
+        help="Name to use for the binary (defaults to repository name if not specified) and is ignored if source is a URL",
     )
 
     # sync command
@@ -161,10 +175,10 @@ def create_parser() -> argparse.ArgumentParser:
         help="Initialize directory structure and generate shell integration scripts",
     )
 
-    # version command
-    _version_parser = subparsers.add_parser(
-        "version",
-        help="Print dotbins version information",
+    # list command
+    _list_parser = subparsers.add_parser(
+        "list",
+        help="List all available tools defined in your configuration",
     )
 
     # status command
@@ -220,24 +234,10 @@ def create_parser() -> argparse.ArgumentParser:
         help="Don't write the README to a file (only print to console)",
     )
 
-    # Add get command
-    get_parser = subparsers.add_parser(
-        "get",
-        help="Download and install a tool directly without configuration file",
-        formatter_class=RichHelpFormatter,
-    )
-    get_parser.add_argument(
-        "source",
-        help="GitHub repository (owner/repo) or URL to a YAML configuration file",
-    )
-    get_parser.add_argument(
-        "--dest",
-        default="~/.local/bin",
-        help="Destination directory for the binary (default: ~/.local/bin)",
-    )
-    get_parser.add_argument(
-        "--name",
-        help="Name to use for the binary (defaults to repository name if not specified) and is ignored if source is a URL",
+    # version command
+    _version_parser = subparsers.add_parser(
+        "version",
+        help="Print dotbins version information",
     )
 
     return parser
