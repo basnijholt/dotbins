@@ -550,9 +550,9 @@ Show status (available versions, installed versions, and when they were last upd
 dotbins status
 ```
 
-Show a condensed view of installed tools (one line per tool):
+Show a compact view of installed tools (one line per tool):
 ```bash
-dotbins status --condensed
+dotbins status --compact
 ```
 
 Show tools only for the current platform/architecture:

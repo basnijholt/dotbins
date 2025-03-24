@@ -223,9 +223,9 @@ def create_parser() -> argparse.ArgumentParser:
     )
     _status_parser.add_argument(
         "-c",
-        "--condensed",
+        "--compact",
         action="store_true",
-        help="Show a condensed view with one line per tool",
+        help="Show a compact view with one line per tool",
     )
     _status_parser.add_argument(
         "-f",
@@ -344,11 +344,11 @@ def main() -> None:  # pragma: no cover
                 platform = current_platform_info[0]
                 arch = current_platform_info[1]
 
-            # If both --condensed and --full are specified, --condensed takes precedence
-            condensed = args.condensed
+            # If both --compact and --full are specified, --compact takes precedence
+            compact = args.compact
             config.version_store.print(
                 config,
-                condensed=condensed,
+                compact=compact,
                 platform=platform,
                 architecture=arch,
             )

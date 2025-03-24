@@ -199,13 +199,13 @@ def test_version_store_print(
     assert "linux" not in out
 
 
-def test_version_store_print_condensed(
+def test_version_store_print_compact(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Test printing condensed version information."""
+    """Test printing compact version information."""
     store = VersionStore(tmp_path)
-    store._print_condensed()
+    store._print_compact()
     out, _ = capsys.readouterr()
     assert "No tool versions recorded yet." in out
 
@@ -214,16 +214,16 @@ def test_version_store_print_condensed(
     store.update_tool_info("testtool", "macos", "arm64", "1.0.0")
     store.update_tool_info("othertool", "linux", "amd64", "2.0.0")
 
-    store._print_condensed()
+    store._print_compact()
     out, _ = capsys.readouterr()
 
-    # Check condensed format shows just one row per tool
+    # Check compact format shows just one row per tool
     assert "testtool" in out
     assert "othertool" in out
     assert "linux/amd64, macos/arm64" in out or "macos/arm64, linux/amd64" in out
 
-    # Test filtering in condensed view
-    store._print_condensed(platform="linux")
+    # Test filtering in compact view
+    store._print_compact(platform="linux")
     out, _ = capsys.readouterr()
     assert "testtool" in out
     assert "othertool" in out

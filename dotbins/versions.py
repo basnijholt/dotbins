@@ -142,12 +142,12 @@ class VersionStore:
         # Print the table
         console.print(table)
 
-    def _print_condensed(
+    def _print_compact(
         self,
         platform: str | None = None,
         architecture: str | None = None,
     ) -> None:
-        """Show a condensed view of installed tools with one line per tool.
+        """Show a compact view of installed tools with one line per tool.
 
         Args:
             platform: Filter by platform (e.g., 'linux', 'macos')
@@ -231,7 +231,7 @@ class VersionStore:
     def print(
         self,
         config: Config,
-        condensed: bool = False,
+        compact: bool = False,
         platform: str | None = None,
         architecture: str | None = None,
     ) -> None:
@@ -239,15 +239,15 @@ class VersionStore:
 
         Args:
             config: Configuration containing tool definitions
-            condensed: If True, show a condensed view with one line per tool
+            compact: If True, show a compact view with one line per tool
             platform: Filter by platform (e.g., 'linux', 'macos')
             architecture: Filter by architecture (e.g., 'amd64', 'arm64')
 
         """
         console = Console()
 
-        if condensed:
-            self._print_condensed(platform, architecture)
+        if compact:
+            self._print_compact(platform, architecture)
         else:
             self._print_full(platform, architecture)
 
