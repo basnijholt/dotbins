@@ -181,12 +181,6 @@ def create_parser() -> argparse.ArgumentParser:
         help="List all available tools defined in your configuration",
     )
 
-    # version command
-    _version_parser = subparsers.add_parser(
-        "version",
-        help="Print dotbins version information",
-    )
-
     # status command
     _status_parser = subparsers.add_parser(
         "status",
@@ -238,6 +232,12 @@ def create_parser() -> argparse.ArgumentParser:
         "--no-file",
         action="store_true",
         help="Don't write the README to a file (only print to console)",
+    )
+
+    # version command
+    _version_parser = subparsers.add_parser(
+        "version",
+        help="Print dotbins version information",
     )
 
     return parser
