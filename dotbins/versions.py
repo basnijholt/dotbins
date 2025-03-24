@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 from rich.console import Console
 from rich.table import Table
@@ -16,6 +16,17 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from .config import Config
+
+
+class _Spec(NamedTuple):
+    name: str
+    platform: str
+    architecture: str
+
+    @classmethod
+    def from_key(cls, key: str) -> _Spec:
+        """Create a _Spec from a key."""
+        return cls(*key.split("/"))
 
 
 class VersionStore:
@@ -125,17 +136,17 @@ class VersionStore:
             return
 
         # Add rows
-        for tool, tool_platform, tool_arch in installed_tools:
-            info = self.get_tool_info(tool, tool_platform, tool_arch)
+        for spec in installed_tools:
+            info = self.get_tool_info(spec.name, spec.platform, spec.architecture)
             assert info is not None
 
             updated_str = humanize_time_ago(info["updated_at"])
             sha256 = info.get("sha256", "N/A")
 
             table.add_row(
-                tool,
-                tool_platform,
-                tool_arch,
+                spec.name,
+                spec.platform,
+                spec.architecture,
                 info["version"],
                 updated_str,
                 sha256[:8] + "..." if sha256 and sha256 != "N/A" else sha256,
@@ -167,13 +178,13 @@ class VersionStore:
         installed_tools = self._installed_tools()
         if platform or architecture:
             installed_tools = _filter_tools(installed_tools, platform, architecture)
-        for tool, tool_platform, tool_arch in installed_tools:
-            info = self.get_tool_info(tool, tool_platform, tool_arch)
+        for spec in installed_tools:
+            info = self.get_tool_info(spec.name, spec.platform, spec.architecture)
             assert info is not None
-            tools[tool].append(
+            tools[spec.name].append(
                 {
-                    "platform": tool_platform,
-                    "arch": tool_arch,
+                    "platform": spec.platform,
+                    "arch": spec.architecture,
                     "version": info["version"],
                     "updated_at": info["updated_at"],
                 },
@@ -210,22 +221,18 @@ class VersionStore:
 
         console.print(table)
 
-    def _expected_tools(self, config: Config) -> list[tuple[str, str, str]]:
+    def _expected_tools(self, config: Config) -> list[_Spec]:
         """Return a list of tools that are expected to be installed."""
         return [
-            (tool_name, platform, arch)
+            _Spec(tool_name, platform, arch)
             for tool_name in config.tools
             for platform, architectures in config.platforms.items()
             for arch in architectures
         ]
 
-    def _installed_tools(self) -> list[tuple[str, str, str]]:
+    def _installed_tools(self) -> list[_Spec]:
         """Return a list of tools that are installed."""
-        installed_tools = []
-        for key in self.versions:
-            tool, tool_platform, tool_arch = key.split("/")
-            installed_tools.append((tool, tool_platform, tool_arch))
-        return installed_tools
+        return [_Spec.from_key(key) for key in self.versions]
 
     def print(
         self,
@@ -286,14 +293,14 @@ class VersionStore:
 
 
 def _filter_tools(
-    tools: list[tuple[str, str, str]],
+    tools: list[_Spec],
     platform: str | None = None,
     architecture: str | None = None,
-) -> list[tuple[str, str, str]]:
+) -> list[_Spec]:
     """Filter tools based on platform and architecture."""
     return [
-        (name, _platform, _arch)
-        for name, _platform, _arch in tools
-        if (_platform == platform or platform is None)
-        and (_arch == architecture or architecture is None)
+        spec
+        for spec in tools
+        if (spec.platform == platform or platform is None)
+        and (spec.architecture == architecture or architecture is None)
     ]
