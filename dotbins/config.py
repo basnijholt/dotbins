@@ -7,7 +7,7 @@ import re
 import shutil
 import sys
 from dataclasses import dataclass, field
-from functools import cached_property
+from functools import cached_property, partial
 from pathlib import Path
 from typing import TypedDict
 
@@ -20,9 +20,10 @@ from .readme import write_readme_file
 from .summary import UpdateSummary, display_update_summary
 from .utils import (
     current_platform,
-    fetch_releases_in_parallel,
+    execute_in_parallel,
     github_url_to_raw_url,
     humanize_time_ago,
+    latest_release_info,
     log,
     replace_home_in_path,
     write_shell_scripts,
@@ -94,19 +95,14 @@ class Config:
         """Set the latest releases for all tools."""
         if tools is None:
             tools = list(self.tools)
-        cfgs = [cfg for tool in tools if (cfg := self.tools[tool])._latest_release is None]
-        repos = [cfg.repo for cfg in cfgs]
-        releases = fetch_releases_in_parallel(repos, github_token, verbose)
-        for cfg, release in zip(cfgs, releases):
-            if release is None:
-                self._update_summary.add_failed_tool(
-                    cfg.tool_name,
-                    "Any",
-                    "Any",
-                    version="Unknown",
-                    reason=f"Failed to fetch release for {cfg.repo}",
-                )
-            cfg._latest_release = release
+        tool_configs = [self.tools[tool] for tool in tools]
+        fetch = partial(
+            _fetch_release,
+            update_summary=self._update_summary,
+            verbose=verbose,
+            github_token=github_token,
+        )
+        execute_in_parallel(tool_configs, fetch, max_workers=16)
 
     @cached_property
     def version_store(self) -> VersionStore:
@@ -167,6 +163,7 @@ class Config:
         github_token: str | None = None,
         verbose: bool = False,
         cleanup: bool = False,
+        generate_shell_scripts: bool = True,
     ) -> None:
         """Install and update tools to their latest versions.
 
@@ -195,6 +192,7 @@ class Config:
             github_token: GitHub API token for authentication (helps with rate limits)
             verbose: If True, show detailed logs during the process
             cleanup: If True, remove binaries that are not in the configuration
+            generate_shell_scripts: If True, generate shell scripts for the tools
 
         """
         if not self.tools:
@@ -237,6 +235,8 @@ class Config:
 
         if generate_readme:
             self.generate_readme(verbose=verbose)
+        if generate_shell_scripts:
+            self.generate_shell_scripts(print_shell_setup=False)
         _maybe_copy_config_file(copy_config_file, self.config_path, self.tools_dir)
 
     def generate_shell_scripts(self: Config, print_shell_setup: bool = True) -> None:
@@ -245,7 +245,8 @@ class Config:
         Creates shell scripts in the tools_dir/shell directory that users
         can source in their shell configuration files.
         """
-        write_shell_scripts(self.tools_dir, print_shell_setup)
+        write_shell_scripts(self.tools_dir, self.tools, print_shell_setup)
+        log("To see the shell setup instructions, run `dotbins init`", "info", "ℹ️")  # noqa: RUF001
 
     def _cleanup_unused_binaries(self, verbose: bool = False) -> None:
         """Remove binaries that are not associated with any known tool and clean version store."""
@@ -332,6 +333,7 @@ class ToolConfig:
     asset_patterns: dict[str, dict[str, str | None]] = field(default_factory=dict)
     platform_map: dict[str, str] = field(default_factory=dict)
     arch_map: dict[str, str] = field(default_factory=dict)
+    shell_code: str | dict[str, str] | None = None
     _latest_release: dict | None = field(default=None, init=False)
 
     def bin_spec(self, arch: str, platform: str) -> BinSpec:
@@ -425,6 +427,7 @@ class RawToolConfigDict(TypedDict, total=False):
     binary_name: str | list[str]  # Name(s) of the binary file(s)
     binary_path: str | list[str]  # Path(s) to binary within archive
     asset_patterns: str | dict[str, str] | dict[str, dict[str, str | None]]
+    shell_code: str | dict[str, str] | None  # Shell code to configure the tool
 
 
 class _AssetDict(TypedDict):
@@ -474,6 +477,7 @@ def build_tool_config(
         asset_patterns=asset_patterns,
         platform_map=platform_map,
         arch_map=arch_map,
+        shell_code=raw_data.get("shell_code"),
     )
 
 
@@ -704,3 +708,26 @@ def _find_matching_asset(
             return asset
     log(f"No asset matching '{asset_pattern}' found in {assets}", "warning")
     return None
+
+
+def _fetch_release(
+    tool_config: ToolConfig,
+    update_summary: UpdateSummary,
+    verbose: bool,
+    github_token: str | None = None,
+) -> None:
+    if tool_config._latest_release is not None:
+        return
+    try:
+        latest_release = latest_release_info(tool_config.repo, github_token)
+        tool_config._latest_release = latest_release
+    except Exception as e:
+        msg = f"Failed to fetch latest release for {tool_config.repo}: {e}"
+        update_summary.add_failed_tool(
+            tool_config.tool_name,
+            "Any",
+            "Any",
+            version="Unknown",
+            reason=msg,
+        )
+        log(msg, "error", print_exception=verbose)
