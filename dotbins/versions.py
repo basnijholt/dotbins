@@ -107,7 +107,7 @@ class VersionStore:
             return
 
         console = Console()
-        table = Table(title="Installed Tool Versions")
+        table = Table(title="✅ Installed Tool Versions")
 
         # Add columns
         table.add_column("Tool", style="cyan")
@@ -185,7 +185,7 @@ class VersionStore:
             return
 
         console = Console()
-        table = Table(title="Installed Tools Summary")
+        table = Table(title="✅ Installed Tools Summary")
 
         table.add_column("Tool", style="cyan")
         table.add_column("Version(s)", style="yellow")
@@ -262,7 +262,7 @@ class VersionStore:
         if missing_tools:
             console.print("\n")
 
-            missing_table = Table(title="Missing Tools (defined in config but not installed)")
+            missing_table = Table(title="❌ Missing Tools (defined in config but not installed)")
             missing_table.add_column("Tool", style="cyan")
             missing_table.add_column("Repository", style="yellow")
             missing_table.add_column("Platform", style="red")
