@@ -121,9 +121,7 @@ class VersionStore:
         table.add_column("Last Updated", style="blue")
         table.add_column("SHA256", style="dim")
 
-        installed_tools = _installed_tools(self.versions)
-        if platform or architecture:
-            installed_tools = _filter_tools(installed_tools, platform, architecture)
+        installed_tools = _installed_tools(self.versions, platform, architecture)
         if not installed_tools:
             log("No tools found for the specified filters.", "info")
             return
@@ -163,9 +161,7 @@ class VersionStore:
             return
 
         tools = defaultdict(list)
-        installed_tools = _installed_tools(self.versions)
-        if platform or architecture:
-            installed_tools = _filter_tools(installed_tools, platform, architecture)
+        installed_tools = _installed_tools(self.versions, platform, architecture)
 
         for spec in installed_tools:
             info = self.get_tool_info(spec.name, spec.platform, spec.architecture)
@@ -225,12 +221,8 @@ class VersionStore:
         else:
             self._print_full(platform, architecture)
 
-        expected_tools = _expected_tools(config)
-        installed_tools = _installed_tools(self.versions)
-        if platform or architecture:
-            expected_tools = _filter_tools(expected_tools, platform, architecture)
-            installed_tools = _filter_tools(installed_tools, platform, architecture)
-
+        expected_tools = _expected_tools(config, platform, architecture)
+        installed_tools = _installed_tools(self.versions, platform, architecture)
         missing_tools = [tool for tool in expected_tools if tool not in installed_tools]
 
         if missing_tools:
@@ -273,16 +265,30 @@ def _filter_tools(
     ]
 
 
-def _expected_tools(config: Config) -> list[_Spec]:
+def _expected_tools(
+    config: Config,
+    platform: str | None = None,
+    architecture: str | None = None,
+) -> list[_Spec]:
     """Return a list of tools that are expected to be installed."""
-    return [
+    expected_tools = [
         _Spec(tool_name, platform, arch)
         for tool_name in config.tools
         for platform, architectures in config.platforms.items()
         for arch in architectures
     ]
+    if platform or architecture:
+        expected_tools = _filter_tools(expected_tools, platform, architecture)
+    return expected_tools
 
 
-def _installed_tools(versions: dict[str, Any]) -> list[_Spec]:
+def _installed_tools(
+    versions: dict[str, Any],
+    platform: str | None = None,
+    architecture: str | None = None,
+) -> list[_Spec]:
     """Return a list of tools that are installed."""
-    return [_Spec.from_key(key) for key in versions]
+    installed_tools = [_Spec.from_key(key) for key in versions]
+    if platform or architecture:
+        installed_tools = _filter_tools(installed_tools, platform, architecture)
+    return installed_tools
