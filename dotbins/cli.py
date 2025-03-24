@@ -225,13 +225,13 @@ def create_parser() -> argparse.ArgumentParser:
         "-c",
         "--compact",
         action="store_true",
-        help="Show a compact view with one line per tool",
+        help="Show a compact view with one line per tool (default)",
     )
     _status_parser.add_argument(
         "-f",
         "--full",
         action="store_true",
-        help="Show the full detailed view (default)",
+        help="Show the full detailed view (overrides --compact)",
     )
     _status_parser.add_argument(
         "--current",
@@ -345,10 +345,9 @@ def main() -> None:  # pragma: no cover
                 arch = current_platform_info[1]
 
             # If both --compact and --full are specified, --compact takes precedence
-            compact = args.compact
             config.version_store.print(
                 config,
-                compact=compact,
+                compact=not args.full,
                 platform=platform,
                 architecture=arch,
             )
