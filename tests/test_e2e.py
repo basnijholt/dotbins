@@ -1555,6 +1555,7 @@ def test_tool_shell_code_in_shell_scripts(
         "zsh": "zsh.sh",
         "fish": "fish.fish",
         "nushell": "nushell.nu",
+        "powershell": "powershell.ps1",
     }
 
     for shell, filename in shell_files.items():
