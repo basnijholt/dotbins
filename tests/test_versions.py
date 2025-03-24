@@ -98,21 +98,6 @@ def test_version_store_update_tool_info(tmp_path: Path) -> None:
     assert saved_data["ripgrep/linux/amd64"]["version"] == "13.0.0"
 
 
-def test_version_store_list_all(
-    tmp_path: Path,
-    temp_version_file: Path,  # noqa: ARG001
-) -> None:
-    """Test listing all version information."""
-    store = VersionStore(tmp_path)
-
-    # List all versions
-    versions = store.list_all()
-
-    assert len(versions) == 2
-    assert "fzf/linux/amd64" in versions
-    assert "bat/macos/arm64" in versions
-
-
 def test_version_store_save_creates_parent_dirs(tmp_path: Path) -> None:
     """Test that save creates parent directories if needed."""
     nested_dir = tmp_path / "nested" / "path"

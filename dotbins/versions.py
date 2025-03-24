@@ -99,10 +99,6 @@ class VersionStore:
         }
         self.save()
 
-    def list_all(self) -> dict[str, Any]:
-        """Return all version information."""
-        return self.versions
-
     def _print_full(self, platform: str | None = None, architecture: str | None = None) -> None:
         """Show versions of installed tools in a formatted table.
 
@@ -111,9 +107,7 @@ class VersionStore:
             architecture: Filter by architecture (e.g., 'amd64', 'arm64')
 
         """
-        versions = self.list_all()
-
-        if not versions:
+        if not self.versions:
             log("No tool versions recorded yet.", "info")
             return
 
@@ -167,9 +161,7 @@ class VersionStore:
             architecture: Filter by architecture (e.g., 'amd64', 'arm64')
 
         """
-        versions = self.list_all()
-
-        if not versions:
+        if not self.versions:
             log("No tool versions recorded yet.", "info")
             return
 
