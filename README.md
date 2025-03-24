@@ -679,6 +679,7 @@ Check the output of `dotbins init` to see which shell scripts were created and h
 ℹ️ To see the shell setup instructions, run `dotbins init`
 📝 Generated README at ~/.dotbins/README.md
 ```
+<!-- OUTPUT:END -->
 
 ## :heart: Support and Contributions
 
