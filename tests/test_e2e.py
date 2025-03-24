@@ -392,7 +392,6 @@ def test_e2e_sync_tools_partial_skip_and_update(
     }
 
     config = Config.from_dict(raw_config)
-    config.tools_dir = tmp_path
     _set_mock_release_info(config, version="2.0.0")
 
     # Mark 'mytool' as already up-to-date
