@@ -114,7 +114,6 @@ class VersionStore:
         console = Console()
         table = Table(title="✅ Installed Tool Versions")
 
-        # Add columns
         table.add_column("Tool", style="cyan")
         table.add_column("Platform", style="green")
         table.add_column("Architecture", style="green")
@@ -129,7 +128,6 @@ class VersionStore:
             log("No tools found for the specified filters.", "info")
             return
 
-        # Add rows
         for spec in installed_tools:
             info = self.get_tool_info(spec.name, spec.platform, spec.architecture)
             assert info is not None
@@ -146,7 +144,6 @@ class VersionStore:
                 sha256[:8] + "..." if sha256 and sha256 != "N/A" else sha256,
             )
 
-        # Print the table
         console.print(table)
 
     def _print_compact(
@@ -165,11 +162,11 @@ class VersionStore:
             log("No tool versions recorded yet.", "info")
             return
 
-        # Group versions by tool
         tools = defaultdict(list)
         installed_tools = _installed_tools(self.versions)
         if platform or architecture:
             installed_tools = _filter_tools(installed_tools, platform, architecture)
+
         for spec in installed_tools:
             info = self.get_tool_info(spec.name, spec.platform, spec.architecture)
             assert info is not None
@@ -195,20 +192,12 @@ class VersionStore:
         table.add_column("Last Updated", style="blue")
 
         for tool_name, instances in sorted(tools.items()):
-            # Collect unique versions and platforms
             version_list = sorted({i["version"] for i in instances})
             platforms = sorted({f"{i['platform']}/{i['arch']}" for i in instances})
-
-            # Find latest update time
             latest_update = max(instances, key=lambda x: x["updated_at"])
             updated_str = humanize_time_ago(latest_update["updated_at"])
-
-            # Format version string (show multiple if they differ)
             version_str = version_list[0] if len(version_list) == 1 else ", ".join(version_list)
-
-            # Format platforms string
             platforms_str = ", ".join(platforms)
-
             table.add_row(tool_name, version_str, platforms_str, updated_str)
 
         console.print(table)
@@ -259,7 +248,6 @@ class VersionStore:
 
             console.print(missing_table)
 
-            # Show install tip if there are missing tools
             platform_filter = f" --platform {platform}" if platform else ""
             arch_filter = f" --architecture {architecture}" if architecture else ""
 
