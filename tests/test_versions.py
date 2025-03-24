@@ -276,3 +276,13 @@ def test_print_with_missing(
     assert "missing/repo" in missing
     assert "test/repo" not in missing
     assert "dotbins sync" in missing
+
+    store.print(config, platform="windows")
+
+    out, _ = capsys.readouterr()
+    assert "No tools found for the specified filters" in out, out
+
+    store.print(config, platform="windows", compact=True)
+
+    out, _ = capsys.readouterr()
+    assert "No tools found for the specified filters" in out, out

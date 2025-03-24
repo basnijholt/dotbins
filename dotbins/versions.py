@@ -120,6 +120,9 @@ class VersionStore:
         installed_tools = self._installed_tools()
         if platform or architecture:
             installed_tools = _filter_tools(installed_tools, platform, architecture)
+        if not installed_tools:
+            log("No tools found for the specified filters.", "info")
+            return
 
         # Add rows
         for tool, tool_platform, tool_arch in installed_tools:
@@ -135,7 +138,7 @@ class VersionStore:
                 tool_arch,
                 info["version"],
                 updated_str,
-                sha256[:8] + "..." if sha256 and sha256 != "N/A" and len(sha256) > 16 else sha256,
+                sha256[:8] + "..." if sha256 and sha256 != "N/A" else sha256,
             )
 
         # Print the table
