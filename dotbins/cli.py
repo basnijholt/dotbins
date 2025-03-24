@@ -10,7 +10,6 @@ from rich_argparse import RichHelpFormatter
 
 from . import __version__
 from .config import Config, build_tool_config
-from .readme import write_readme_file
 from .utils import current_platform, log, replace_home_in_path
 
 
@@ -22,54 +21,6 @@ def _list_tools(config: Config) -> None:
     log("Available tools:", "info", "🔧")
     for tool, tool_config in config.tools.items():
         log(f"  {tool} (from {tool_config.repo})", "success")
-
-
-def _sync_tools(
-    config: Config,
-    tools: list[str],
-    platform: str | None,
-    architecture: str | None,
-    current: bool,
-    force: bool,
-    generate_readme: bool,
-    copy_config_file: bool,
-    generate_shell_scripts: bool,
-    github_token: str | None,
-    verbose: bool,
-) -> None:
-    """Install and update tools based on command line arguments.
-
-    This function handles both installing tools for the first time and updating
-    existing tools to their latest versions according to user-specified options.
-
-    Args:
-        config: Configuration containing all tool definitions
-        tools: List of specific tools to process (all tools if None)
-        platform: Filter to a specific platform (e.g., "linux", "macos")
-        architecture: Filter to a specific architecture (e.g., "amd64", "arm64")
-        current: Only process tools for the current platform/architecture
-        force: Force reinstall even if already up to date
-        generate_readme: Whether to generate a README.md file
-        copy_config_file: Whether to copy the config file to tools directory
-        generate_shell_scripts: Whether to generate shell integration scripts
-        github_token: GitHub token for API authentication
-        verbose: Whether to show detailed logs
-
-    """
-    config.sync_tools(
-        tools,
-        platform,
-        architecture,
-        current,
-        force,
-        generate_readme,
-        copy_config_file,
-        github_token,
-        verbose,
-    )
-    if generate_shell_scripts:
-        config.generate_shell_scripts(print_shell_setup=False)
-        log("To see the shell setup instructions, run `dotbins init`", "info", "ℹ️")  # noqa: RUF001
 
 
 def _initialize(config: Config) -> None:
@@ -216,10 +167,40 @@ def create_parser() -> argparse.ArgumentParser:
         help="Print dotbins version information",
     )
 
-    # versions command
-    _versions_parser = subparsers.add_parser(
-        "versions",
+    # status command
+    _status_parser = subparsers.add_parser(
+        "status",
         help="Show installed tool versions and when they were last updated",
+        formatter_class=RichHelpFormatter,
+    )
+    _status_parser.add_argument(
+        "-c",
+        "--compact",
+        action="store_true",
+        help="Show a compact view with one line per tool (default)",
+    )
+    _status_parser.add_argument(
+        "-f",
+        "--full",
+        action="store_true",
+        help="Show the full detailed view (overrides --compact)",
+    )
+    _status_parser.add_argument(
+        "--current",
+        action="store_true",
+        help="Only show tools for the current platform/architecture",
+    )
+    _status_parser.add_argument(
+        "-p",
+        "--platform",
+        type=str,
+        help="Filter by platform (e.g., linux, macos)",
+    )
+    _status_parser.add_argument(
+        "-a",
+        "--architecture",
+        type=str,
+        help="Filter by architecture (e.g., amd64, arm64)",
     )
 
     # Add readme command
@@ -256,8 +237,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
     get_parser.add_argument(
         "--name",
-        help="Name to use for the binary (defaults to repository name if not specified)"
-        " and is ignored if source is a URL",
+        help="Name to use for the binary (defaults to repository name if not specified) and is ignored if source is a URL",
     )
 
     return parser
@@ -288,28 +268,37 @@ def main() -> None:  # pragma: no cover
         elif args.command == "list":
             _list_tools(config)
         elif args.command == "sync":
-            _sync_tools(
-                config,
-                args.tools,
-                args.platform,
-                args.architecture,
-                args.current,
-                args.force,
-                not args.no_readme,
-                not args.no_copy_config_file,
-                not args.no_shell_scripts,
-                args.github_token,
-                args.verbose,
+            config.sync_tools(
+                tools=args.tools,
+                platform=args.platform,
+                architecture=args.architecture,
+                current=args.current,
+                force=args.force,
+                generate_readme=not args.no_readme,
+                copy_config_file=not args.no_copy_config_file,
+                github_token=args.github_token,
+                verbose=args.verbose,
+                generate_shell_scripts=not args.no_shell_scripts,
             )
         elif args.command == "readme":
-            write_readme_file(
-                config,
-                not args.no_print,
+            config.generate_readme(
                 not args.no_file,
                 args.verbose,
             )
-        elif args.command == "versions":
-            config.version_store.print()
+        elif args.command == "status":
+            platform = args.platform
+            arch = args.architecture
+
+            if args.current:
+                platform, arch = current_platform()
+
+            # If both --compact and --full are specified, --compact takes precedence
+            config.version_store.print(
+                config,
+                compact=not args.full,
+                platform=platform,
+                architecture=arch,
+            )
 
     except Exception as e:
         log(f"Error: {e!s}", "error", print_exception=True)

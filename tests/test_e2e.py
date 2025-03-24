@@ -14,7 +14,7 @@ import pytest
 import requests
 
 from dotbins.cli import _get_tool
-from dotbins.config import Config, RawConfigDict, RawToolConfigDict, _config_from_dict
+from dotbins.config import Config, RawConfigDict, RawToolConfigDict
 from dotbins.utils import current_platform, log
 
 if TYPE_CHECKING:
@@ -83,7 +83,7 @@ def run_e2e_test(
         "tools": tool_configs,  # type: ignore[typeddict-item]
     }
 
-    config = _config_from_dict(raw_config)
+    config = Config.from_dict(raw_config)
     _set_mock_release_info(config)
 
     def mock_download_file(
@@ -290,7 +290,7 @@ def test_e2e_sync_tools(
     create_dummy_archive: Callable,
 ) -> None:
     """Test the end-to-end tool sync workflow with different configurations."""
-    config = _config_from_dict(raw_config)
+    config = Config.from_dict(raw_config)
     config.tools_dir = tmp_path
     _set_mock_release_info(config, version="1.2.3")
 
@@ -332,7 +332,7 @@ def test_e2e_sync_tools_skip_up_to_date(
         },
     }
 
-    config = _config_from_dict(raw_config)
+    config = Config.from_dict(raw_config)
     config.tools_dir = tmp_path  # Ensures we respect the fixture path
     _set_mock_release_info(config, version="1.2.3")
 
@@ -391,8 +391,7 @@ def test_e2e_sync_tools_partial_skip_and_update(
         },
     }
 
-    config = _config_from_dict(raw_config)
-    config.tools_dir = tmp_path
+    config = Config.from_dict(raw_config)
     _set_mock_release_info(config, version="2.0.0")
 
     # Mark 'mytool' as already up-to-date
@@ -461,7 +460,7 @@ def test_e2e_sync_tools_force_re_download(tmp_path: Path, create_dummy_archive: 
             },
         },
     }
-    config = _config_from_dict(raw_config)
+    config = Config.from_dict(raw_config)
     _set_mock_release_info(config, version="1.2.3")
     # Mark 'mytool' as installed at 1.2.3
     config.version_store.update_tool_info("mytool", "linux", "amd64", "1.2.3")
@@ -528,7 +527,7 @@ def test_e2e_sync_tools_specific_platform(tmp_path: Path, create_dummy_archive: 
             },
         },
     }
-    config = _config_from_dict(raw_config)
+    config = Config.from_dict(raw_config)
     _set_mock_release_info(config, version="1.0.0")
 
     downloaded_files = []
@@ -1225,7 +1224,7 @@ def test_auto_detect_asset_multiple_perfect_matches(
         "platforms": {"linux": ["amd64"]},
         "tools": {"mytool": {"repo": "fakeuser/mytool"}},
     }
-    config = _config_from_dict(raw_config)
+    config = Config.from_dict(raw_config)
 
     config.tools["mytool"]._latest_release = {
         "tag_name": "v1.2.3",
@@ -1274,7 +1273,7 @@ def test_auto_detect_asset_no_matches(
         "platforms": {"linux": ["arm64"]},
         "tools": {"mytool": {"repo": "fakeuser/mytool"}},
     }
-    config = _config_from_dict(raw_config)
+    config = Config.from_dict(raw_config)
 
     config.tools["mytool"]._latest_release = _create_mock_release_info(
         "mytool",
@@ -1301,7 +1300,7 @@ def test_sync_tools_with_empty_archive(
             "mytool": {"repo": "fakeuser/mytool", "binary_path": "*", "extract_binary": True},
         },
     }
-    config = _config_from_dict(raw_config)
+    config = Config.from_dict(raw_config)
     _set_mock_release_info(config, version="1.2.3")
 
     def mock_download_file(
@@ -1335,7 +1334,7 @@ def test_failed_to_fetch_release_info(
         "platforms": {"linux": ["amd64"]},
         "tools": {"mytool": {"repo": "fakeuser/mytool"}},
     }
-    config = _config_from_dict(raw_config)
+    config = Config.from_dict(raw_config)
     requests_mock.get(
         "https://api.github.com/repos/fakeuser/mytool/releases/latest",
         status_code=403,
@@ -1360,7 +1359,7 @@ def test_failed_to_download_file(
         "platforms": {"linux": ["amd64"]},
         "tools": {"mytool": {"repo": "fakeuser/mytool"}},
     }
-    config = _config_from_dict(raw_config)
+    config = Config.from_dict(raw_config)
     url = "https://example.com/mytool-1.2.3-linux_amd64.tar.gz"
     requests_mock.get(
         "https://api.github.com/repos/fakeuser/mytool/releases/latest",
@@ -1384,6 +1383,98 @@ def test_failed_to_download_file(
     out = capsys.readouterr().out
     assert "Failed to download" in out
     assert "limit exceeded" in out
+
+
+def test_cli_unknown_tool(tmp_path: Path) -> None:
+    """Test syncing an unknown tool."""
+    raw_config: RawConfigDict = {
+        "tools_dir": str(tmp_path),
+        "platforms": {"linux": ["amd64"]},
+        "tools": {"test-tool": {"repo": "test/tool"}},
+    }
+    config = Config.from_dict(raw_config)
+    with pytest.raises(SystemExit):
+        config.sync_tools(
+            tools=["unknown-tool"],
+            platform=None,
+            architecture=None,
+            current=False,
+            force=False,
+            generate_readme=True,
+            copy_config_file=True,
+            generate_shell_scripts=True,
+            github_token=None,
+            verbose=True,
+        )
+
+
+def test_sync_tool_match_binary_path_with_glob(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+) -> None:
+    """Test syncing a specific tool."""
+    # Set up mock environment
+    config = Config.from_dict(
+        {
+            "tools_dir": str(tmp_path),
+            "platforms": {"linux": ["amd64"]},
+            "tools": {
+                "test-tool": {
+                    "repo": "test/tool",
+                    "extract_binary": True,
+                    "binary_name": "test-tool",
+                    "binary_path": "*",
+                    "asset_patterns": "test-tool-{version}-{platform}_{arch}.tar.gz",
+                    "platform_map": {"macos": "darwin"},
+                },
+            },
+        },
+    )
+    tool_config = config.tools["test-tool"]
+    tool_config._latest_release = {
+        "tag_name": "v1.0.0",
+        "assets": [
+            {
+                "name": "test-tool-1.0.0-linux_amd64.tar.gz",
+                "browser_download_url": "https://example.com/test-tool-1.0.0-linux_amd64.tar.gz",
+            },
+        ],
+    }
+
+    # Create config with our test tool - use new format
+    config = Config(
+        tools_dir=tmp_path / "tools",
+        platforms={"linux": ["amd64"]},  # Just linux/amd64 for this test
+        tools={"test-tool": tool_config},
+    )
+
+    # Mock the download_file function to use our fixture
+    def mock_download_file(
+        url: str,  # noqa: ARG001
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        create_dummy_archive(dest_path=Path(destination), binary_names="test-tool")
+        return destination
+
+    # Directly call sync_tools
+    with patch("dotbins.download.download_file", mock_download_file):
+        config.sync_tools(
+            tools=["test-tool"],
+            platform="linux",
+            architecture="amd64",
+            current=False,
+            force=False,
+            generate_readme=True,
+            copy_config_file=True,
+            generate_shell_scripts=True,
+            github_token=None,
+            verbose=True,
+        )
+
+    # Check if binary was installed
+    assert (tmp_path / "tools" / "linux" / "amd64" / "bin" / "test-tool").exists()
 
 
 def test_tool_shell_code_in_shell_scripts(

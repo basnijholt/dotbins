@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import sys
-from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
-
-import pytest
 
 from dotbins import cli
 from dotbins.config import Config, build_tool_config
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    import pytest
 
 
 def test_initialization(
@@ -68,71 +70,6 @@ def test_list_tools(
     assert "test/tool" in captured.out
 
 
-def test_sync_tool(
-    tmp_path: Path,
-    create_dummy_archive: Callable,
-) -> None:
-    """Test syncing a specific tool."""
-    # Set up mock environment
-    test_tool_config = build_tool_config(
-        tool_name="test-tool",
-        raw_data={
-            "repo": "test/tool",
-            "extract_binary": True,
-            "binary_name": "test-tool",
-            "binary_path": "*",
-            "asset_patterns": "test-tool-{version}-{platform}_{arch}.tar.gz",
-            "platform_map": {"macos": "darwin"},
-        },
-        platforms={"linux": ["amd64"]},
-    )
-    test_tool_config._latest_release = {
-        "tag_name": "v1.0.0",
-        "assets": [
-            {
-                "name": "test-tool-1.0.0-linux_amd64.tar.gz",
-                "browser_download_url": "https://example.com/test-tool-1.0.0-linux_amd64.tar.gz",
-            },
-        ],
-    }
-
-    # Create config with our test tool - use new format
-    config = Config(
-        tools_dir=tmp_path / "tools",
-        platforms={"linux": ["amd64"]},  # Just linux/amd64 for this test
-        tools={"test-tool": test_tool_config},
-    )
-
-    # Mock the download_file function to use our fixture
-    def mock_download_file(
-        url: str,  # noqa: ARG001
-        destination: str,
-        github_token: str | None,  # noqa: ARG001
-        verbose: bool,  # noqa: ARG001
-    ) -> str:
-        create_dummy_archive(dest_path=Path(destination), binary_names="test-tool")
-        return destination
-
-    # Directly call sync_tools
-    with patch("dotbins.download.download_file", mock_download_file):
-        cli._sync_tools(
-            config,
-            tools=["test-tool"],
-            platform="linux",
-            architecture="amd64",
-            current=False,
-            force=False,
-            generate_readme=True,
-            copy_config_file=True,
-            generate_shell_scripts=True,
-            github_token=None,
-            verbose=True,
-        )
-
-    # Check if binary was installed
-    assert (tmp_path / "tools" / "linux" / "amd64" / "bin" / "test-tool").exists()
-
-
 def test_cli_no_command(capsys: pytest.CaptureFixture[str]) -> None:
     """Test running CLI with no command."""
     with patch.object(sys, "argv", ["dotbins"]):
@@ -141,36 +78,6 @@ def test_cli_no_command(capsys: pytest.CaptureFixture[str]) -> None:
     # Should show help
     captured = capsys.readouterr()
     assert "Usage: dotbins" in captured.out
-
-
-def test_cli_unknown_tool(tmp_path: Path) -> None:
-    """Test syncing an unknown tool."""
-    platforms = {"linux": ["amd64"]}
-    config = Config(
-        tools_dir=tmp_path,
-        platforms=platforms,
-        tools={
-            "test-tool": build_tool_config(
-                tool_name="test-tool",
-                raw_data={"repo": "test/tool"},
-                platforms=platforms,
-            ),
-        },
-    )
-    with pytest.raises(SystemExit):
-        cli._sync_tools(
-            config,
-            tools=["unknown-tool"],
-            platform=None,
-            architecture=None,
-            current=False,
-            force=False,
-            generate_readme=True,
-            copy_config_file=True,
-            generate_shell_scripts=True,
-            github_token=None,
-            verbose=True,
-        )
 
 
 def test_cli_tools_dir_override(tmp_path: Path) -> None:
