@@ -211,7 +211,24 @@ class VersionStore:
 
         console.print(table)
 
-    def print_with_missing(  # noqa: PLR0912
+    def _expected_tools(self, config: Config) -> list[tuple[str, str, str]]:
+        """Return a list of tools that are expected to be installed."""
+        return [
+            (tool_name, platform, arch)
+            for tool_name, tool_config in config.tools.items()
+            for platform, architectures in config.platforms.items()
+            for arch in architectures
+        ]
+
+    def _installed_tools(self) -> list[tuple[str, str, str]]:
+        """Return a list of tools that are installed."""
+        installed_tools = []
+        for key in self.versions:
+            tool, tool_platform, tool_arch = key.split("/")
+            installed_tools.append((tool, tool_platform, tool_arch))
+        return installed_tools
+
+    def print_with_missing(
         self,
         config: Config,
         condensed: bool = False,
@@ -234,52 +251,13 @@ class VersionStore:
         else:
             self.print(platform, architecture)
 
-        # Get all tools available for the specified platform/architecture
-        available_tools = set(config.tools.keys())
+        expected_tools = self._expected_tools(config)
+        installed_tools = self._installed_tools()
+        if platform or architecture:
+            expected_tools = _filter_tools(expected_tools, platform, architecture)
+            installed_tools = _filter_tools(installed_tools, platform, architecture)
 
-        # Get all tools installed for the specified platform/architecture
-        installed_keys = list(self.versions.keys())
-        installed_tools = set()
-
-        for key in installed_keys:
-            tool, tool_platform, tool_arch = key.split("/")
-            if platform and tool_platform != platform:
-                continue
-            if architecture and tool_arch != architecture:
-                continue
-            installed_tools.add(tool)
-
-        # Instead of just checking membership, we need to check if the tool should be available
-        # for the specified platform/architecture according to the config.
-        # A tool is considered "missing" if:
-        # 1. It's not installed for the filtered platform/architecture
-        # 2. AND it's supposed to be available for that platform (not explicitly marked as unavailable with 'null')
-        missing_tools = []
-        for tool_name in available_tools:
-            tool_config = config.tools[tool_name]
-
-            # Skip if the tool is already installed for this platform/architecture
-            if tool_name in installed_tools:
-                continue
-
-            # Check if this tool is supposed to be available for the specified platform/architecture
-            should_be_available = True
-
-            if platform:
-                # Get the asset patterns for this tool
-                asset_patterns = getattr(tool_config, "asset_patterns", None)
-
-                # If asset_patterns is a dict and the platform has a null/None pattern, the tool isn't meant for this platform
-                if (
-                    isinstance(asset_patterns, dict)
-                    and platform in asset_patterns
-                    and asset_patterns[platform] is None
-                ):
-                    should_be_available = False
-
-            # If the tool should be available for this platform but isn't installed, add it to missing tools
-            if should_be_available:
-                missing_tools.append(tool_name)
+        missing_tools = [tool for tool in expected_tools if tool not in installed_tools]
 
         if missing_tools:
             console.print("\n")
@@ -288,9 +266,9 @@ class VersionStore:
             missing_table.add_column("Tool", style="cyan")
             missing_table.add_column("Repository", style="yellow")
 
-            for tool in sorted(missing_tools):
-                tool_config = config.tools[tool]
-                missing_table.add_row(tool, tool_config.repo)
+            for name, _, _ in sorted(missing_tools):
+                tool_config = config.tools[name]
+                missing_table.add_row(name, tool_config.repo)
 
             console.print(missing_table)
 
@@ -304,3 +282,17 @@ class VersionStore:
                 tip = "\n[bold]Tip:[/] Run [cyan]dotbins sync[/] to install missing tools"
 
             console.print(tip)
+
+
+def _filter_tools(
+    tools: list[tuple[str, str, str]],
+    platform: str | None = None,
+    architecture: str | None = None,
+) -> list[tuple[str, str, str]]:
+    """Filter tools based on platform and architecture."""
+    return [
+        (name, _platform, _arch)
+        for name, _platform, _arch in tools
+        if (_platform == platform or platform is None)
+        and (_arch == architecture or architecture is None)
+    ]
