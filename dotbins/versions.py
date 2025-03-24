@@ -3,13 +3,19 @@
 from __future__ import annotations
 
 import json
+from collections import defaultdict
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from .utils import log
+from rich.console import Console
+from rich.table import Table
+
+from .utils import humanize_time_ago, log
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from .config import Config
 
 
 class VersionStore:
@@ -21,7 +27,7 @@ class VersionStore:
 
     1. Determine when updates are available
     2. Avoid unnecessary downloads of the same version
-    3. Provide information about the installed tools through the 'versions' command
+    3. Provide information about the installed tools through the 'status' command
     """
 
     def __init__(self, tools_dir: Path) -> None:
@@ -86,19 +92,208 @@ class VersionStore:
         """Return all version information."""
         return self.versions
 
-    def print(self) -> None:
-        """Show versions of installed tools."""
+    def _print_full(self, platform: str | None = None, architecture: str | None = None) -> None:
+        """Show versions of installed tools in a formatted table.
+
+        Args:
+            platform: Filter by platform (e.g., 'linux', 'macos')
+            architecture: Filter by architecture (e.g., 'amd64', 'arm64')
+
+        """
         versions = self.list_all()
 
         if not versions:
             log("No tool versions recorded yet.", "info")
             return
 
-        log("Installed tool versions:", "info", "📋")
-        for key, info in versions.items():
-            tool, platform, arch = key.split("/")
-            sha256_info = f" [SHA256: {info.get('sha256', 'N/A')}]" if info.get("sha256") else ""
-            log(
-                f"  {tool} ({platform}/{arch}): {info['version']} - Updated on {info['updated_at']}{sha256_info}",
-                "success",
+        console = Console()
+        table = Table(title="✅ Installed Tool Versions")
+
+        # Add columns
+        table.add_column("Tool", style="cyan")
+        table.add_column("Platform", style="green")
+        table.add_column("Architecture", style="green")
+        table.add_column("Version", style="yellow")
+        table.add_column("Last Updated", style="blue")
+        table.add_column("SHA256", style="dim")
+
+        installed_tools = self._installed_tools()
+        if platform or architecture:
+            installed_tools = _filter_tools(installed_tools, platform, architecture)
+        if not installed_tools:
+            log("No tools found for the specified filters.", "info")
+            return
+
+        # Add rows
+        for tool, tool_platform, tool_arch in installed_tools:
+            info = self.get_tool_info(tool, tool_platform, tool_arch)
+            assert info is not None
+
+            updated_str = humanize_time_ago(info["updated_at"])
+            sha256 = info.get("sha256", "N/A")
+
+            table.add_row(
+                tool,
+                tool_platform,
+                tool_arch,
+                info["version"],
+                updated_str,
+                sha256[:8] + "..." if sha256 and sha256 != "N/A" else sha256,
             )
+
+        # Print the table
+        console.print(table)
+
+    def _print_compact(
+        self,
+        platform: str | None = None,
+        architecture: str | None = None,
+    ) -> None:
+        """Show a compact view of installed tools with one line per tool.
+
+        Args:
+            platform: Filter by platform (e.g., 'linux', 'macos')
+            architecture: Filter by architecture (e.g., 'amd64', 'arm64')
+
+        """
+        versions = self.list_all()
+
+        if not versions:
+            log("No tool versions recorded yet.", "info")
+            return
+
+        # Group versions by tool
+        tools = defaultdict(list)
+        installed_tools = self._installed_tools()
+        if platform or architecture:
+            installed_tools = _filter_tools(installed_tools, platform, architecture)
+        for tool, tool_platform, tool_arch in installed_tools:
+            info = self.get_tool_info(tool, tool_platform, tool_arch)
+            assert info is not None
+            tools[tool].append(
+                {
+                    "platform": tool_platform,
+                    "arch": tool_arch,
+                    "version": info["version"],
+                    "updated_at": info["updated_at"],
+                },
+            )
+
+        if not tools:
+            log("No tools found for the specified filters.", "info")
+            return
+
+        console = Console()
+        table = Table(title="✅ Installed Tools Summary")
+
+        table.add_column("Tool", style="cyan")
+        table.add_column("Version(s)", style="yellow")
+        table.add_column("Platforms", style="green")
+        table.add_column("Last Updated", style="blue")
+
+        for tool_name, instances in sorted(tools.items()):
+            # Collect unique versions and platforms
+            version_list = sorted({i["version"] for i in instances})
+            platforms = sorted({f"{i['platform']}/{i['arch']}" for i in instances})
+
+            # Find latest update time
+            latest_update = max(instances, key=lambda x: x["updated_at"])
+            updated_str = humanize_time_ago(latest_update["updated_at"])
+
+            # Format version string (show multiple if they differ)
+            version_str = version_list[0] if len(version_list) == 1 else ", ".join(version_list)
+
+            # Format platforms string
+            platforms_str = ", ".join(platforms)
+
+            table.add_row(tool_name, version_str, platforms_str, updated_str)
+
+        console.print(table)
+
+    def _expected_tools(self, config: Config) -> list[tuple[str, str, str]]:
+        """Return a list of tools that are expected to be installed."""
+        return [
+            (tool_name, platform, arch)
+            for tool_name in config.tools
+            for platform, architectures in config.platforms.items()
+            for arch in architectures
+        ]
+
+    def _installed_tools(self) -> list[tuple[str, str, str]]:
+        """Return a list of tools that are installed."""
+        installed_tools = []
+        for key in self.versions:
+            tool, tool_platform, tool_arch = key.split("/")
+            installed_tools.append((tool, tool_platform, tool_arch))
+        return installed_tools
+
+    def print(
+        self,
+        config: Config,
+        compact: bool = False,
+        platform: str | None = None,
+        architecture: str | None = None,
+    ) -> None:
+        """Show versions of installed tools and list missing tools defined in config.
+
+        Args:
+            config: Configuration containing tool definitions
+            compact: If True, show a compact view with one line per tool
+            platform: Filter by platform (e.g., 'linux', 'macos')
+            architecture: Filter by architecture (e.g., 'amd64', 'arm64')
+
+        """
+        console = Console()
+
+        if compact:
+            self._print_compact(platform, architecture)
+        else:
+            self._print_full(platform, architecture)
+
+        expected_tools = self._expected_tools(config)
+        installed_tools = self._installed_tools()
+        if platform or architecture:
+            expected_tools = _filter_tools(expected_tools, platform, architecture)
+            installed_tools = _filter_tools(installed_tools, platform, architecture)
+
+        missing_tools = [tool for tool in expected_tools if tool not in installed_tools]
+
+        if missing_tools:
+            console.print("\n")
+
+            missing_table = Table(title="❌ Missing Tools (defined in config but not installed)")
+            missing_table.add_column("Tool", style="cyan")
+            missing_table.add_column("Repository", style="yellow")
+            missing_table.add_column("Platform", style="red")
+            missing_table.add_column("Architecture", style="red")
+
+            for name, _platform, _arch in sorted(missing_tools):
+                tool_config = config.tools[name]
+                missing_table.add_row(name, tool_config.repo, _platform, _arch)
+
+            console.print(missing_table)
+
+            # Show install tip if there are missing tools
+            platform_filter = f" --platform {platform}" if platform else ""
+            arch_filter = f" --architecture {architecture}" if architecture else ""
+
+            if platform or architecture:
+                tip = f"\n[bold]Tip:[/] Run [cyan]dotbins sync{platform_filter}{arch_filter}[/] to install missing tools"
+            else:
+                tip = "\n[bold]Tip:[/] Run [cyan]dotbins sync[/] to install missing tools"
+
+            console.print(tip)
+
+
+def _filter_tools(
+    tools: list[tuple[str, str, str]],
+    platform: str | None = None,
+    architecture: str | None = None,
+) -> list[tuple[str, str, str]]:
+    """Filter tools based on platform and architecture."""
+    return [
+        (name, _platform, _arch)
+        for name, _platform, _arch in tools
+        if (_platform == platform or platform is None)
+        and (_arch == architecture or architecture is None)
+    ]
