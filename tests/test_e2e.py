@@ -1617,3 +1617,73 @@ def test_tool_shell_code_in_shell_scripts(
 
             # Check tool without shell_code has no block
             assert "if (which bat) != null {" not in content
+
+
+def test_cleanup_unused_binaries(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test that the cleanup parameter removes binaries that are not in the configuration."""
+    # Create a config with two tools
+    raw_config: RawConfigDict = {
+        "tools_dir": str(tmp_path),
+        "platforms": {"linux": ["amd64"]},
+        "tools": {
+            "tool1": {
+                "repo": "fakeuser/tool1",
+                "extract_binary": True,
+                "binary_name": "tool1-bin",
+                "binary_path": "tool1-bin",
+                "asset_patterns": "tool1-{version}-linux_{arch}.tar.gz",
+            },
+            "tool2": {
+                "repo": "fakeuser/tool2",
+                "extract_binary": True,
+                "binary_name": "tool2-bin",
+                "binary_path": "tool2-bin",
+                "asset_patterns": "tool2-{version}-linux_{arch}.tar.gz",
+            },
+        },
+    }
+
+    config = Config.from_dict(raw_config)
+    _set_mock_release_info(config, version="1.0.0")
+
+    # Create bin directory and add a binary that is not in the config
+    bin_dir = config.bin_dir("linux", "amd64", create=True)
+    unused_binary = bin_dir / "unused-bin"
+    unused_binary.touch()
+
+    # Also add the expected binaries to simulate they were already installed
+    (bin_dir / "tool1-bin").touch()
+    (bin_dir / "tool2-bin").touch()
+
+    def mock_download_file(
+        url: str,
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        # Extract tool name from URL
+        parts = url.split("/")[-1].split("-")
+        tool_name = parts[0]
+
+        # Create a dummy archive with the right name
+        create_dummy_archive(Path(destination), binary_names=f"{tool_name}-bin")
+        return destination
+
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        # Run sync_tools with cleanup=True
+        config.sync_tools(cleanup=True, force=True)
+
+    # The unused binary should be removed
+    assert not unused_binary.exists()
+
+    # The expected binaries should still exist
+    assert (bin_dir / "tool1-bin").exists()
+    assert (bin_dir / "tool2-bin").exists()
+
+    out = capsys.readouterr().out
+    assert "Removed unused binary" in out
+    assert "unused-bin" in out

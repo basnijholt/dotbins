@@ -150,6 +150,11 @@ def create_parser() -> argparse.ArgumentParser:
         help="Skip copying the config file to the tools directory",
     )
     sync_parser.add_argument(
+        "--cleanup",
+        action="store_true",
+        help="Remove binaries that are not in the configuration",
+    )
+    sync_parser.add_argument(
         "--github-token",
         type=str,
         help="GitHub token to use for API requests (helps with rate limits and private repos)",
@@ -277,8 +282,9 @@ def main() -> None:  # pragma: no cover
                 generate_readme=not args.no_readme,
                 copy_config_file=not args.no_copy_config_file,
                 github_token=args.github_token,
-                verbose=args.verbose,
                 generate_shell_scripts=not args.no_shell_scripts,
+                cleanup=args.cleanup,
+                verbose=args.verbose,
             )
         elif args.command == "readme":
             config.generate_readme(

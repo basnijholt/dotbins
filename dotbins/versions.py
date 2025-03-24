@@ -271,9 +271,9 @@ def _expected_tools(
 ) -> list[_Spec]:
     """Return a list of tools that are expected to be installed."""
     expected_tools = [
-        _Spec(tool_name, platform, arch)
+        _Spec(tool_name, _platform, arch)
         for tool_name in config.tools
-        for platform, architectures in config.platforms.items()
+        for _platform, architectures in config.platforms.items()
         for arch in architectures
     ]
     if platform or architecture:
