@@ -79,7 +79,7 @@ class VersionStore:
         platform: str,
         arch: str,
         version: str,
-        binaries: list[str] | None = None,
+        binary_names: list[str] | None = None,
         sha256: str = "",
     ) -> None:
         """Update version info for a tool.
@@ -89,7 +89,7 @@ class VersionStore:
             platform: Platform (e.g., 'linux', 'macos')
             arch: Architecture (e.g., 'amd64', 'arm64')
             version: Version string
-            binaries: List of names of the installed binaries
+            binary_names: List of names of the installed binaries
             sha256: SHA256 hash of the downloaded archive (optional)
 
         """
@@ -98,7 +98,7 @@ class VersionStore:
             "version": version,
             "updated_at": datetime.now().isoformat(),
             "sha256": sha256,
-            "binaries": binaries or [tool],
+            "binary_names": binary_names or [tool],
         }
         self.save()
 
@@ -152,7 +152,7 @@ class VersionStore:
         installed_bin_paths = []
         for key, info in self.versions.items():
             _tool, platform, arch = key.split("/")
-            paths = [tool_dir / platform / arch / "bin" / name for name in info["binaries"]]
+            paths = [tool_dir / platform / arch / "bin" / name for name in info["binary_names"]]
             installed_bin_paths.extend(paths)
         return installed_bin_paths
 
@@ -160,7 +160,9 @@ class VersionStore:
         """Remove entries for tools that are no longer in the configuration."""
         if not self.versions:
             return
-        tools_to_remove = [tool for tool in self.versions if tool not in tools_in_config]
+        # TODO: This is wrong. because the keys in versions are not the tool names.
+        # They are tool/platform/architecture.
+        tools_to_remove = self.versions.keys() - tools_in_config
         for tool in tools_to_remove:
             del self.versions[tool]
         if tools_to_remove:

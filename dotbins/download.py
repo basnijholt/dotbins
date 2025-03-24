@@ -409,7 +409,7 @@ def _process_downloaded_task(
             task.arch,
             task.version,
             sha256=sha256_hash,
-            binaries=[path.name for path in paths],
+            binary_names=[path.name for path in paths],
         )
 
         log(
