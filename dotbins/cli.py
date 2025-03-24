@@ -23,54 +23,6 @@ def _list_tools(config: Config) -> None:
         log(f"  {tool} (from {tool_config.repo})", "success")
 
 
-def _sync_tools(
-    config: Config,
-    tools: list[str],
-    platform: str | None,
-    architecture: str | None,
-    current: bool,
-    force: bool,
-    generate_readme: bool,
-    copy_config_file: bool,
-    generate_shell_scripts: bool,
-    github_token: str | None,
-    verbose: bool,
-) -> None:
-    """Install and update tools based on command line arguments.
-
-    This function handles both installing tools for the first time and updating
-    existing tools to their latest versions according to user-specified options.
-
-    Args:
-        config: Configuration containing all tool definitions
-        tools: List of specific tools to process (all tools if None)
-        platform: Filter to a specific platform (e.g., "linux", "macos")
-        architecture: Filter to a specific architecture (e.g., "amd64", "arm64")
-        current: Only process tools for the current platform/architecture
-        force: Force reinstall even if already up to date
-        generate_readme: Whether to generate a README.md file
-        copy_config_file: Whether to copy the config file to tools directory
-        generate_shell_scripts: Whether to generate shell integration scripts
-        github_token: GitHub token for API authentication
-        verbose: Whether to show detailed logs
-
-    """
-    config.sync_tools(
-        tools,
-        platform,
-        architecture,
-        current,
-        force,
-        generate_readme,
-        copy_config_file,
-        github_token,
-        verbose,
-    )
-    if generate_shell_scripts:
-        config.generate_shell_scripts(print_shell_setup=False)
-        log("To see the shell setup instructions, run `dotbins init`", "info", "ℹ️")  # noqa: RUF001
-
-
 def _initialize(config: Config) -> None:
     """Initialize the tools directory structure and shell integration.
 
@@ -285,8 +237,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
     get_parser.add_argument(
         "--name",
-        help="Name to use for the binary (defaults to repository name if not specified)"
-        " and is ignored if source is a URL",
+        help="Name to use for the binary (defaults to repository name if not specified) and is ignored if source is a URL",
     )
 
     return parser
@@ -317,18 +268,17 @@ def main() -> None:  # pragma: no cover
         elif args.command == "list":
             _list_tools(config)
         elif args.command == "sync":
-            _sync_tools(
-                config,
-                args.tools,
-                args.platform,
-                args.architecture,
-                args.current,
-                args.force,
-                not args.no_readme,
-                not args.no_copy_config_file,
-                not args.no_shell_scripts,
-                args.github_token,
-                args.verbose,
+            config.sync_tools(
+                tools=args.tools,
+                platform=args.platform,
+                architecture=args.architecture,
+                current=args.current,
+                force=args.force,
+                generate_readme=not args.no_readme,
+                copy_config_file=not args.no_copy_config_file,
+                github_token=args.github_token,
+                verbose=args.verbose,
+                generate_shell_scripts=not args.no_shell_scripts,
             )
         elif args.command == "readme":
             config.generate_readme(
@@ -340,9 +290,7 @@ def main() -> None:  # pragma: no cover
             arch = args.architecture
 
             if args.current:
-                current_platform_info = current_platform()
-                platform = current_platform_info[0]
-                arch = current_platform_info[1]
+                platform, arch = current_platform()
 
             # If both --compact and --full are specified, --compact takes precedence
             config.version_store.print(

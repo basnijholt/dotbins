@@ -240,6 +240,7 @@ class Config:
         can source in their shell configuration files.
         """
         write_shell_scripts(self.tools_dir, self.tools, print_shell_setup)
+        log("To see the shell setup instructions, run `dotbins init`", "info", "ℹ️")  # noqa: RUF001
 
 
 def _maybe_copy_config_file(
