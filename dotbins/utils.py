@@ -105,7 +105,7 @@ def replace_home_in_path(path: Path, home: str = "$HOME") -> str:
 
 def _format_shell_instructions(
     tools_dir: Path,
-    shell: Literal["bash", "zsh", "fish", "nushell"],
+    shell: Literal["bash", "zsh", "fish", "nushell", "powershell"],
     tools: dict[str, ToolConfig],
 ) -> str:
     """Format shell instructions for a given shell."""
@@ -168,13 +168,30 @@ def _format_shell_instructions(
         if_end = "}"
         base_script += _add_shell_code_to_script(tools, shell, if_start, if_end)
         return base_script
+
+    if shell == "powershell":
+        base_script = textwrap.dedent(
+            f"""\
+            # dotbins - Add platform-specific binaries to PATH
+            $os = "windows"
+
+            $arch = (Get-CimInstance -Class Win32_Processor).AddressWidth -eq 64 ? "amd64" : "386"
+
+            $env:PATH = "{tools_dir_str}\\$os\\$arch\\bin" + [System.IO.Path]::PathSeparator + $env:PATH
+            """,
+        )
+        if_start = "if (Get-Command {name} -ErrorAction SilentlyContinue) {{"
+        if_end = "}"
+        base_script += _add_shell_code_to_script(tools, shell, if_start, if_end)
+        return base_script
+
     msg = f"Unsupported shell: {shell}"  # pragma: no cover
     raise ValueError(msg)  # pragma: no cover
 
 
 def _add_shell_code_to_script(
     tools: dict[str, ToolConfig],
-    shell: Literal["bash", "zsh", "fish", "nushell"],
+    shell: Literal["bash", "zsh", "fish", "nushell", "powershell"],
     if_start: str,
     if_end: str,
 ) -> str:
@@ -224,6 +241,7 @@ def write_shell_scripts(
         "zsh": "zsh.sh",
         "fish": "fish.fish",
         "nushell": "nushell.nu",
+        "powershell": "powershell.ps1",
     }
 
     for shell, filename in shell_files.items():
@@ -243,11 +261,12 @@ def write_shell_scripts(
     log(f"Generated shell scripts in {tools_dir1}/shell/", "success", "📝")
     if print_shell_setup:
         tools_dir2 = replace_home_in_path(tools_dir, "$HOME")
-        log("Add this to your shell config:", "info")
+        log("Add this to your shell config:", "info", "🔍")
         log(f"  Bash:    source {tools_dir2}/shell/bash.sh", "info", "👉")
         log(f"  Zsh:     source {tools_dir2}/shell/zsh.sh", "info", "👉")
         log(f"  Fish:    source {tools_dir2}/shell/fish.fish", "info", "👉")
         log(f"  Nushell: source {tools_dir2}/shell/nushell.nu", "info", "👉")
+        log(f"  PowerShell: . {tools_dir2}/shell/powershell.ps1", "info", "👉")
 
 
 STYLE_EMOJI_MAP = {
