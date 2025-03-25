@@ -9,7 +9,7 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
-from .detect_binary import auto_detect_binary_paths, auto_detect_extract_archive
+from .detect_binary import auto_detect_archive_paths, auto_detect_extract_archive
 from .utils import (
     calculate_sha256,
     download_file,
@@ -39,8 +39,8 @@ def _extract_binary_from_archive(
         extract_archive(archive_path, temp_dir)
         log(f"Archive extracted to {temp_dir}", "success", "📦")
         _log_extracted_files(temp_dir)
-        binary_paths = _detect_binary_paths(temp_dir, bin_spec.tool_config)
-        _process_binaries(temp_dir, destination_dir, binary_paths, bin_spec)
+        archive_paths = _detect_archive_paths(temp_dir, bin_spec.tool_config)
+        _process_binaries(temp_dir, destination_dir, archive_paths, bin_spec)
 
     except Exception as e:
         log(f"Error extracting archive: {e}", "error", print_exception=verbose)
@@ -53,33 +53,33 @@ class AutoDetectBinaryPathsError(Exception):
     """Error raised when auto-detecting binary paths fails."""
 
 
-def _detect_binary_paths(temp_dir: Path, tool_config: ToolConfig) -> list[Path]:
+def _detect_archive_paths(temp_dir: Path, tool_config: ToolConfig) -> list[Path]:
     """Auto-detect binary paths if not specified in configuration."""
     if tool_config.archive_path:
         return tool_config.archive_path
     log("Binary path not specified, attempting auto-detection...", "info")
     binary_names = tool_config.binary_name
-    binary_paths = auto_detect_binary_paths(temp_dir, binary_names)
-    if not binary_paths:
+    archive_paths = auto_detect_archive_paths(temp_dir, binary_names)
+    if not archive_paths:
         msg = f"Could not auto-detect binary paths for {', '.join(binary_names)}. Please specify archive_path in config."
         log(msg, "error")
         raise AutoDetectBinaryPathsError(msg)
-    names = ", ".join(f"[b]{p}[/]" for p in binary_paths)
+    names = ", ".join(f"[b]{p}[/]" for p in archive_paths)
     log(f"Auto-detected binary paths: {names}", "success")
-    return binary_paths
+    return archive_paths
 
 
 def _process_binaries(
     temp_dir: Path,
     destination_dir: Path,
-    binary_paths: list[Path],
+    archive_paths: list[Path],
     bin_spec: BinSpec,
 ) -> None:
     """Process each binary by finding it and copying to destination."""
-    for binary_path_pattern, binary_name in zip(binary_paths, bin_spec.tool_config.binary_name):
+    for archive_path_pattern, binary_name in zip(archive_paths, bin_spec.tool_config.binary_name):
         source_path = _find_binary_in_extracted_files(
             temp_dir,
-            str(binary_path_pattern),
+            str(archive_path_pattern),
             bin_spec.version,
             bin_spec.tool_arch,
             bin_spec.tool_platform,

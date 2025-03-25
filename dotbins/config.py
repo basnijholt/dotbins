@@ -426,11 +426,11 @@ def build_tool_config(
     arch_map = raw_data.get("arch_map", {})
     # Might be str or list
     raw_binary_name = raw_data.get("binary_name", tool_name)
-    raw_binary_path = raw_data.get("archive_path", [])
+    raw_archive_path = raw_data.get("archive_path", [])
 
     # Convert to lists
     binary_name: list[str] = _ensure_list(raw_binary_name)
-    archive_path: list[Path] = [Path(p) for p in _ensure_list(raw_binary_path)]
+    archive_path: list[Path] = [Path(p) for p in _ensure_list(raw_archive_path)]
 
     # Normalize asset patterns to dict[platform][arch].
     raw_patterns = raw_data.get("asset_patterns")
