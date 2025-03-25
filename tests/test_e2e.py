@@ -142,9 +142,9 @@ def verify_binaries_installed(
             for tool_name in expected_tools:
                 tool_config = config.tools[tool_name]
                 for binary_name in tool_config.binary_name:
-                    binary_path = bin_dir / binary_name
-                    assert binary_path.exists()
-                    assert os.access(binary_path, os.X_OK)
+                    archive_path = bin_dir / binary_name
+                    assert archive_path.exists()
+                    assert os.access(archive_path, os.X_OK)
 
 
 def test_simple_tool_update(
@@ -157,7 +157,7 @@ def test_simple_tool_update(
             "repo": "fakeuser/mytool",
             "extract_archive": True,
             "binary_name": "mytool",
-            "binary_path": "mytool",
+            "archive_path": "mytool",
             "asset_patterns": "mytool-{version}-{platform}_{arch}.tar.gz",
         },
     }
@@ -179,14 +179,14 @@ def test_multiple_tools_with_filtering(
             "repo": "fakeuser/tool1",
             "extract_archive": True,
             "binary_name": "tool1",
-            "binary_path": "tool1",
+            "archive_path": "tool1",
             "asset_patterns": "tool1-{version}-{platform}_{arch}.tar.gz",
         },
         "tool2": {
             "repo": "fakeuser/tool2",
             "extract_archive": True,
             "binary_name": "tool2",
-            "binary_path": "tool2",
+            "archive_path": "tool2",
             "asset_patterns": "tool2-{version}-{platform}_{arch}.tar.gz",
         },
     }
@@ -255,7 +255,7 @@ def test_auto_detect_binary_and_asset_patterns(
                     "repo": "fakeuser/mytool",
                     "extract_archive": True,
                     "binary_name": "mybinary",
-                    "binary_path": "mybinary",
+                    "archive_path": "mybinary",
                     "asset_patterns": "mytool-{version}-linux_{arch}.tar.gz",
                 },
             },
@@ -269,7 +269,7 @@ def test_auto_detect_binary_and_asset_patterns(
                     "repo": "fakeuser/mytool",
                     "extract_archive": True,
                     "binary_name": "mybinary",
-                    "binary_path": "mybinary",
+                    "archive_path": "mybinary",
                     "asset_patterns": {
                         "linux": {
                             "amd64": "mytool-{version}-linux_{arch}.tar.gz",
@@ -281,7 +281,7 @@ def test_auto_detect_binary_and_asset_patterns(
                     "repo": "fakeuser/othertool",
                     "extract_archive": True,
                     "binary_name": "otherbin",
-                    "binary_path": "otherbin",
+                    "archive_path": "otherbin",
                     "asset_patterns": "othertool-{version}-{platform}_{arch}.tar.gz",
                 },
             },
@@ -330,7 +330,7 @@ def test_e2e_sync_tools_skip_up_to_date(
                 "repo": "fakeuser/mytool",
                 "extract_archive": True,
                 "binary_name": "mybinary",
-                "binary_path": "mybinary",
+                "archive_path": "mybinary",
                 "asset_patterns": "mytool-{version}-linux_{arch}.tar.gz",
             },
         },
@@ -383,14 +383,14 @@ def test_e2e_sync_tools_partial_skip_and_update(
                 "repo": "fakeuser/mytool",
                 "extract_archive": True,
                 "binary_name": "mybinary",
-                "binary_path": "mybinary",
+                "archive_path": "mybinary",
                 "asset_patterns": "mytool-{version}-linux_{arch}.tar.gz",
             },
             "othertool": {
                 "repo": "fakeuser/othertool",
                 "extract_archive": True,
                 "binary_name": "otherbin",
-                "binary_path": "otherbin",
+                "archive_path": "otherbin",
                 "asset_patterns": "othertool-{version}-linux_{arch}.tar.gz",
             },
         },
@@ -462,7 +462,7 @@ def test_e2e_sync_tools_force_re_download(tmp_path: Path, create_dummy_archive: 
                 "repo": "fakeuser/mytool",
                 "extract_archive": True,
                 "binary_name": "mybinary",
-                "binary_path": "mybinary",
+                "archive_path": "mybinary",
                 "asset_patterns": "mytool-{version}-linux_{arch}.tar.gz",
             },
         },
@@ -521,7 +521,7 @@ def test_e2e_sync_tools_specific_platform(tmp_path: Path, create_dummy_archive: 
                 "repo": "fakeuser/mytool",
                 "extract_archive": True,
                 "binary_name": "mybinary",
-                "binary_path": "mybinary",
+                "archive_path": "mybinary",
                 "asset_patterns": {  # type: ignore[typeddict-item]
                     "linux": {
                         "amd64": "mytool-{version}-linux_amd64.tar.gz",
@@ -901,14 +901,14 @@ def test_non_extract_single_binary_copy(
     # Verify that the binary file was created with the correct name
     bin_dir = config.bin_dir("linux", "amd64")
     name = "tool-binary.exe" if os.name == "nt" else "tool-binary"
-    binary_path = bin_dir / name
-    assert binary_path.exists()
+    archive_path = bin_dir / name
+    assert archive_path.exists()
 
     # Verify that the binary is executable
-    assert os.access(binary_path, os.X_OK)
+    assert os.access(archive_path, os.X_OK)
 
     # Verify the content was copied correctly
-    assert "Hello from tool-binary" in binary_path.read_text()
+    assert "Hello from tool-binary" in archive_path.read_text()
 
     # Verify the version store was updated
     tool_info = config.version_store.get_tool_info("single-bin-tool", "linux", "amd64")
@@ -1000,7 +1000,7 @@ def test_binary_not_found_error_handling(
                 "extraction-error-tool": {
                     "repo": "owner/extraction-error-tool",
                     "binary_name": "tool-binary",
-                    "binary_path": "nonexistent/path/tool-binary",
+                    "archive_path": "nonexistent/path/tool-binary",
                     "extract_archive": True,
                 },
             },
@@ -1059,11 +1059,11 @@ def test_auto_detect_binary_paths_error(
     This tests the error path where:
     - The download succeeds
     - The extraction succeeds
-    - The tool has no binary_path specified, so auto-detection is used
+    - The tool has no archive_path specified, so auto-detection is used
     - Auto-detection fails because no binary matches the expected name
     - The error should be properly categorized as 'Auto-detect binary paths error'
     """
-    # Setup config without binary_path - will trigger auto-detection
+    # Setup config without archive_path - will trigger auto-detection
     config = Config.from_dict(
         {
             "tools_dir": str(tmp_path),
@@ -1073,7 +1073,7 @@ def test_auto_detect_binary_paths_error(
                     "repo": "owner/auto-detect-error-tool",
                     "binary_name": "expected-binary",  # This name won't match anything in the archive
                     "extract_archive": True,
-                    # No binary_path specified - will use auto-detection
+                    # No archive_path specified - will use auto-detection
                 },
             },
         },
@@ -1306,7 +1306,7 @@ def test_sync_tools_with_empty_archive(
         "tools_dir": str(tmp_path),
         "platforms": {"linux": ["amd64"]},
         "tools": {
-            "mytool": {"repo": "fakeuser/mytool", "binary_path": "*", "extract_archive": True},
+            "mytool": {"repo": "fakeuser/mytool", "archive_path": "*", "extract_archive": True},
         },
     }
     config = Config.from_dict(raw_config)
@@ -1432,7 +1432,7 @@ def test_sync_tool_match_binary_path_with_glob(
                     "repo": "test/tool",
                     "extract_archive": True,
                     "binary_name": "test-tool",
-                    "binary_path": "*",
+                    "archive_path": "*",
                     "asset_patterns": "test-tool-{version}-{platform}_{arch}.tar.gz",
                     "platform_map": {"macos": "darwin"},
                 },

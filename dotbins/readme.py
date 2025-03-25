@@ -129,9 +129,9 @@ def _gather_tool_data(config: Config) -> _ToolData:
 
                         # Add sizes for all binaries
                         for binary_name in tool_config.binary_name:
-                            binary_path = bin_dir / binary_name
-                            if binary_path.exists():
-                                size = binary_path.stat().st_size
+                            archive_path = bin_dir / binary_name
+                            if archive_path.exists():
+                                size = archive_path.stat().st_size
                                 total_size_bytes += size
                                 tool_sizes[tool_name] += size
 

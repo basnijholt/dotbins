@@ -121,9 +121,9 @@ def auto_detect_binary_paths(extracted_dir: Path, binary_names: list[str]) -> li
     detected_paths = []
 
     for binary_name in binary_names:
-        binary_path = _find_best_binary_match(extracted_dir, binary_name)
-        if binary_path:
-            detected_paths.append(binary_path)
+        archive_path = _find_best_binary_match(extracted_dir, binary_name)
+        if archive_path:
+            detected_paths.append(archive_path)
 
     return detected_paths
 

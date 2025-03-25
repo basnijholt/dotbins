@@ -267,7 +267,7 @@ tool-name:
   repo: owner/repo                 # Required: GitHub repository
   extract_archive: true             # Optional: Whether to extract from archive (true) or direct download (false) (auto-detected if not specified)
   binary_name: executable-name     # Optional: Name of the resulting binary(ies) (defaults to tool-name)
-  binary_path: path/to/binary      # Optional: Path to the binary within the archive (auto-detected if not specified)
+  archive_path: path/to/binary      # Optional: Path to the binary within the archive (auto-detected if not specified)
 
   # Asset patterns - Optional with auto-detection
   # Option 1: Platform-specific patterns
@@ -315,7 +315,7 @@ For tools that provide multiple binaries:
 tool-name:
   # Other fields...
   binary_name: [main-binary, additional-binary]
-  binary_path: [path/to/main, path/to/additional]
+  archive_path: [path/to/main, path/to/additional]
 ```
 
 ### Configuration Examples
@@ -352,7 +352,7 @@ atuin:
 uv:
   repo: astral-sh/uv
   binary_name: [uv, uvx]
-  binary_path: [uv-*/uv, uv-*/uvx]
+  archive_path: [uv-*/uv, uv-*/uvx]
 ```
 
 #### Platform-Specific Tool
@@ -485,7 +485,7 @@ tools:
   micromamba:
     repo: mamba-org/micromamba-releases
     extract_archive: false
-    binary_path: bin/micromamba
+    archive_path: bin/micromamba
     arch_map:
       amd64: 64
       arm64: aarch64
@@ -498,7 +498,7 @@ tools:
   uv:
     repo: astral-sh/uv
     binary_name: [uv, uvx]
-    binary_path: [uv-*/uv, uv-*/uvx]
+    archive_path: [uv-*/uv, uv-*/uvx]
     shell_code: |
       eval "$(uv generate-shell-completion zsh)"
 

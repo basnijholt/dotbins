@@ -17,7 +17,7 @@ def test_validate_unknown_architecture(capsys: pytest.CaptureFixture[str]) -> No
                 raw_data={
                     "repo": "test/repo",
                     "binary_name": "test-tool",
-                    "binary_path": "test-tool",
+                    "archive_path": "test-tool",
                     "asset_patterns": {  # type: ignore[typeddict-item]
                         "macos": {"unknown_arch": "test-{version}-linux_unknown.tar.gz"},
                     },
@@ -45,7 +45,7 @@ def test_validate_unknown_platform(capsys: pytest.CaptureFixture[str]) -> None:
                 raw_data={
                     "repo": "test/repo",
                     "binary_name": "test-tool",
-                    "binary_path": "test-tool",
+                    "archive_path": "test-tool",
                     "asset_patterns": {  # type: ignore[typeddict-item]
                         "unknown_platform": "test-{version}-macos_amd64.tar.gz",
                     },
@@ -72,7 +72,7 @@ def test_validate_missing_repo(capsys: pytest.CaptureFixture[str]) -> None:
 
 
 def test_validate_binary_name_and_path_length_mismatch(capsys: pytest.CaptureFixture[str]) -> None:
-    """Test validation when binary_name and binary_path have different lengths."""
+    """Test validation when binary_name and archive_path have different lengths."""
     config = Config(
         platforms={"linux": ["amd64", "arm64"]},
         tools={
@@ -81,7 +81,7 @@ def test_validate_binary_name_and_path_length_mismatch(capsys: pytest.CaptureFix
                 raw_data={
                     "repo": "test/repo",
                     "binary_name": ["test-tool"],
-                    "binary_path": ["test-tool", "test-tool2"],
+                    "archive_path": ["test-tool", "test-tool2"],
                 },
             ),
         },

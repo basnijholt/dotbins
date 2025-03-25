@@ -55,13 +55,13 @@ class AutoDetectBinaryPathsError(Exception):
 
 def _detect_binary_paths(temp_dir: Path, tool_config: ToolConfig) -> list[Path]:
     """Auto-detect binary paths if not specified in configuration."""
-    if tool_config.binary_path:
-        return tool_config.binary_path
+    if tool_config.archive_path:
+        return tool_config.archive_path
     log("Binary path not specified, attempting auto-detection...", "info")
     binary_names = tool_config.binary_name
     binary_paths = auto_detect_binary_paths(temp_dir, binary_names)
     if not binary_paths:
-        msg = f"Could not auto-detect binary paths for {', '.join(binary_names)}. Please specify binary_path in config."
+        msg = f"Could not auto-detect binary paths for {', '.join(binary_names)}. Please specify archive_path in config."
         log(msg, "error")
         raise AutoDetectBinaryPathsError(msg)
     names = ", ".join(f"[b]{p}[/]" for p in binary_paths)
@@ -96,24 +96,24 @@ def _log_extracted_files(temp_dir: Path) -> None:
 
 def _find_binary_in_extracted_files(
     temp_dir: Path,
-    binary_path: str,
+    archive_path: str,
     version: str,
     tool_arch: str,
     tool_platform: str,
 ) -> Path:
     """Find a specific binary in the extracted files."""
-    binary_path = _replace_variables_in_path(binary_path, version, tool_arch, tool_platform)
+    archive_path = _replace_variables_in_path(archive_path, version, tool_arch, tool_platform)
 
-    if "*" in binary_path:
-        matches = list(temp_dir.glob(binary_path))
+    if "*" in archive_path:
+        matches = list(temp_dir.glob(archive_path))
         if not matches:
-            msg = f"No files matching {binary_path} in archive"
+            msg = f"No files matching {archive_path} in archive"
             raise FileNotFoundError(msg)
         return matches[0]
 
-    source_path = temp_dir / binary_path
+    source_path = temp_dir / archive_path
     if not source_path.exists():
-        msg = f"Binary ({binary_path}) not found at {source_path}"
+        msg = f"Binary ({archive_path}) not found at {source_path}"
         raise FileNotFoundError(msg)
 
     return source_path

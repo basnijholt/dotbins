@@ -43,7 +43,7 @@ def test_load_config(tmp_path: Path) -> None:
             repo: sample/tool
             extract_archive: true
             binary_name: sample
-            binary_path: bin/sample
+            archive_path: bin/sample
             asset_patterns: sample-{version}-{platform}_{arch}.tar.gz
     """
 
@@ -81,7 +81,7 @@ def test_find_asset() -> None:
         raw_data={
             "repo": "test/repo",
             "binary_name": "tool",
-            "binary_path": "tool",
+            "archive_path": "tool",
             "asset_patterns": {  # type: ignore[typeddict-item]
                 "linux": {
                     "amd64": "tool-{version}-linux_{arch}.tar.gz",
@@ -140,7 +140,7 @@ def test_extract_from_archive_tar(tmp_path: Path, create_dummy_archive: Callable
         raw_data={
             "repo": "test/tool",
             "binary_name": "test-tool",
-            "binary_path": "test-bin",
+            "archive_path": "test-bin",
         },
     )
 
@@ -179,7 +179,7 @@ def test_extract_from_archive_zip(tmp_path: Path, create_dummy_archive: Callable
         raw_data={
             "repo": "test/tool",
             "binary_name": "test-tool",
-            "binary_path": "test-bin",
+            "archive_path": "test-bin",
         },
     )
 
@@ -223,7 +223,7 @@ def test_extract_from_archive_nested(tmp_path: Path, create_dummy_archive: Calla
         raw_data={
             "repo": "test/tool",
             "binary_name": "test-tool",
-            "binary_path": "nested/dir/test-bin",
+            "archive_path": "nested/dir/test-bin",
         },
     )
 
@@ -282,7 +282,7 @@ def test_download_tool_already_exists(requests_mock: Mocker, tmp_path: Path) -> 
             "repo": "test/tool",
             "extract_archive": True,
             "binary_name": "test-tool",
-            "binary_path": "test-tool",
+            "archive_path": "test-tool",
             "asset_patterns": "test-tool-{version}-{platform}_{arch}.tar.gz",
         },
     )
@@ -393,7 +393,7 @@ def test_extract_from_archive_unknown_type(tmp_path: Path) -> None:
         raw_data={
             "repo": "test/tool",
             "binary_name": "test-tool",
-            "binary_path": "test-bin",
+            "archive_path": "test-bin",
         },
     )
 
@@ -435,7 +435,7 @@ def test_extract_from_archive_missing_binary(tmp_path: Path) -> None:
         raw_data={
             "repo": "test/tool",
             "binary_name": "test-tool",
-            "binary_path": "test-bin",  # This path doesn't exist in archive
+            "archive_path": "test-bin",  # This path doesn't exist in archive
         },
     )
 
@@ -477,7 +477,7 @@ def test_extract_from_archive_multiple_binaries(
         raw_data={
             "repo": "test/tool",
             "binary_name": ["primary-tool", "secondary-tool"],
-            "binary_path": ["test-1.0.0/primary-bin", "test-1.0.0/secondary-bin"],
+            "archive_path": ["test-1.0.0/primary-bin", "test-1.0.0/secondary-bin"],
         },
     )
 
@@ -517,7 +517,7 @@ def test_build_tool_config_skips_unknown_platforms() -> None:
     raw_data: RawToolConfigDict = {
         "repo": "test/repo",
         "binary_name": "tool",
-        "binary_path": "tool",
+        "archive_path": "tool",
         "asset_patterns": {  # type: ignore[typeddict-item]
             "linux": {  # Valid platform
                 "amd64": "tool-{version}-linux_{arch}.tar.gz",
@@ -568,7 +568,7 @@ def test_extract_from_archive_with_arch_platform_version_in_path(
         raw_data={
             "repo": "test/tool",
             "binary_name": "test-tool",
-            "binary_path": "nested-{version}-{platform}-{arch}/test-bin",
+            "archive_path": "nested-{version}-{platform}-{arch}/test-bin",
         },
     )
 

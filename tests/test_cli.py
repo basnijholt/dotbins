@@ -50,7 +50,7 @@ def test_list_tools(
             "repo": "test/tool",
             "extract_archive": True,
             "binary_name": "test-tool",
-            "binary_path": "test-tool",
+            "archive_path": "test-tool",
             "asset_patterns": "test-tool-{version}-{platform}_{arch}.tar.gz",
         },
     )

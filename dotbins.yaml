@@ -66,7 +66,7 @@ tools:
   micromamba:
     repo: mamba-org/micromamba-releases
     extract_archive: false
-    binary_path: bin/micromamba
+    archive_path: bin/micromamba
     arch_map:
       amd64: 64
       arm64: aarch64
@@ -79,7 +79,7 @@ tools:
   uv:
     repo: astral-sh/uv
     binary_name: [uv, uvx]
-    binary_path: [uv-*/uv, uv-*/uvx]
+    archive_path: [uv-*/uv, uv-*/uvx]
     shell_code: |
       eval "$(uv generate-shell-completion zsh)"
 
