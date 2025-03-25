@@ -1049,7 +1049,7 @@ def test_binary_not_found_error_handling(
     assert not (bin_dir / "tool-binary").exists()
 
 
-def test_auto_detect_path_in_archives_error(
+def test_auto_detect_paths_in_archive_error(
     tmp_path: Path,
     create_dummy_archive: Callable,
     capsys: pytest.CaptureFixture[str],

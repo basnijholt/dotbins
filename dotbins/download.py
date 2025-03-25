@@ -9,7 +9,7 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
-from .detect_binary import auto_detect_extract_archive, auto_detect_path_in_archives
+from .detect_binary import auto_detect_extract_archive, auto_detect_paths_in_archive
 from .utils import (
     calculate_sha256,
     download_file,
@@ -59,7 +59,7 @@ def _detect_path_in_archives(temp_dir: Path, tool_config: ToolConfig) -> list[Pa
         return tool_config.path_in_archive
     log("Binary path not specified, attempting auto-detection...", "info")
     binary_names = tool_config.binary_name
-    path_in_archives = auto_detect_path_in_archives(temp_dir, binary_names)
+    path_in_archives = auto_detect_paths_in_archive(temp_dir, binary_names)
     if not path_in_archives:
         msg = f"Could not auto-detect binary paths for {', '.join(binary_names)}. Please specify path_in_archive in config."
         log(msg, "error")
