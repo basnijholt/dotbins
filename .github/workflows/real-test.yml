@@ -46,8 +46,8 @@ jobs:
       - name: Run bat and fzf
         if: matrix.os == 'windows-latest'
         run: |
-          cat ~/.dotbins/shell/powershell.ps1
-          . $HOME\.dotbins\shell\powershell.ps1
+          cat ~\.dotbins\shell\powershell.ps1
+          . ~\.dotbins\shell\powershell.ps1
           bat --version
           fzf --version
-          bat ~/.dotbins/README.md
+          bat ~\.dotbins\README.md
