@@ -107,7 +107,7 @@ def _find_best_binary_match(
     return None
 
 
-def auto_detect_binary_paths(extracted_dir: Path, binary_names: list[str]) -> list[Path]:
+def auto_detect_path_in_archives(extracted_dir: Path, binary_names: list[str]) -> list[Path]:
     """Automatically detect binary paths for multiple binaries.
 
     Args:
@@ -121,9 +121,9 @@ def auto_detect_binary_paths(extracted_dir: Path, binary_names: list[str]) -> li
     detected_paths = []
 
     for binary_name in binary_names:
-        binary_path = _find_best_binary_match(extracted_dir, binary_name)
-        if binary_path:
-            detected_paths.append(binary_path)
+        path_in_archive = _find_best_binary_match(extracted_dir, binary_name)
+        if path_in_archive:
+            detected_paths.append(path_in_archive)
 
     return detected_paths
 

@@ -297,7 +297,7 @@ class ToolConfig:
     tool_name: str
     repo: str
     binary_name: list[str] = field(default_factory=list)
-    binary_path: list[Path] = field(default_factory=list)
+    path_in_archive: list[Path] = field(default_factory=list)
     extract_archive: bool | None = None
     asset_patterns: dict[str, dict[str, str | None]] = field(default_factory=dict)
     platform_map: dict[str, str] = field(default_factory=dict)
@@ -394,7 +394,7 @@ class RawToolConfigDict(TypedDict, total=False):
     platform_map: dict[str, str]  # Map from system platform to tool's platform name
     arch_map: dict[str, str]  # Map from system architecture to tool's architecture name
     binary_name: str | list[str]  # Name(s) of the binary file(s)
-    binary_path: str | list[str]  # Path(s) to binary within archive
+    path_in_archive: str | list[str]  # Path(s) to binary within archive
     asset_patterns: str | dict[str, str] | dict[str, dict[str, str | None]]
     shell_code: str | dict[str, str] | None  # Shell code to configure the tool
 
@@ -426,11 +426,11 @@ def build_tool_config(
     arch_map = raw_data.get("arch_map", {})
     # Might be str or list
     raw_binary_name = raw_data.get("binary_name", tool_name)
-    raw_binary_path = raw_data.get("binary_path", [])
+    raw_path_in_archive = raw_data.get("path_in_archive", [])
 
     # Convert to lists
     binary_name: list[str] = _ensure_list(raw_binary_name)
-    binary_path: list[Path] = [Path(p) for p in _ensure_list(raw_binary_path)]
+    path_in_archive: list[Path] = [Path(p) for p in _ensure_list(raw_path_in_archive)]
 
     # Normalize asset patterns to dict[platform][arch].
     raw_patterns = raw_data.get("asset_patterns")
@@ -441,7 +441,7 @@ def build_tool_config(
         tool_name=tool_name,
         repo=repo,
         binary_name=binary_name,
-        binary_path=binary_path,
+        path_in_archive=path_in_archive,
         extract_archive=extract_archive,
         asset_patterns=asset_patterns,
         platform_map=platform_map,
@@ -604,9 +604,9 @@ def _validate_tool_config(tool_name: str, tool_config: ToolConfig) -> None:
         log(f"Tool [b]{tool_name}[/] is missing required field [b]'repo'[/]", "error")
 
     # If binary lists differ in length, log an error
-    if len(tool_config.binary_name) != len(tool_config.binary_path) and tool_config.binary_path:
+    if len(tool_config.binary_name) != len(tool_config.path_in_archive) and tool_config.path_in_archive:
         log(
-            f"Tool [b]{tool_name}[/]: [b]'binary_name'[/] and [b]'binary_path'[/] must have the same length if both are specified as lists.",
+            f"Tool [b]{tool_name}[/]: [b]'binary_name'[/] and [b]'path_in_archive'[/] must have the same length if both are specified as lists.",
             "error",
         )
 
