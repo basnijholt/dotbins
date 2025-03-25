@@ -76,10 +76,10 @@ def _process_binaries(
     bin_spec: BinSpec,
 ) -> None:
     """Process each binary by finding it and copying to destination."""
-    for path_in_archive_pattern, binary_name in zip(paths_in_archive, bin_spec.tool_config.binary_name):
+    for path_in_archive, binary_name in zip(paths_in_archive, bin_spec.tool_config.binary_name):
         source_path = _find_binary_in_extracted_files(
             temp_dir,
-            str(path_in_archive_pattern),
+            str(path_in_archive),
             bin_spec.version,
             bin_spec.tool_arch,
             bin_spec.tool_platform,
