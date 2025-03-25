@@ -39,8 +39,8 @@ def _extract_binary_from_archive(
         extract_archive(archive_path, temp_dir)
         log(f"Archive extracted to {temp_dir}", "success", "📦")
         _log_extracted_files(temp_dir)
-        path_in_archives = _detect_path_in_archives(temp_dir, bin_spec.tool_config)
-        _process_binaries(temp_dir, destination_dir, path_in_archives, bin_spec)
+        paths_in_archive = _detect_paths_in_archive(temp_dir, bin_spec.tool_config)
+        _process_binaries(temp_dir, destination_dir, paths_in_archive, bin_spec)
 
     except Exception as e:
         log(f"Error extracting archive: {e}", "error", print_exception=verbose)
@@ -53,30 +53,30 @@ class AutoDetectBinaryPathsError(Exception):
     """Error raised when auto-detecting binary paths fails."""
 
 
-def _detect_path_in_archives(temp_dir: Path, tool_config: ToolConfig) -> list[Path]:
+def _detect_paths_in_archive(temp_dir: Path, tool_config: ToolConfig) -> list[Path]:
     """Auto-detect binary paths if not specified in configuration."""
     if tool_config.path_in_archive:
         return tool_config.path_in_archive
     log("Binary path not specified, attempting auto-detection...", "info")
     binary_names = tool_config.binary_name
-    path_in_archives = auto_detect_paths_in_archive(temp_dir, binary_names)
-    if not path_in_archives:
+    paths_in_archive = auto_detect_paths_in_archive(temp_dir, binary_names)
+    if not paths_in_archive:
         msg = f"Could not auto-detect binary paths for {', '.join(binary_names)}. Please specify path_in_archive in config."
         log(msg, "error")
         raise AutoDetectBinaryPathsError(msg)
-    names = ", ".join(f"[b]{p}[/]" for p in path_in_archives)
+    names = ", ".join(f"[b]{p}[/]" for p in paths_in_archive)
     log(f"Auto-detected binary paths: {names}", "success")
-    return path_in_archives
+    return paths_in_archive
 
 
 def _process_binaries(
     temp_dir: Path,
     destination_dir: Path,
-    path_in_archives: list[Path],
+    paths_in_archive: list[Path],
     bin_spec: BinSpec,
 ) -> None:
     """Process each binary by finding it and copying to destination."""
-    for path_in_archive_pattern, binary_name in zip(path_in_archives, bin_spec.tool_config.binary_name):
+    for path_in_archive_pattern, binary_name in zip(paths_in_archive, bin_spec.tool_config.binary_name):
         source_path = _find_binary_in_extracted_files(
             temp_dir,
             str(path_in_archive_pattern),
