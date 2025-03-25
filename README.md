@@ -589,10 +589,10 @@ Check the output of `dotbins init` to see which shell scripts were created and h
 🛠️ dotbins initialized tools directory structure in `tools_dir=~/.dotbins`
 📝 Generated shell scripts in ~/.dotbins/shell/
 🔍 Add this to your shell config:
-👉   Bash:    source $HOME/.dotbins/shell/bash.sh
-👉   Zsh:     source $HOME/.dotbins/shell/zsh.sh
-👉   Fish:    source $HOME/.dotbins/shell/fish.fish
-👉   Nushell: source $HOME/.dotbins/shell/nushell.nu
+👉   Bash:       source $HOME/.dotbins/shell/bash.sh
+👉   Zsh:        source $HOME/.dotbins/shell/zsh.sh
+👉   Fish:       source $HOME/.dotbins/shell/fish.fish
+👉   Nushell:    source $HOME/.dotbins/shell/nushell.nu
 👉   PowerShell: . $HOME/.dotbins/shell/powershell.ps1
 ℹ️ To see the shell setup instructions, run `dotbins init`
 📝 Generated README at ~/.dotbins/README.md
