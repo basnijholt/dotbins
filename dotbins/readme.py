@@ -416,7 +416,7 @@ def write_readme_file(
 
     if write_file:
         try:
-            with open(readme_path, "w") as f:
+            with open(readme_path, "w", encoding="utf-8") as f:
                 f.write(readme_content)
             readme_path_str = replace_home_in_path(readme_path, "~")
             log(f"Generated README at {readme_path_str}", "success", "📝")
