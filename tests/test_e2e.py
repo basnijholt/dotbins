@@ -142,9 +142,9 @@ def verify_binaries_installed(
             for tool_name in expected_tools:
                 tool_config = config.tools[tool_name]
                 for binary_name in tool_config.binary_name:
-                    path_in_archive = bin_dir / binary_name
-                    assert path_in_archive.exists()
-                    assert os.access(path_in_archive, os.X_OK)
+                    binary_path = bin_dir / binary_name
+                    assert binary_path.exists()
+                    assert os.access(binary_path, os.X_OK)
 
 
 def test_simple_tool_update(
