@@ -25,11 +25,12 @@ def _create_mock_release_info(
     tool_name: str,
     version: str,
     platforms: dict[str, list[str]],
+    extension: str = ".tar.gz",
 ) -> dict[str, Any]:
     assets = [
         {
-            "name": f"{tool_name}-{version}-{platform}_{arch}.tar.gz",
-            "browser_download_url": f"https://example.com/{tool_name}-{version}-{platform}_{arch}.tar.gz",
+            "name": f"{tool_name}-{version}-{platform}_{arch}{extension}",
+            "browser_download_url": f"https://example.com/{tool_name}-{version}-{platform}_{arch}{extension}",
         }
         for platform in platforms
         for arch in platforms[platform]
@@ -37,13 +38,16 @@ def _create_mock_release_info(
     return {"tag_name": f"v{version}", "assets": assets}
 
 
-def _set_mock_release_info(config: Config, version: str = "1.2.3") -> None:
+def _set_mock_release_info(
+    config: Config, version: str = "1.2.3", extension: str = ".tar.gz",
+) -> None:
     """Set the mock release info for the given config."""
     for tool_name, tool_config in config.tools.items():
         tool_config._latest_release = _create_mock_release_info(
             tool_name,
             version,
             config.platforms,
+            extension,
         )
 
 
@@ -871,7 +875,8 @@ def test_non_extract_single_binary_copy(
         ),
     )
     config = Config.from_file(config_path)
-    _set_mock_release_info(config, version="1.0.0")
+    extension = ".exe" if os.name == "nt" else ".tar.gz"
+    _set_mock_release_info(config, version="1.0.0", extension=extension)
 
     def mock_download_file(
         url: str,  # noqa: ARG001
@@ -895,7 +900,8 @@ def test_non_extract_single_binary_copy(
 
     # Verify that the binary file was created with the correct name
     bin_dir = config.bin_dir("linux", "amd64")
-    binary_path = bin_dir / "tool-binary"
+    name = "tool-binary.exe" if os.name == "nt" else "tool-binary"
+    binary_path = bin_dir / name
     assert binary_path.exists()
 
     # Verify that the binary is executable
@@ -1555,6 +1561,7 @@ def test_tool_shell_code_in_shell_scripts(
         "zsh": "zsh.sh",
         "fish": "fish.fish",
         "nushell": "nushell.nu",
+        "powershell": "powershell.ps1",
     }
 
     for shell, filename in shell_files.items():

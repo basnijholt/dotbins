@@ -441,20 +441,29 @@ tools:
       alias cat="bat --plain --paging=never"
   direnv:
     repo: direnv/direnv
-    shell_code: |
-      eval "$(direnv hook zsh)"
+    shell_code:
+      zsh: |
+        eval "$(direnv hook zsh)"
+      bash: |
+        eval "$(direnv hook bash)"
   fzf:
     repo: junegunn/fzf
-    shell_code: |
-      source <(fzf --zsh)
+    shell_code:
+      zsh: |
+        source <(fzf --zsh)
+      bash: |
+        source <(fzf --bash)
   lazygit:
     repo: jesseduffield/lazygit
     shell_code: |
       alias lg="lazygit"
   zoxide:
     repo: ajeetdsouza/zoxide
-    shell_code: |
-      eval "$(zoxide init zsh)"
+    shell_code:
+      zsh: |
+        eval "$(zoxide init zsh)"
+      bash: |
+        eval "$(zoxide init bash)"
 
   ripgrep:
     repo: BurntSushi/ripgrep
@@ -468,8 +477,11 @@ tools:
     asset_patterns:
       linux: atuin-{arch}-unknown-linux-gnu.tar.gz
       macos: atuin-{arch}-apple-darwin.tar.gz
-    shell_code: |
-      source <(atuin init zsh --disable-up-arrow)
+    shell_code:
+      zsh: |
+        source <(atuin init zsh --disable-up-arrow)
+      bash: |
+        source <(atuin init bash --disable-up-arrow)
 
   eza:
     repo: eza-community/eza
@@ -499,13 +511,19 @@ tools:
     repo: astral-sh/uv
     binary_name: [uv, uvx]
     binary_path: [uv-*/uv, uv-*/uvx]
-    shell_code: |
-      eval "$(uv generate-shell-completion zsh)"
+    shell_code:
+      zsh: |
+        eval "$(uv generate-shell-completion zsh)"
+      bash: |
+        eval "$(uv generate-shell-completion bash)"
 
   starship:
     repo: starship/starship
-    shell_code: |
-      eval "$(starship init zsh)"
+    shell_code:
+      zsh: |
+        eval "$(starship init zsh)"
+      bash: |
+        eval "$(starship init bash)"
 ```
 
 <!-- OUTPUT:END -->
@@ -593,6 +611,7 @@ Check the output of `dotbins init` to see which shell scripts were created and h
 👉   Zsh:     source $HOME/.dotbins/shell/zsh.sh
 👉   Fish:    source $HOME/.dotbins/shell/fish.fish
 👉   Nushell: source $HOME/.dotbins/shell/nushell.nu
+👉   PowerShell: . $HOME/.dotbins/shell/powershell.ps1
 ℹ️ To see the shell setup instructions, run `dotbins init`
 📝 Generated README at ~/.dotbins/README.md
 ```

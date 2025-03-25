@@ -127,6 +127,9 @@ def _copy_binary_to_destination(
     """Copy the binary to its destination and set permissions."""
     destination_dir.mkdir(parents=True, exist_ok=True)
     dest_path = destination_dir / binary_name
+    if os.name == "nt":
+        # Maintain the original extension on Windows
+        dest_path = dest_path.with_suffix(source_path.suffix)
     shutil.copy2(source_path, dest_path)
     if os.name == "nt":
         # Windows doesn't use the same executable bit concept, so just ensure write access
