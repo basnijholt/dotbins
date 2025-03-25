@@ -25,11 +25,12 @@ def _create_mock_release_info(
     tool_name: str,
     version: str,
     platforms: dict[str, list[str]],
+    extension: str = ".tar.gz",
 ) -> dict[str, Any]:
     assets = [
         {
-            "name": f"{tool_name}-{version}-{platform}_{arch}.tar.gz",
-            "browser_download_url": f"https://example.com/{tool_name}-{version}-{platform}_{arch}.tar.gz",
+            "name": f"{tool_name}-{version}-{platform}_{arch}{extension}",
+            "browser_download_url": f"https://example.com/{tool_name}-{version}-{platform}_{arch}{extension}",
         }
         for platform in platforms
         for arch in platforms[platform]
@@ -37,13 +38,16 @@ def _create_mock_release_info(
     return {"tag_name": f"v{version}", "assets": assets}
 
 
-def _set_mock_release_info(config: Config, version: str = "1.2.3") -> None:
+def _set_mock_release_info(
+    config: Config, version: str = "1.2.3", extension: str = ".tar.gz",
+) -> None:
     """Set the mock release info for the given config."""
     for tool_name, tool_config in config.tools.items():
         tool_config._latest_release = _create_mock_release_info(
             tool_name,
             version,
             config.platforms,
+            extension,
         )
 
 
@@ -871,7 +875,7 @@ def test_non_extract_single_binary_copy(
         ),
     )
     config = Config.from_file(config_path)
-    _set_mock_release_info(config, version="1.0.0")
+    _set_mock_release_info(config, version="1.0.0", extension=".exe" if os.name == "nt" else ".tar.gz")
 
     def mock_download_file(
         url: str,  # noqa: ARG001
