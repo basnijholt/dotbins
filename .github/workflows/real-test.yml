@@ -25,7 +25,8 @@ jobs:
         uses: astral-sh/setup-uv@v5
       - name: dotbins sync
         run: |
-          uvx --with "." dotbins --config-file .github/dotbins.yaml sync --current --github-token ${{ secrets.GITHUB_TOKEN }}
+          cd .github
+          uv run dotbins -v sync --github-token ${{ secrets.GITHUB_TOKEN }}
       - name: Run bat and fzf
         if: matrix.os == 'ubuntu-latest'
         run: |
