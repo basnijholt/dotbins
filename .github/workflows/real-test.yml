@@ -34,6 +34,7 @@ jobs:
           source ~/.dotbins/shell/bash.sh
           bat --version
           fzf --version
+          bat ~/.dotbins/README.md
       - name: Run bat and fzf
         if: matrix.os == 'macos-latest'
         run: |
@@ -41,6 +42,7 @@ jobs:
           source ~/.dotbins/shell/zsh.sh
           bat --version
           fzf --version
+          bat ~/.dotbins/README.md
       - name: Run bat and fzf
         if: matrix.os == 'windows-latest'
         run: |
@@ -48,3 +50,4 @@ jobs:
           . $HOME\.dotbins\shell\powershell.ps1
           bat --version
           fzf --version
+          bat ~/.dotbins/README.md

@@ -251,7 +251,7 @@ def write_shell_scripts(
             script_content = f"#!/usr/bin/env {shell}\n{script_content}"
 
         script_path = shell_dir / filename
-        with open(script_path, "w") as f:
+        with open(script_path, "w", encoding="utf-8") as f:
             f.write(script_content + "\n")
 
         if os.name != "nt":  # Skip on Windows

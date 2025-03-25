@@ -59,7 +59,7 @@ class VersionStore:
     def save(self) -> None:
         """Save version data to JSON file."""
         self.version_file.parent.mkdir(parents=True, exist_ok=True)
-        with self.version_file.open("w") as f:
+        with self.version_file.open("w", encoding="utf-8") as f:
             sorted_versions = dict(sorted(self.versions.items()))
             json.dump(sorted_versions, f, indent=2)
 
