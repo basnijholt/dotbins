@@ -57,7 +57,7 @@ def _detect_binary_paths(temp_dir: Path, tool_config: ToolConfig) -> list[Path]:
     """Auto-detect binary paths if not specified in configuration."""
     if tool_config.binary_path:
         return tool_config.binary_path
-    log("Binary path not specified, attempting auto-detection...", "info", "🔍")
+    log("Binary path not specified, attempting auto-detection...", "info")
     binary_names = tool_config.binary_name
     binary_paths = auto_detect_binary_paths(temp_dir, binary_names)
     if not binary_paths:

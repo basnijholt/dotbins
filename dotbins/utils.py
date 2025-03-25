@@ -36,7 +36,7 @@ def _maybe_github_token_header(github_token: str | None) -> dict[str, str]:  # p
 def latest_release_info(repo: str, github_token: str | None) -> dict | None:
     """Fetch release information from GitHub for a single repository."""
     url = f"https://api.github.com/repos/{repo}/releases/latest"
-    log(f"Fetching latest release from {url}", "info", "🔍")
+    log(f"Fetching latest release from {url}", "info")
     headers = _maybe_github_token_header(github_token)
     try:
         response = requests.get(url, headers=headers, timeout=30)
@@ -261,7 +261,7 @@ def write_shell_scripts(
     log(f"Generated shell scripts in {tools_dir1}/shell/", "success", "📝")
     if print_shell_setup:
         tools_dir2 = replace_home_in_path(tools_dir, "$HOME")
-        log("Add this to your shell config:", "info", "🔍")
+        log("Add this to your shell config:", "info")
         log(f"  Bash:    source {tools_dir2}/shell/bash.sh", "info", "👉")
         log(f"  Zsh:     source {tools_dir2}/shell/zsh.sh", "info", "👉")
         log(f"  Fish:    source {tools_dir2}/shell/fish.fish", "info", "👉")
