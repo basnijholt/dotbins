@@ -875,7 +875,8 @@ def test_non_extract_single_binary_copy(
         ),
     )
     config = Config.from_file(config_path)
-    _set_mock_release_info(config, version="1.0.0", extension=".exe" if os.name == "nt" else ".tar.gz")
+    extension = ".exe" if os.name == "nt" else ".tar.gz"
+    _set_mock_release_info(config, version="1.0.0", extension=extension)
 
     def mock_download_file(
         url: str,  # noqa: ARG001
@@ -899,8 +900,9 @@ def test_non_extract_single_binary_copy(
 
     # Verify that the binary file was created with the correct name
     bin_dir = config.bin_dir("linux", "amd64")
-    binary_path = bin_dir / "tool-binary"
-    assert binary_path.exists(), captured.out
+    name = "tool-binary.exe" if os.name == "nt" else "tool-binary"
+    binary_path = bin_dir / name
+    assert binary_path.exists()
 
     # Verify that the binary is executable
     assert os.access(binary_path, os.X_OK)
