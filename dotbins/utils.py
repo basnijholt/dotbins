@@ -262,11 +262,11 @@ def write_shell_scripts(
     if print_shell_setup:
         tools_dir2 = replace_home_in_path(tools_dir, "$HOME")
         log("Add this to your shell config:", "info")
-        log(f"  Bash:       source {tools_dir2}/shell/bash.sh", "info", "👉")
-        log(f"  Zsh:        source {tools_dir2}/shell/zsh.sh", "info", "👉")
-        log(f"  Fish:       source {tools_dir2}/shell/fish.fish", "info", "👉")
-        log(f"  Nushell:    source {tools_dir2}/shell/nushell.nu", "info", "👉")
-        log(f"  PowerShell: . {tools_dir2}/shell/powershell.ps1", "info", "👉")
+        log(f"  [b]Bash:[/]       source {tools_dir2}/shell/bash.sh", "info", "👉")
+        log(f"  [b]Zsh:[/]        source {tools_dir2}/shell/zsh.sh", "info", "👉")
+        log(f"  [b]Fish:[/]       source {tools_dir2}/shell/fish.fish", "info", "👉")
+        log(f"  [b]Nushell:[/]    source {tools_dir2}/shell/nushell.nu", "info", "👉")
+        log(f"  [b]PowerShell:[/] . {tools_dir2}/shell/powershell.ps1", "info", "👉")
 
 
 STYLE_EMOJI_MAP = {
