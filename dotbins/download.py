@@ -9,7 +9,7 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
-from .detect_binary import auto_detect_binary_paths, auto_detect_extract_binary
+from .detect_binary import auto_detect_binary_paths, auto_detect_extract_archive
 from .utils import (
     calculate_sha256,
     download_file,
@@ -346,16 +346,16 @@ def _process_downloaded_task(
         log(f"SHA256: {sha256_hash}", "info", "🔐")
 
         task.destination_dir.mkdir(parents=True, exist_ok=True)
-        extract_binary = task.tool_config.extract_binary
-        if extract_binary is None:
-            extract_binary = auto_detect_extract_binary(str(task.temp_path))
+        extract_archive = task.tool_config.extract_archive
+        if extract_archive is None:
+            extract_archive = auto_detect_extract_archive(str(task.temp_path))
             log(
-                f"Auto-detected [b]extract_binary[/] for [b]{task.tool_name}[/]: {extract_binary}",
+                f"Auto-detected [b]extract_archive[/] for [b]{task.tool_name}[/]: {extract_archive}",
                 "info",
                 "🔍",
             )
 
-        if extract_binary:
+        if extract_archive:
             _extract_binary_from_archive(
                 task.temp_path,
                 task.destination_dir,

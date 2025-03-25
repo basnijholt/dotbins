@@ -265,7 +265,7 @@ When auto-detection isn't possible or you want more control, you can provide det
 ```yaml
 tool-name:
   repo: owner/repo                 # Required: GitHub repository
-  extract_binary: true             # Optional: Whether to extract from archive (true) or direct download (false) (auto-detected if not specified)
+  extract_archive: true             # Optional: Whether to extract from archive (true) or direct download (false) (auto-detected if not specified)
   binary_name: executable-name     # Optional: Name of the resulting binary(ies) (defaults to tool-name)
   binary_path: path/to/binary      # Optional: Path to the binary within the archive (auto-detected if not specified)
 
@@ -484,7 +484,7 @@ tools:
 
   micromamba:
     repo: mamba-org/micromamba-releases
-    extract_binary: false
+    extract_archive: false
     binary_path: bin/micromamba
     arch_map:
       amd64: 64

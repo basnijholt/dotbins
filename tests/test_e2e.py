@@ -155,7 +155,7 @@ def test_simple_tool_update(
     tool_configs: dict[str, RawToolConfigDict] = {
         "mytool": {
             "repo": "fakeuser/mytool",
-            "extract_binary": True,
+            "extract_archive": True,
             "binary_name": "mytool",
             "binary_path": "mytool",
             "asset_patterns": "mytool-{version}-{platform}_{arch}.tar.gz",
@@ -177,14 +177,14 @@ def test_multiple_tools_with_filtering(
     tool_configs: dict[str, RawToolConfigDict] = {
         "tool1": {
             "repo": "fakeuser/tool1",
-            "extract_binary": True,
+            "extract_archive": True,
             "binary_name": "tool1",
             "binary_path": "tool1",
             "asset_patterns": "tool1-{version}-{platform}_{arch}.tar.gz",
         },
         "tool2": {
             "repo": "fakeuser/tool2",
-            "extract_binary": True,
+            "extract_archive": True,
             "binary_name": "tool2",
             "binary_path": "tool2",
             "asset_patterns": "tool2-{version}-{platform}_{arch}.tar.gz",
@@ -253,7 +253,7 @@ def test_auto_detect_binary_and_asset_patterns(
             "tools": {
                 "mytool": {
                     "repo": "fakeuser/mytool",
-                    "extract_binary": True,
+                    "extract_archive": True,
                     "binary_name": "mybinary",
                     "binary_path": "mybinary",
                     "asset_patterns": "mytool-{version}-linux_{arch}.tar.gz",
@@ -267,7 +267,7 @@ def test_auto_detect_binary_and_asset_patterns(
             "tools": {
                 "mytool": {
                     "repo": "fakeuser/mytool",
-                    "extract_binary": True,
+                    "extract_archive": True,
                     "binary_name": "mybinary",
                     "binary_path": "mybinary",
                     "asset_patterns": {
@@ -279,7 +279,7 @@ def test_auto_detect_binary_and_asset_patterns(
                 },
                 "othertool": {
                     "repo": "fakeuser/othertool",
-                    "extract_binary": True,
+                    "extract_archive": True,
                     "binary_name": "otherbin",
                     "binary_path": "otherbin",
                     "asset_patterns": "othertool-{version}-{platform}_{arch}.tar.gz",
@@ -328,7 +328,7 @@ def test_e2e_sync_tools_skip_up_to_date(
         "tools": {
             "mytool": {
                 "repo": "fakeuser/mytool",
-                "extract_binary": True,
+                "extract_archive": True,
                 "binary_name": "mybinary",
                 "binary_path": "mybinary",
                 "asset_patterns": "mytool-{version}-linux_{arch}.tar.gz",
@@ -381,14 +381,14 @@ def test_e2e_sync_tools_partial_skip_and_update(
         "tools": {
             "mytool": {
                 "repo": "fakeuser/mytool",
-                "extract_binary": True,
+                "extract_archive": True,
                 "binary_name": "mybinary",
                 "binary_path": "mybinary",
                 "asset_patterns": "mytool-{version}-linux_{arch}.tar.gz",
             },
             "othertool": {
                 "repo": "fakeuser/othertool",
-                "extract_binary": True,
+                "extract_archive": True,
                 "binary_name": "otherbin",
                 "binary_path": "otherbin",
                 "asset_patterns": "othertool-{version}-linux_{arch}.tar.gz",
@@ -460,7 +460,7 @@ def test_e2e_sync_tools_force_re_download(tmp_path: Path, create_dummy_archive: 
         "tools": {
             "mytool": {
                 "repo": "fakeuser/mytool",
-                "extract_binary": True,
+                "extract_archive": True,
                 "binary_name": "mybinary",
                 "binary_path": "mybinary",
                 "asset_patterns": "mytool-{version}-linux_{arch}.tar.gz",
@@ -519,7 +519,7 @@ def test_e2e_sync_tools_specific_platform(tmp_path: Path, create_dummy_archive: 
         "tools": {
             "mytool": {
                 "repo": "fakeuser/mytool",
-                "extract_binary": True,
+                "extract_archive": True,
                 "binary_name": "mybinary",
                 "binary_path": "mybinary",
                 "asset_patterns": {  # type: ignore[typeddict-item]
@@ -789,11 +789,11 @@ def test_non_extract_with_multiple_binary_names(
     """Test error handling when a non-extractable binary has multiple binary names specified.
 
     This tests the error path where:
-    - extract_binary is set to False (use download directly)
+    - extract_archive is set to False (use download directly)
     - More than one binary name is specified
     - The update should fail with a specific error in the summary
     """
-    # Setup config with a tool that has extract_binary=False but multiple binary names
+    # Setup config with a tool that has extract_archive=False but multiple binary names
     config_path = tmp_path / "dotbins.yaml"
     config_path.write_text(
         textwrap.dedent(
@@ -804,7 +804,7 @@ def test_non_extract_with_multiple_binary_names(
             tools:
                 multi-bin-tool:
                     repo: owner/multi-bin-tool
-                    extract_binary: false
+                    extract_archive: false
                     binary_name:
                       - tool-bin1
                       - tool-bin2
@@ -854,11 +854,11 @@ def test_non_extract_single_binary_copy(
     """Test successful handling of a non-extractable binary with a single binary name.
 
     This tests the success path where:
-    - extract_binary is set to False (direct copy of downloaded file)
+    - extract_archive is set to False (direct copy of downloaded file)
     - Exactly one binary name is specified
     - The binary should be copied directly to the destination
     """
-    # Setup config with a tool that has extract_binary=False and a single binary name
+    # Setup config with a tool that has extract_archive=False and a single binary name
     config_path = tmp_path / "dotbins.yaml"
     config_path.write_text(
         textwrap.dedent(
@@ -869,7 +869,7 @@ def test_non_extract_single_binary_copy(
             tools:
                 single-bin-tool:
                     repo: owner/single-bin-tool
-                    extract_binary: false
+                    extract_archive: false
                     binary_name: tool-binary
             """,
         ),
@@ -1001,7 +1001,7 @@ def test_binary_not_found_error_handling(
                     "repo": "owner/extraction-error-tool",
                     "binary_name": "tool-binary",
                     "binary_path": "nonexistent/path/tool-binary",
-                    "extract_binary": True,
+                    "extract_archive": True,
                 },
             },
         },
@@ -1072,7 +1072,7 @@ def test_auto_detect_binary_paths_error(
                 "auto-detect-error-tool": {
                     "repo": "owner/auto-detect-error-tool",
                     "binary_name": "expected-binary",  # This name won't match anything in the archive
-                    "extract_binary": True,
+                    "extract_archive": True,
                     # No binary_path specified - will use auto-detection
                 },
             },
@@ -1306,7 +1306,7 @@ def test_sync_tools_with_empty_archive(
         "tools_dir": str(tmp_path),
         "platforms": {"linux": ["amd64"]},
         "tools": {
-            "mytool": {"repo": "fakeuser/mytool", "binary_path": "*", "extract_binary": True},
+            "mytool": {"repo": "fakeuser/mytool", "binary_path": "*", "extract_archive": True},
         },
     }
     config = Config.from_dict(raw_config)
@@ -1430,7 +1430,7 @@ def test_sync_tool_match_binary_path_with_glob(
             "tools": {
                 "test-tool": {
                     "repo": "test/tool",
-                    "extract_binary": True,
+                    "extract_archive": True,
                     "binary_name": "test-tool",
                     "binary_path": "*",
                     "asset_patterns": "test-tool-{version}-{platform}_{arch}.tar.gz",

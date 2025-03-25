@@ -128,7 +128,7 @@ def auto_detect_binary_paths(extracted_dir: Path, binary_names: list[str]) -> li
     return detected_paths
 
 
-def auto_detect_extract_binary(name: str) -> bool:
+def auto_detect_extract_archive(name: str) -> bool:
     """Automatically detect if a binary should be extracted from an archive."""
     # These are all the archive extensions that are supported by
     # the `utils.extract_archive` function

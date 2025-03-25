@@ -65,7 +65,7 @@ tools:
 
   micromamba:
     repo: mamba-org/micromamba-releases
-    extract_binary: false
+    extract_archive: false
     binary_path: bin/micromamba
     arch_map:
       amd64: 64

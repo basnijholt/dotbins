@@ -41,7 +41,7 @@ def test_load_config(tmp_path: Path) -> None:
     tools:
         sample-tool:
             repo: sample/tool
-            extract_binary: true
+            extract_archive: true
             binary_name: sample
             binary_path: bin/sample
             asset_patterns: sample-{version}-{platform}_{arch}.tar.gz
@@ -280,7 +280,7 @@ def test_download_tool_already_exists(requests_mock: Mocker, tmp_path: Path) -> 
         tool_name="test-tool",
         raw_data={
             "repo": "test/tool",
-            "extract_binary": True,
+            "extract_archive": True,
             "binary_name": "test-tool",
             "binary_path": "test-tool",
             "asset_patterns": "test-tool-{version}-{platform}_{arch}.tar.gz",

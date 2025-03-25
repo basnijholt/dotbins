@@ -298,7 +298,7 @@ class ToolConfig:
     repo: str
     binary_name: list[str] = field(default_factory=list)
     binary_path: list[Path] = field(default_factory=list)
-    extract_binary: bool | None = None
+    extract_archive: bool | None = None
     asset_patterns: dict[str, dict[str, str | None]] = field(default_factory=dict)
     platform_map: dict[str, str] = field(default_factory=dict)
     arch_map: dict[str, str] = field(default_factory=dict)
@@ -390,7 +390,7 @@ class RawToolConfigDict(TypedDict, total=False):
     """TypedDict for raw data passed to build_tool_config."""
 
     repo: Required[str]  # Repository in format "owner/repo"
-    extract_binary: bool | None  # Whether to extract binary from archive
+    extract_archive: bool | None  # Whether to extract binary from archive
     platform_map: dict[str, str]  # Map from system platform to tool's platform name
     arch_map: dict[str, str]  # Map from system architecture to tool's architecture name
     binary_name: str | list[str]  # Name(s) of the binary file(s)
@@ -421,7 +421,7 @@ def build_tool_config(
 
     # Safely grab data from raw_data (or set default if missing).
     repo = raw_data.get("repo") or ""
-    extract_binary = raw_data.get("extract_binary")
+    extract_archive = raw_data.get("extract_archive")
     platform_map = raw_data.get("platform_map", {})
     arch_map = raw_data.get("arch_map", {})
     # Might be str or list
@@ -442,7 +442,7 @@ def build_tool_config(
         repo=repo,
         binary_name=binary_name,
         binary_path=binary_path,
-        extract_binary=extract_binary,
+        extract_archive=extract_archive,
         asset_patterns=asset_patterns,
         platform_map=platform_map,
         arch_map=arch_map,

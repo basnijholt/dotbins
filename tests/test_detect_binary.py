@@ -323,7 +323,7 @@ def test_extract_from_archive_with_auto_detection(
         raw_data={
             "binary_name": "fzf",
             "repo": "junegunn/fzf",
-            "extract_binary": True,
+            "extract_archive": True,
         },
     )
 
@@ -366,7 +366,7 @@ def test_extract_from_archive_auto_detection_failure(
         raw_data={
             "binary_name": "git-lfs",
             "repo": "git-lfs/git-lfs",
-            "extract_binary": True,
+            "extract_archive": True,
         },
     )
 
