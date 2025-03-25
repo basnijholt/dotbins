@@ -593,6 +593,7 @@ Check the output of `dotbins init` to see which shell scripts were created and h
 👉   Zsh:     source $HOME/.dotbins/shell/zsh.sh
 👉   Fish:    source $HOME/.dotbins/shell/fish.fish
 👉   Nushell: source $HOME/.dotbins/shell/nushell.nu
+👉   PowerShell: . $HOME/.dotbins/shell/powershell.ps1
 ℹ️ To see the shell setup instructions, run `dotbins init`
 📝 Generated README at ~/.dotbins/README.md
 ```

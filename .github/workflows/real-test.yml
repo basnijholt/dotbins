@@ -1,0 +1,49 @@
+name: Real Test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHONIOENCODING: "utf8" # https://gist.github.com/NodeJSmith/e7e37f2d3f162456869f015f842bcf15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.13
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: dotbins sync
+        run: |
+          uvx --with "." dotbins --config-file .github/dotbins.yaml sync --current --github-token ${{ secrets.GITHUB_TOKEN }}
+      - name: Run bat and fzf
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cat ~/.dotbins/shell/bash.sh
+          source ~/.dotbins/shell/bash.sh
+          bat --version
+          fzf --version
+      - name: Run bat and fzf
+        if: matrix.os == 'macos-latest'
+        run: |
+          cat ~/.dotbins/shell/zsh.sh
+          source ~/.dotbins/shell/zsh.sh
+          bat --version
+          fzf --version
+      - name: Run bat and fzf
+        if: matrix.os == 'windows-latest'
+        run: |
+          cat ~/.dotbins/shell/powershell.ps1
+          . $HOME\.dotbins\shell\powershell.ps1
+          bat --version
+          fzf --version

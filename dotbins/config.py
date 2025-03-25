@@ -646,7 +646,7 @@ def _auto_detect_asset(
     assets: list[_AssetDict],
 ) -> _AssetDict | None:
     """Auto-detect an asset for the tool."""
-    log(f"Auto-detecting asset for [b]{platform}/{arch}[/]", "info", "🔍")
+    log(f"Auto-detecting asset for [b]{platform}/{arch}[/]", "info")
     detect_fn = create_system_detector(platform, arch)
     asset_names = [x["name"] for x in assets]
     asset_name, candidates, err = detect_fn(asset_names)
@@ -670,7 +670,7 @@ def _find_matching_asset(
     assets: list[_AssetDict],
 ) -> _AssetDict | None:
     """Find a matching asset for the tool."""
-    log(f"Looking for asset with pattern: {asset_pattern}", "info", "🔍")
+    log(f"Looking for asset with pattern: {asset_pattern}", "info")
     for asset in assets:
         if re.search(asset_pattern, asset["name"]):
             log(f"Found matching asset: {asset['name']}", "success")

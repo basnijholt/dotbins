@@ -1,0 +1,10 @@
+tools_dir: ~/.dotbins
+
+tools:
+  bat: sharkdp/bat
+  fzf:
+    repo: junegunn/fzf
+    shell_code:
+      zsh: source <(fzf --zsh)
+      bash: eval "$(fzf --bash)"
+      fish: fzf --fish | source
