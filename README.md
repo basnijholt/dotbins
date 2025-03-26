@@ -177,7 +177,7 @@ dotbins get BurntSushi/ripgrep --name rg
 # Install bat to a specific location
 dotbins get sharkdp/bat --dest ~/bin
 
-# Install multiple tools from a remote config URL
+# Install multiple tools from a remote config URL/local path
 dotbins get https://example.com/my-tools.yaml --dest ~/.local/bin
 ```
 
@@ -185,10 +185,10 @@ This is perfect for:
 - Quickly installing tools on a new system
 - One-off installations without needing a configuration file
 - Adding tools to PATH in standard locations like `~/.local/bin`
-- Bootstrapping with a pre-configured set of tools using a remote configuration URL
+- Bootstrapping with a pre-configured set of tools using a remote configuration URL or local config
 
-The `get` command automatically detects whether you're providing a GitHub repository or a configuration URL.
-When using a URL, it will download all tools defined in the configuration for your current platform and architecture.
+The `get` command automatically detects whether you're providing a GitHub repository or a configuration URL/path.
+When using a URL/path, it will download all tools defined in the configuration for your current platform and architecture.
 
 ## :hammer_and_wrench: Installation
 

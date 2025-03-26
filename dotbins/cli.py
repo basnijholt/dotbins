@@ -46,7 +46,7 @@ def _get_tool(source: str, dest_dir: str | Path, name: str | None = None) -> Non
     Useful for quick one-off installations.
 
     Args:
-        source: GitHub repository in the format 'owner/repo' or URL to a YAML configuration
+        source: GitHub repository in the format 'owner/repo' or URL/path to a YAML configuration file.
         dest_dir: Directory to install the binary to (e.g., ~/.local/bin)
         name: Optional name to use for the binary (defaults to repo name)
 
@@ -56,6 +56,8 @@ def _get_tool(source: str, dest_dir: str | Path, name: str | None = None) -> Non
     # Determine if source is a URL or a repo based on format
     if "://" in source and source.endswith(".yaml"):
         config = Config.from_url(source)
+    elif Path(source).exists():
+        config = Config.from_file(source)
     else:
         tool_name = name or source.split("/")[-1]
         config = Config(
@@ -101,7 +103,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
     get_parser.add_argument(
         "source",
-        help="GitHub repository (owner/repo) or URL to a YAML configuration file",
+        help="GitHub repository (owner/repo) or URL/path to a YAML configuration file",
     )
     get_parser.add_argument(
         "--dest",

@@ -690,6 +690,72 @@ def test_get_tool_command_with_remote_config(
     assert (dest_dir / "tool1").exists()
     assert (dest_dir / "tool2").exists()
 
+def test_get_tool_command_with_local_config(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+) -> None:
+    """Test the 'get' command with a local config file.
+
+    This tests the functionality to install the tools defined in a local YAML configuration file.
+    """
+    dest_dir = tmp_path / "bin"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    platform, arch = current_platform()
+
+    # Sample YAML configuration that would be fetched from a URL
+    yaml_content = textwrap.dedent(
+        f"""\
+        tools_dir: {dest_dir!s}
+        platforms:
+            {platform}: [{arch}]
+        tools:
+            tool1:
+                repo: fakeuser/tool1
+            tool2:
+                repo: fakeuser/tool2
+        """,
+    )
+    cfg_path = tmp_path / "dotbins.yaml"
+    cfg_path.write_text(yaml_content)
+
+    def mock_latest_release_info(
+        repo: str,
+        github_token: str | None,  # noqa: ARG001
+    ) -> dict:
+        log(f"Getting release info for repo: {repo}", "info")
+        tool_name = repo.split("/")[-1]
+        return {
+            "tag_name": "v1.0.0",
+            "assets": [
+                {
+                    "name": f"{tool_name}-1.0.0-{platform}_{arch}.tar.gz",
+                    "browser_download_url": f"https://example.com/{tool_name}-1.0.0-{platform}_{arch}.tar.gz",
+                },
+            ],
+        }
+
+    def mock_download_file(
+        url: str,
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        log(f"Downloading from {url} to {destination}", "info")
+        tool_name = url.split("/")[-1].split("-")[0]
+        log(f"Creating archive for {tool_name}", "info")
+        create_dummy_archive(Path(destination), binary_names=tool_name)
+        return destination
+
+    with (
+        patch("dotbins.download.download_file", side_effect=mock_download_file),
+        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
+    ):
+        _get_tool(source=str(cfg_path), dest_dir=dest_dir)
+
+    # Verify that both tools from the config were installed
+    assert (dest_dir / "tool1").exists()
+    assert (dest_dir / "tool2").exists()
+
 
 @pytest.mark.parametrize("existing_config", [True, False])
 @pytest.mark.parametrize("existing_config_with_content", [True, False])
