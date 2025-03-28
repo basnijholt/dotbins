@@ -20,6 +20,10 @@ No package manager, no sudo, no problem.
 
 See this example `.dotbins` repository: [basnijholt/.dotbins](https://github.com/basnijholt/.dotbins) completely managed with `dotbins`.
 
+> [!NOTE]
+> 💡 **What makes dotbins different?** Unlike similar tools, dotbins uniquely integrates tool-specific shell configurations
+> (aliases, completions, etc.) directly in your dotfiles workflow, not just binary downloads.
+
 <details><summary><b><u>[ToC]</u></b> 📚</summary>
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
@@ -83,6 +87,7 @@ uvx dotbins get https://github.com/basnijholt/.dotbins/blob/main/dotbins.yaml
 * 🧩 Extracts binaries from various archive formats (zip, tar.gz)
 * 📂 Organizes tools by platform and architecture for easy access
 * 🐙 Easy integration with your dotfiles repository for version control
+* ⚙️ **Automatic PATH & Shell Code:** Configures `PATH` and applies custom shell snippets (`shell_code`).
 
 ## :bulb: Why I Created dotbins
 
@@ -96,7 +101,7 @@ It allows me to:
 2. Include this repository as a submodule in my dotfiles
 3. Ensure all my essential tools are immediately available after cloning, regardless of system permissions
 
-Now when I clone my dotfiles on any new system, I get not just my configurations but also all the CLI tools I depend on for productivity.
+Now when I clone my dotfiles on any new system, I get not just my configurations but also all the CLI tools I depend on for productivity, **ready to use with their specific aliases and shell initializations automatically configured**.
 
 **_No package manager, no sudo, no problem!_**
 
@@ -626,7 +631,6 @@ tools:
   btop: aristocratos/btop         # Resource monitor and process viewer
   caddy: caddyserver/caddy        # Web server with automatic HTTPS
   choose: theryangeary/choose     # Cut alternative with a simpler syntax
-  choose: theryangeary/choose     # Cut alternative with a simpler syntax
   croc: schollz/croc              # File transfer tool with end-to-end encryption
   ctop: bcicen/ctop               # Container metrics and monitoring
   curlie: rs/curlie               # Curl wrapper with httpie-like syntax
@@ -706,15 +710,15 @@ While `dotbins` provides a specific solution for managing CLI binaries within a 
 - **`eget` (`zyedidia/eget`)**
 
   - **Pros:** Very simple tool specifically for downloading assets (often binaries) from GitHub releases.
-  - **Cons (vs. `dotbins`):** Primarily for one-off downloads, doesn't manage multiple tools via a configuration file, lacks version tracking, update (`sync`) capabilities, or automatic shell integration generation provided by `dotbins`.
+  - **Cons (vs. `dotbins`):** Primarily for one-off downloads, doesn't manage multiple tools via a configuration file, lacks version tracking, update (`sync`) capabilities, or the **automatic shell integration generation (including tool-specific setup like aliases via `shell_code`)** provided by `dotbins`.
   - **`dotbins` Niche:** Acts as a _manager_ for a collection of tools defined in `dotbins.yaml`, providing synchronization, status tracking, and organized storage, whereas `eget` is more like a specialized downloader. The `dotbins get` command offers similar quick-install functionality but within the `dotbins` management framework.
 
-- **`aqua` (`aquaproj/aqua`)**
-  - **Pros:** Declarative CLI version manager, supports various sources (GitHub, HTTP, Go, Cargo), checksum verification, lazy installation.
-  - **Cons (vs. `dotbins`):** Can be more complex configuration, broader scope might include features not needed for `dotbins`' core use case. The management philosophy (declarative versions vs. sync-latest-to-directory) differs slightly.
-  - **`dotbins` Niche:** Focuses specifically on the pattern of managing binaries within a (potentially version-controlled) directory like `~/.dotbins`, often used as a Git submodule with Git LFS. It emphasizes simplicity for fetching and organizing binaries from GitHub Releases with minimal configuration where possible.
+- **`aqua` (`aquaproj/aqua`) / `asdf` / `binenv` etc.**
+  - **Pros:** Often support declarative versions, multiple sources (beyond GitHub Releases), checksums, lazy loading, managing different versions side-by-side (e.g., `asdf`).
+  - **Cons (vs. `dotbins`):** Can involve more complex configuration or rely on shims/plugin systems. Handling tool-specific shell setup (like aliases or `eval` statements) might require separate configuration outside the main tool definition file.
+  - **`dotbins` Niche:** Focuses specifically on the pattern of managing *latest* binaries within a (potentially version-controlled) directory like `~/.dotbins`, often used as a Git submodule with Git LFS. It emphasizes simplicity for fetching from GitHub Releases. **Crucially, `dotbins` uniquely allows defining tool-specific shell code (aliases, functions, `eval` statements) directly within the `dotbins.yaml` using the `shell_code` key. This configuration is automatically incorporated into the generated shell scripts, streamlining the setup for tools requiring more than just being in the PATH, a feature less integrated in many alternatives.**
 
-In essence, `dotbins` targets the specific niche of users who want to manage a set of essential CLI tools sourced directly from GitHub Releases, keep them updated easily, ensure they are available across different machines without needing admin rights, and integrate them seamlessly with their version-controlled dotfiles.
+In essence, `dotbins` targets the specific niche of users who want to manage a set of essential CLI tools sourced directly from GitHub Releases, keep them updated easily, ensure they are available across different machines without needing admin rights, and integrate them seamlessly with their version-controlled dotfiles, **including automatic configuration of tool-specific shell settings like aliases or init commands via `shell_code`**.
 
 ## :heart: Support and Contributions
 
