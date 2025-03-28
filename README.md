@@ -53,11 +53,10 @@ See this example `.dotbins` repository: [basnijholt/.dotbins](https://github.com
   - [:computer: Shell Integration](#computer-shell-integration)
   - [:books: Examples with 50+ Tools](#books-examples-with-50-tools)
 - [:thinking: Comparison with Alternatives](#thinking-comparison-with-alternatives)
-  - [Detailed Comparisons](#detailed-comparisons)
-    - [Standard Package Managers (`apt`, `brew`, `yum`, etc.)](#standard-package-managers-apt-brew-yum-etc)
-    - [Nix / NixOS](#nix--nixos)
+  - [Key Alternatives](#key-alternatives)
+    - [Version Managers (e.g., `binenv`, `asdf`)](#version-managers-eg-binenv-asdf)
     - [Binary Downloaders (e.g., `eget`)](#binary-downloaders-eg-eget)
-    - [Version Managers (e.g., `aqua`, `asdf`, `binenv`)](#version-managers-eg-aqua-asdf-binenv)
+    - [System Package Managers (`apt`, `brew`, etc.)](#system-package-managers-apt-brew-etc)
   - [The `dotbins` Difference](#the-dotbins-difference)
   - [:heart: Support and Contributions](#heart-support-and-contributions)
 
@@ -713,70 +712,61 @@ platforms:
 
 # :thinking: Comparison with Alternatives
 
-`dotbins` fills a specific niche in the binary management ecosystem. Here's how it compares to other approaches:
+`dotbins` fills a specific niche in the binary management ecosystem. Here's how it compares to key alternatives:
 
-| Tool Type          | Primary Focus        | Shell Integration             | Requires Admin | Version Control Integration |
-| ------------------ | -------------------- | ----------------------------- | -------------- | --------------------------- |
-| **dotbins**        | GitHub Releases      | **Built-in via `shell_code`** | No             | Designed for dotfiles       |
-| Package Managers   | System-wide packages | Manual                        | Often          | No                          |
-| Version Managers   | Multiple versions    | Separate plugins              | No             | No                          |
-| Binary Downloaders | Single downloads     | No                            | No             | No                          |
+| Tool          | Version Management                 | Shell Integration             | Dotfiles Integration           | Primary Use Case           |
+| ------------- | ---------------------------------- | ----------------------------- | ------------------------------ | -------------------------- |
+| **dotbins**   | Latest only                        | **Built-in via `shell_code`** | **First-class with Git (LFS)** | Complete dotfiles solution |
+| **binenv**    | Multiple versions with constraints | Separate completion scripts   | Not focused on                 | Development environments   |
+| **eget**      | Latest or specific only            | None                          | Not focused on                 | Quick one-off installs     |
+| **asdf/aqua** | Multiple plugins & versions        | Plugin-specific               | Not focused on                 | Development environments   |
+| **apt/brew**  | System packages                    | None                          | Not possible                   | System-wide management     |
 
-## Detailed Comparisons
+## Key Alternatives
 
-### Standard Package Managers (`apt`, `brew`, `yum`, etc.)
+### Version Managers (e.g., `binenv`, `asdf`)
 
-- **Pros:** Manage system-wide dependencies, vast package repositories, handle updates for _all_ system software.
+- **Pros:** Advanced version management (constraints like `>=1.2.3`), multiple versions side-by-side
 - **Cons vs. `dotbins`:**
-  - Require `sudo`/admin privileges
-  - Package versions often lag behind upstream releases
-  - Less portable across different OS platforms
-  - Installation may be impossible in restricted environments
-- **`dotbins` advantage:** No `sudo` required, fetches directly from GitHub Releases for latest versions, works consistently across platforms.
-
-### Nix / NixOS
-
-- **Pros:** Powerful declarative package management, ensures reproducibility, handles complex dependencies.
-- **Cons vs. `dotbins`:**
-  - Steeper learning curve
-  - Significantly more complex configuration
-  - Might be overkill for managing a handful of CLI tools
-- **`dotbins` advantage:** Simplicity, easy integration with existing dotfiles workflows.
+  - Focus on version management rather than dotfiles integration
+  - **Separate configuration needed for shell integration** (aliases, completions)
+  - Often use shims or more complex architecture
+- **When to choose:** For development environments where you need multiple versions of tools
 
 ### Binary Downloaders (e.g., `eget`)
 
-- **Pros:** Simple download of assets (often binaries) from GitHub releases.
+- **Pros:** Lightweight, fast for one-off downloads
 - **Cons vs. `dotbins`:**
-  - Primarily for one-off downloads
-  - No multi-tool configuration management
-  - Lacks version tracking and update capabilities
-  - **No automatic shell integration** for aliases and tool-specific setup
-- **`dotbins` advantage:** Acts as a complete _manager_ for tools with automatic updates and shell integration.
+  - No configuration for multiple tools
+  - **No shell integration** for aliases or environment setup
+  - No version tracking between sessions
+- **When to choose:** For quick installation of individual tools without configuration needs
 
-### Version Managers (e.g., `aqua`, `asdf`, `binenv`)
+### System Package Managers (`apt`, `brew`, etc.)
 
-- **Pros:** Support declarative versions, multiple sources, checksums, and managing different versions side-by-side.
+- **Pros:** System-wide installation, dependency management
 - **Cons vs. `dotbins`:**
-  - Often involve complex configuration or shims
-  - **Shell setup (aliases, initializations) requires separate configuration** outside the tool definition
-- **`dotbins` advantage:** Direct integration with dotfiles:
-  ```yaml
-  bat:
-    repo: sharkdp/bat
-    shell_code: |
-      alias cat="bat --plain --paging=never"
-  ```
+  - Require admin privileges
+  - Not portable across systems
+  - Cannot be version-controlled in dotfiles
+- **When to choose:** For system-wide software needed by multiple users
 
 ## The `dotbins` Difference
 
-`dotbins` is designed for users who want a **cohesive experience** with their dotfiles:
+`dotbins` uniquely combines:
 
-1. Download binaries from GitHub Releases
-2. Define tool-specific shell setup in the same configuration
-3. Seamlessly integrate with version-controlled dotfiles
-4. Work across systems without requiring admin privileges
+1. **Binary management** - Downloading from GitHub Releases
+2. **Shell configuration** - Defining aliases and shell setup in the same file:
+   ```yaml
+   bat:
+     repo: sharkdp/bat
+     shell_code: |
+       alias cat="bat --plain --paging=never"
+   ```
+3. **Dotfiles integration** - Designed to be version-controlled as a Git repository
+4. **Cross-platform portability** - Works the same across Linux, macOS, Windows
 
-The `shell_code` feature is particularly powerful - it means your shell integration (aliases, completions, environment setup) lives alongside the binary definition, creating a complete solution where **tools are ready to use exactly how you want them, automatically**.
+This makes it perfect for users who want to manage their complete shell environment in a version-controlled dotfiles repository that can be easily deployed on any system.
 
 ## :heart: Support and Contributions
 
