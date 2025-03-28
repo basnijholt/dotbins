@@ -22,7 +22,7 @@ See this example `.dotbins` repository: [basnijholt/.dotbins](https://github.com
 
 > [!NOTE]
 > 💡 **What makes dotbins different?** Unlike similar tools, dotbins uniquely integrates tool-specific shell configurations
-> (aliases, completions, etc.) directly in your dotfiles workflow, not just binary downloads.
+> (aliases, completions, etc.) directly in your dotfiles workflow, not just binary downloads, and allows a Git workflow for managing binaries.
 
 <details><summary><b><u>[ToC]</u></b> 📚</summary>
 
