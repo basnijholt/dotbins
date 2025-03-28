@@ -103,8 +103,8 @@ I faced a common frustration: some of my favorite tools (`fzf`, `bat`, `zoxide`,
 It allows me to:
 
 1. Track pre-compiled binaries in a [separate Git repository](https://github.com/basnijholt/.dotbins) (using Git LFS for efficient storage)
-2. Include this repository as a submodule in my dotfiles
-3. Ensure all my essential tools are immediately available after cloning, regardless of system permissions
+2. Include that repository as a submodule in my dotfiles
+3. Ensure all my essential tools are _immediately_ available after cloning, regardless of system permissions
 
 Now when I clone my dotfiles on any new system, I get not just my configurations but also all the CLI tools I depend on for productivity, **ready to use with their specific aliases and shell initializations automatically configured**.
 
