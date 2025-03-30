@@ -225,6 +225,7 @@ def test_autodetect_asset(program: str, platform: str, arch: str, expected_asset
             # For assets without version placeholders, do exact match
             assert matching_asset["name"] == expected_asset
 
+
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="Skip on Windows due to cache issues")
 def test_if_complete_tests() -> None:
     """Checks whether the parametrize test_autodetect_asset are complete (see tests/release_jsons)."""
