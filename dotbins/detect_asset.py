@@ -182,6 +182,21 @@ def _prioritize_assets(assets: Assets, os_name: str) -> Assets:
         # Everything else goes here
         others.append(asset)
 
+    # For Linux, prioritize gnu over musl within each category
+    # TODO: Improve the gnu/musl decision logic with more sophisticated criteria  # noqa: FIX002, TD002, TD003
+    if os_name == "linux":
+        def prioritize_by_gnu(assets_list: Assets) -> Assets:
+            gnu = [a for a in assets_list if "gnu" in os.path.basename(a).lower()]
+            musl = [a for a in assets_list if "musl" in os.path.basename(a).lower()]
+            others = [a for a in assets_list if "gnu" not in os.path.basename(a).lower() and "musl" not in os.path.basename(a).lower()]
+            return sorted(gnu) + sorted(others) + sorted(musl)
+
+        appimages = prioritize_by_gnu(appimages)
+        no_extension = prioritize_by_gnu(no_extension)
+        archives = prioritize_by_gnu(archives)
+        others = prioritize_by_gnu(others)
+        package_formats = prioritize_by_gnu(package_formats)
+
     # Return assets in priority order - package formats have lowest priority
     return sorted(appimages) + sorted(no_extension) + sorted(archives) + sorted(others) + sorted(package_formats)
 
