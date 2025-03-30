@@ -447,8 +447,13 @@ tools:
   fd: sharkdp/fd
   git-lfs: git-lfs/git-lfs
   hyperfine: sharkdp/hyperfine
+  rg: BurntSushi/ripgrep
   yazi: sxyazi/yazi
 
+  atuin:
+    repo: atuinsh/atuin
+    shell_code: |
+      source <(atuin init zsh --disable-up-arrow)
   bat:
     repo: sharkdp/bat
     shell_code: |
@@ -458,6 +463,10 @@ tools:
     repo: direnv/direnv
     shell_code: |
       eval "$(direnv hook zsh)"
+  eza:
+    repo: eza-community/eza
+    shell_code: |
+      alias l="eza -lah --git"
   fzf:
     repo: junegunn/fzf
     shell_code: |
@@ -466,29 +475,18 @@ tools:
     repo: jesseduffield/lazygit
     shell_code: |
       alias lg="lazygit"
-  zoxide:
-    repo: ajeetdsouza/zoxide
-    shell_code: |
-      eval "$(zoxide init zsh)"
-
-  ripgrep:
-    repo: BurntSushi/ripgrep
-    binary_name: rg
-
-  atuin:
-    repo: atuinsh/atuin
-    shell_code: |
-      source <(atuin init zsh --disable-up-arrow)
-
-  eza:
-    repo: eza-community/eza
-    shell_code: |
-      alias l="eza -lah --git"
-
   micromamba:
     repo: mamba-org/micromamba-releases
     shell_code: |
       alias mm="micromamba"
+  starship:
+    repo: starship/starship
+    shell_code: |
+      eval "$(starship init zsh)"
+  zoxide:
+    repo: ajeetdsouza/zoxide
+    shell_code: |
+      eval "$(zoxide init zsh)"
 
   uv:
     repo: astral-sh/uv
@@ -496,11 +494,6 @@ tools:
     path_in_archive: [uv-*/uv, uv-*/uvx]
     shell_code: |
       eval "$(uv generate-shell-completion zsh)"
-
-  starship:
-    repo: starship/starship
-    shell_code: |
-      eval "$(starship init zsh)"
 ```
 
 <!-- OUTPUT:END -->
