@@ -155,7 +155,7 @@ def test_system_detector_detect() -> None:
     match, candidates, error = detector(assets)
     assert match == ""
     assert candidates == ["app-linux-amd64.tar.gz", "app-linux-x86_64.tar.gz"]
-    assert error == "2 matches found"
+    assert error == "2 arch matches found"
 
     # OS match but no arch match
     assets = ["app-linux-arm64.tar.gz", "app-darwin-amd64.tar.gz"]
@@ -183,21 +183,21 @@ def test_system_detector_detect() -> None:
     assert error == "no candidates found"
 
     # Priority match
-    assets = ["app-linux-amd64.tar.gz", "app-linux.appimage"]
+    assets = ["app-linux-amd64.tar.gz", "app-linux-amd64.appimage"]
     match, candidates, error = detector(assets)
-    assert match == "app-linux.appimage"
+    assert match == "app-linux-amd64.appimage"
     assert candidates is None
     assert error is None
 
     # Multiple priority matches
     assets = [
-        "app1-linux.appimage",
-        "app2-linux.appimage",
+        "app1-linux-amd64.appimage",
+        "app2-linux-x86_64.appimage",
     ]
     match, candidates, error = detector(assets)
     assert match == ""
-    assert candidates == ["app1-linux.appimage", "app2-linux.appimage"]
-    assert error == "2 priority matches found"
+    assert candidates == ["app1-linux-amd64.appimage", "app2-linux-x86_64.appimage"]
+    assert error == "2 priority arch matches found"
 
     # Skip checksum files
     assets = [

@@ -161,3 +161,6 @@ cython_debug/
 
 # VS Code
 settings.json
+
+# Release JSONs for testing
+tests/release_jsons/

@@ -60,6 +60,9 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     'if os.name == "nt":'
 ]
+omit = [
+    "tests/download_release_jsons.py",
+]
 
 [tool.black]
 line_length = 100

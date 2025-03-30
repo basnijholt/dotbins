@@ -145,13 +145,17 @@ def _detect_system(os_obj: _OS, arch: _Arch) -> DetectFunc:
                 continue
 
             os_match, extra = _match_os(os_obj, a)
-            if extra:
-                priority.append(a)
-
             arch_match = _match_arch(arch, a)
+
+            # Track OS+Arch matches specifically - highest priority
             if os_match and arch_match:
                 matches.append(a)
 
+                # Among arch matches, track which ones are priority formats
+                if extra:
+                    priority.append(a)
+
+            # Still track other matches for fallback
             if os_match:
                 candidates.append(a)
 
@@ -161,19 +165,22 @@ def _detect_system(os_obj: _OS, arch: _Arch) -> DetectFunc:
         matches = sorted(matches)
         priority = sorted(priority)
 
-        if len(priority) == 1:
-            return priority[0], None, None
-        if len(priority) > 1:
-            return "", priority, f"{len(priority)} priority matches found"
-        if len(matches) == 1:
+        if len(matches) == 1:  # One exact OS+Arch match
             return matches[0], None, None
-        if len(matches) > 1:
-            return "", matches, f"{len(matches)} matches found"
-        if len(candidates) == 1:  # TODO(Bas): seems wrong?  # noqa: FIX002, TD003
+        if len(matches) > 1:  # Multiple OS+Arch matches
+            if len(priority) == 1:  # One priority format among arch matches
+                return priority[0], None, None
+            if len(priority) > 1:  # Multiple priority formats with matching arch
+                return "", priority, f"{len(priority)} priority arch matches found"
+            # No priority formats, but multiple arch matches
+            return "", matches, f"{len(matches)} arch matches found"
+
+        # Fallbacks when no exact arch match is found
+        if len(candidates) == 1:  # TODO(Bas): seems wrong? # noqa: FIX002, TD003
             return candidates[0], None, None
         if len(candidates) > 1:
             return ("", candidates, f"{len(candidates)} candidates found (unsure architecture)")
-        if len(all_assets) == 1:  # TODO(Bas): seems wrong?  # noqa: FIX002, TD003
+        if len(all_assets) == 1:  # TODO(Bas): seems wrong? # noqa: FIX002, TD003
             return all_assets[0], None, None
 
         return "", all_assets, "no candidates found"
