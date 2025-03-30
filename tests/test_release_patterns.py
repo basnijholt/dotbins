@@ -28,7 +28,7 @@ CASES = [
     ("choose", "linux", "amd64", "choose-x86_64-unknown-linux-gnu"),
     ("choose", "linux", "arm64", "choose-aarch64-unknown-linux-gnu"),
     ("choose", "macos", "arm64", "choose-aarch64-apple-darwin"),
-    ("croc", "linux", "amd64", None),  # Expect no match due to ambiguous detection
+    ("croc", "linux", "amd64", "croc_v10.2.2_Linux-64bit.tar.gz"),
     ("croc", "linux", "arm64", "croc_v10.2.2_Linux-ARM64.tar.gz"),
     ("croc", "macos", "arm64", "croc_v10.2.2_macOS-ARM64.tar.gz"),
     ("ctop", "linux", "amd64", "ctop-0.7.7-linux-amd64"),
@@ -113,6 +113,9 @@ CASES = [
     ("micro", "linux", "amd64", "micro-2.0.14-linux64-static.tar.gz"),
     ("micro", "linux", "arm64", "micro-2.0.14-linux-arm64.tar.gz"),
     ("micro", "macos", "arm64", "micro-2.0.14-macos-arm64.tar.gz"),
+    ("micromamba", "linux", "amd64", "micromamba-linux-64"),
+    ("micromamba", "linux", "arm64", "micromamba-linux-aarch64"),
+    ("micromamba", "macos", "arm64", "micromamba-osx-arm64"),
     ("navi", "linux", "amd64", "navi-v2.24.0-x86_64-unknown-linux-musl.tar.gz"),
     ("navi", "linux", "arm64", "navi-v2.24.0-aarch64-unknown-linux-gnu.tar.gz"),
     ("neovim", "linux", "amd64", "nvim-linux-x86_64.appimage"),

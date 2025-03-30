@@ -44,6 +44,19 @@ def test_arch_match() -> None:
     assert _match_arch(ArchAMD64, "linux-x64.tar.gz")
     assert not _match_arch(ArchAMD64, "linux-386.tar.gz")
 
+    # Test the `-64` and `_64` pattern additions
+    assert _match_arch(ArchAMD64, "linux-64.tar.gz")
+    assert _match_arch(ArchAMD64, "linux_64.tar.gz")
+    assert _match_arch(ArchAMD64, "micromamba-linux-64")
+    assert _match_arch(ArchAMD64, "app_linux_64")
+    assert _match_arch(ArchAMD64, "linux-64bit.tar.gz")  # Not at word boundary
+
+    # Verify we don't get false positives
+    assert not _match_arch(ArchAMD64, "linux-arm64.tar.gz")  # Should match ARM64, not AMD64
+    assert not _match_arch(ArchAMD64, "linux-riscv64.tar.gz")  # Should match RISCV64, not AMD64
+    assert not _match_arch(ArchAMD64, "something-with-64-in-name.tar.gz")  # Not matching the pattern
+    assert not _match_arch(ArchAMD64, "with64suffix.tar.gz")  # Not at word boundary
+
     assert _match_arch(ArchI386, "linux-i386.tar.gz")
     assert _match_arch(ArchI386, "linux-386.tar.gz")
     assert _match_arch(ArchI386, "linux-x86_32.tar.gz")
