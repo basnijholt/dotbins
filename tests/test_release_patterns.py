@@ -79,7 +79,7 @@ from dotbins.config import build_tool_config
         ("hexyl", "linux", "amd64", "hexyl-v0.16.0-x86_64-unknown-linux-gnu.tar.gz"),
         ("hexyl", "linux", "arm64", "hexyl-v0.16.0-aarch64-unknown-linux-gnu.tar.gz"),
         ("hexyl", "macos", "arm64", "hexyl-v0.16.0-aarch64-apple-darwin.tar.gz"),
-        ("hx", "linux", "amd64", "helix-25.01.1-x86_64-linux.tar.xz"),
+        ("hx", "linux", "amd64", "helix-25.01.1-x86_64.AppImage"),
         ("hx", "linux", "arm64", "helix-25.01.1-aarch64-linux.tar.xz"),
         ("hx", "macos", "arm64", "helix-25.01.1-aarch64-macos.tar.xz"),
         ("hyperfine", "linux", "amd64", "hyperfine-v1.19.0-x86_64-unknown-linux-gnu.tar.gz"),

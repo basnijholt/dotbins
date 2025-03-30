@@ -89,6 +89,10 @@ arch_mapping: dict[str, _Arch] = {
 
 def _match_os(os_obj: _OS, asset: str) -> bool:
     """Match returns true if the asset name matches the OS."""
+    # Special case: .appimage files are always for Linux
+    if os_obj.name == "linux" and os.path.basename(asset).lower().endswith(".appimage"):
+        return True
+    # Check if the asset name matches the OS regex
     if os_obj.anti is not None and os_obj.anti.search(asset):
         return False
     return os_obj.regex.search(asset) is not None

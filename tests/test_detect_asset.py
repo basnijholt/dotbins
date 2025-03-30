@@ -32,7 +32,7 @@ def test_os_match() -> None:
     assert _match_os(OSLinux, "android-amd64.tar.gz") is False
 
     # Test with AppImage files
-    assert _match_os(OSLinux, "app.appimage") is False  # No Linux in name
+    assert _match_os(OSLinux, "app.appimage") is True  # AppImage files are always for Linux
     assert _match_os(OSLinux, "linux-app.appimage") is True
 
 
