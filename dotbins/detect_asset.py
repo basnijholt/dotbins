@@ -8,6 +8,8 @@ import sys
 from re import Pattern
 from typing import Callable, NamedTuple, Optional
 
+from .utils import SUPPORTED_ARCHIVE_EXTENSIONS
+
 if sys.version_info >= (3, 10):
     from typing import TypeAlias
 else:  # pragma: no cover
@@ -165,17 +167,7 @@ def _prioritize_assets(assets: Assets, os_name: str) -> Assets:
     package_exts = {".deb", ".rpm", ".apk", ".pkg"}
 
     # Known archive formats to prioritize (high priority)
-    archive_exts = {
-        ".tar.gz",
-        ".tgz",
-        ".zip",
-        ".tar.bz2",
-        ".tbz2",
-        ".tar.xz",
-        ".txz",
-        ".7z",
-        ".tar",
-    }
+    archive_exts = SUPPORTED_ARCHIVE_EXTENSIONS
 
     # These extensions should be ignored when considering if a file is an archive
     ignored_exts = {".sig", ".sha256", ".sha256sum", ".sbom", ".pem"}

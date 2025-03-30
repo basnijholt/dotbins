@@ -9,6 +9,8 @@ import os
 import re
 from pathlib import Path
 
+from .utils import SUPPORTED_ARCHIVE_EXTENSIONS
+
 
 def _is_definitely_not_exec(filename: str) -> bool:
     return bool(
@@ -132,20 +134,4 @@ def auto_detect_paths_in_archive(extracted_dir: Path, binary_names: list[str]) -
 
 def auto_detect_extract_archive(name: str) -> bool:
     """Automatically detect if a binary should be extracted from an archive."""
-    # These are all the archive extensions that are supported by
-    # the `utils.extract_archive` function
-    archive_extensions = [
-        ".zip",
-        ".tar",
-        ".tar.gz",
-        ".tgz",
-        ".tar.bz2",
-        ".tbz2",
-        ".tar.xz",
-        ".txz",
-        ".gz",
-        ".bz2",
-        ".xz",
-        ".lzma",
-    ]
-    return any(name.lower().endswith(ext) for ext in archive_extensions)
+    return any(name.lower().endswith(ext) for ext in SUPPORTED_ARCHIVE_EXTENSIONS)

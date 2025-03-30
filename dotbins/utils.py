@@ -24,6 +24,21 @@ from rich.console import Console
 
 console = Console()
 
+SUPPORTED_ARCHIVE_EXTENSIONS = [
+    ".zip",
+    ".tar",
+    ".tar.gz",
+    ".tgz",
+    ".tar.bz2",
+    ".tbz2",
+    ".tar.xz",
+    ".txz",
+    ".gz",
+    ".bz2",
+    ".xz",
+    ".lzma",
+]
+
 if TYPE_CHECKING:
     from .config import ToolConfig
 
