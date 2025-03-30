@@ -653,7 +653,7 @@ def _auto_detect_asset(
     if err is not None:
         if err.endswith("matches found"):
             assert candidates is not None
-            log(f"Found multiple candidates: {candidates}, selecting first match", "info")
+            log(f"Found multiple candidates: {candidates}, selecting first", "info")
             asset_name = candidates[0]
         else:
             if candidates:
