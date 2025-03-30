@@ -206,6 +206,7 @@ def _prioritize_assets(assets: Assets, os_name: str) -> Assets:
     # For Linux, prioritize gnu over musl within each category
     # TODO: Improve the gnu/musl decision logic with more sophisticated criteria  # noqa: FIX002, TD002, TD003
     if os_name == "linux":
+
         def prioritize_by_gnu(assets_list: Assets) -> Assets:
             gnu = [a for a in assets_list if "gnu" in os.path.basename(a).lower()]
             musl = [a for a in assets_list if "musl" in os.path.basename(a).lower()]

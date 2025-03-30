@@ -24,7 +24,7 @@ def _is_executable_or_file(path: Path) -> bool:
     if os.name == "nt":
         # For Windows, skip the executable bit check, just check that the file exists
         return path.is_file()
-    return path.stat().st_mode & 0o100 != 0 # Verify it's executable
+    return path.stat().st_mode & 0o100 != 0  # Verify it's executable
 
 
 def test_load_config(tmp_path: Path) -> None:

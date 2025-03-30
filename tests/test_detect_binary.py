@@ -351,7 +351,6 @@ def test_extract_from_archive_with_auto_detection(
     assert "Auto-detected binary paths: fzf" in out, out
 
 
-
 def test_extract_from_archive_auto_detection_failure(
     tmp_path: Path,
     mock_archive_no_match: Path,
