@@ -30,7 +30,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: tests/release_downloads
-          key: release-downloads-${{ hashFiles('examples/examples.yaml') }}
+          key: release-downloads-${{ runner.os }}-${{ hashFiles('examples/examples.yaml') }}
       - name: Download release JSONs
         run: uv run ./tests/download_release_jsons.py
         env:
