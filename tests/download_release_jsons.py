@@ -8,6 +8,7 @@ listed in examples/examples.yaml and save it to tests/release_jsons/.
 # dependencies = [
 #   "requests",
 #   "pyyaml",
+#   "dotbins",
 # ]
 # ///
 
