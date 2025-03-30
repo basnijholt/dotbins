@@ -3,6 +3,7 @@ tools_dir: ~/.dotbins-examples
 # List of tools that require no configuration
 
 tools:
+  atuin: atuinsh/atuin            # Shell history and recording tool
   bandwhich: imsnif/bandwhich     # Terminal bandwidth utilization tool
   bat: sharkdp/bat                # Cat clone with syntax highlighting and Git integration
   btm: ClementTsang/bottom        # Graphical system monitor

@@ -11,6 +11,9 @@ from dotbins.config import build_tool_config
 @pytest.mark.parametrize(
     ("program", "platform", "arch", "expected_asset"),
     [
+        ("atuin", "linux", "amd64", "atuin-x86_64-unknown-linux-gnu.tar.gz"),
+        ("atuin", "linux", "arm64", "atuin-aarch64-unknown-linux-gnu.tar.gz"),
+        ("atuin", "macos", "arm64", "atuin-aarch64-apple-darwin.tar.gz"),
         ("bandwhich", "linux", "amd64", "bandwhich-v0.23.1-x86_64-unknown-linux-gnu.tar.gz"),
         ("bandwhich", "linux", "arm64", "bandwhich-v0.23.1-aarch64-unknown-linux-gnu.tar.gz"),
         ("bandwhich", "macos", "arm64", "bandwhich-v0.23.1-aarch64-apple-darwin.tar.gz"),
