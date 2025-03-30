@@ -135,6 +135,8 @@ def _prioritize_assets(assets: Assets, os_name: str) -> Assets:
     4. Others
     5. Package formats (.deb, .rpm, .apk, etc.) - lowest priority
     """
+    if not assets:
+        return []
     # Sort assets into priority groups
     appimages = []
     no_extension = []
@@ -205,41 +207,36 @@ def _detect_system(os_obj: _OS, arch: _Arch) -> DetectFunc:
     """Returns a function that detects based on OS and architecture."""
 
     def detector(assets: Assets) -> DetectResult:
-        matches = []
-        candidates = []
-        all_assets = []
+        full_matches = []  # OS+Arch matches
+        os_matches = []  # OS matches
+        all_assets = []  # all assets
 
         for a in assets:
             if a.endswith((".sha256", ".sha256sum")):
                 continue
-
             os_match = _match_os(os_obj, a)
             arch_match = _match_arch(arch, a)
-
-            # Track OS+Arch matches specifically - highest priority
             if os_match and arch_match:
-                matches.append(a)
-
-            # Still track other matches for fallback
+                full_matches.append(a)
             if os_match:
-                candidates.append(a)
-
+                os_matches.append(a)
             all_assets.append(a)
 
-        # Apply prioritization when multiple matches are found
-        if len(matches) > 0:
-            prioritized = _prioritize_assets(matches, os_obj.name)
-            if len(prioritized) == 1:
-                return prioritized[0], None, None
-            return "", prioritized, f"{len(prioritized)} arch matches found"
+        # Apply prioritization (in case multiple matches are found)
+        os_matches = _prioritize_assets(os_matches, os_obj.name)
+        full_matches = _prioritize_assets(full_matches, os_obj.name)
+        all_assets = _prioritize_assets(all_assets, os_obj.name)
 
+        if len(full_matches) == 1:
+            return full_matches[0], None, None
+        if len(full_matches) > 0:
+            return "", full_matches, f"{len(full_matches)} arch matches found"
         # Fallbacks when no exact arch match is found
-        if len(candidates) == 1:
-            return candidates[0], None, None
-        if len(candidates) > 1:
-            prioritized = _prioritize_assets(candidates, os_obj.name)
-            return ("", prioritized, f"{len(prioritized)} candidates found (unsure architecture)")
-        if len(all_assets) == 1:
+        if len(os_matches) == 1:  # No arch match, but OS match
+            return os_matches[0], None, None
+        if len(os_matches) > 1:  # No arch match, but OS matches
+            return ("", os_matches, f"{len(os_matches)} candidates found (unsure architecture)")
+        if len(all_assets) == 1:  # No OS or arch match, but there is a single candidate
             return all_assets[0], None, None
 
         return "", all_assets, "no candidates found"
