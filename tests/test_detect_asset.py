@@ -21,19 +21,19 @@ from dotbins.detect_asset import (
 def test_os_match() -> None:
     """Test the match_os function."""
     # Test basic OS matching
-    assert _match_os(OSDarwin, "darwin-amd64.tar.gz") == (True, False)
-    assert _match_os(OSDarwin, "macos-amd64.tar.gz") == (True, False)
-    assert _match_os(OSDarwin, "osx-amd64.tar.gz") == (True, False)
-    assert _match_os(OSDarwin, "linux-amd64.tar.gz") == (False, False)
+    assert _match_os(OSDarwin, "darwin-amd64.tar.gz") is True
+    assert _match_os(OSDarwin, "macos-amd64.tar.gz") is True
+    assert _match_os(OSDarwin, "osx-amd64.tar.gz") is True
+    assert _match_os(OSDarwin, "linux-amd64.tar.gz") is False
 
     # Test with anti-pattern
-    assert _match_os(OSLinux, "linux-amd64.tar.gz") == (True, False)
-    assert _match_os(OSLinux, "ubuntu-amd64.tar.gz") == (True, False)
-    assert _match_os(OSLinux, "android-amd64.tar.gz") == (False, False)
+    assert _match_os(OSLinux, "linux-amd64.tar.gz") is True
+    assert _match_os(OSLinux, "ubuntu-amd64.tar.gz") is True
+    assert _match_os(OSLinux, "android-amd64.tar.gz") is False
 
-    # Test with priority pattern
-    assert _match_os(OSLinux, "app.appimage") == (False, False)  # No Linux in name
-    assert _match_os(OSLinux, "linux-app.appimage") == (True, True)
+    # Test with AppImage files
+    assert _match_os(OSLinux, "app.appimage") is False  # No Linux in name
+    assert _match_os(OSLinux, "linux-app.appimage") is True
 
 
 def test_arch_match() -> None:
@@ -182,24 +182,24 @@ def test_system_detector_detect() -> None:
     assert candidates == ["app-darwin-arm64.tar.gz", "app-windows-386.exe"]
     assert error == "no candidates found"
 
-    # Priority match
+    # AppImage priority match (AppImages should be prioritized)
     assets = ["app-linux-amd64.tar.gz", "app-linux-amd64.appimage"]
     match, candidates, error = detector(assets)
-    assert match == "app-linux-amd64.appimage"
-    assert candidates is None
-    assert error is None
+    # Since we're checking multiple assets with the same OS/ARCH,
+    # the result should be a prioritized list, not a single match
+    assert match == ""
+    assert candidates == ["app-linux-amd64.appimage", "app-linux-amd64.tar.gz"]
+    assert error == "2 arch matches found"
 
-    # Multiple priority matches
-    assets = [
-        "app1-linux-amd64.appimage",
-        "app2-linux-x86_64.appimage",
-    ]
+    # Package vs archive priority
+    # Test that archive formats (.tar.gz) are prioritized over package formats (.deb)
+    assets = ["app-linux-amd64.deb", "app-linux-amd64.tar.gz"]
     match, candidates, error = detector(assets)
     assert match == ""
-    assert candidates == ["app1-linux-amd64.appimage", "app2-linux-x86_64.appimage"]
-    assert error == "2 priority arch matches found"
+    assert candidates == ["app-linux-amd64.tar.gz", "app-linux-amd64.deb"]
+    assert error == "2 arch matches found"
 
-    # Skip checksum files
+    # Skip signature files
     assets = [
         "app-linux-amd64.tar.gz",
         "app-linux-amd64.tar.gz.sha256",

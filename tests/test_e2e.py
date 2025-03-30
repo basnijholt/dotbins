@@ -1330,7 +1330,7 @@ def test_auto_detect_asset_multiple_perfect_matches(
 
     out = capsys.readouterr().out
     assert "Found multiple candidates" in out
-    assert "selecting first" in out
+    assert "selecting best match" in out
 
     # Verify that the correct binary was downloaded
     bin_dir = config.bin_dir("linux", "amd64")
