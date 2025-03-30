@@ -22,6 +22,9 @@ from typing import TYPE_CHECKING, Any, Callable, Literal, TypeVar
 import requests
 from rich.console import Console
 
+if TYPE_CHECKING:
+    from .config import ToolConfig
+
 console = Console()
 
 SUPPORTED_ARCHIVE_EXTENSIONS = [
@@ -38,9 +41,6 @@ SUPPORTED_ARCHIVE_EXTENSIONS = [
     ".xz",
     ".lzma",
 ]
-
-if TYPE_CHECKING:
-    from .config import ToolConfig
 
 
 def _maybe_github_token_header(github_token: str | None) -> dict[str, str]:  # pragma: no cover
