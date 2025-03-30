@@ -183,7 +183,7 @@ def _prioritize_assets(assets: Assets, os_name: str) -> Assets:
         others.append(asset)
 
     # Return assets in priority order - package formats have lowest priority
-    return appimages + no_extension + archives + others + package_formats
+    return sorted(appimages) + sorted(no_extension) + sorted(archives) + sorted(others) + sorted(package_formats)
 
 
 def _detect_system(os_obj: _OS, arch: _Arch) -> DetectFunc:
