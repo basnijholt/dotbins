@@ -6,7 +6,30 @@ on:
     branches: [main]
 
 jobs:
+  setup-cache:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Cache release downloads
+        id: cache-release-downloads
+        uses: actions/cache@v4
+        with:
+          path: tests/release_downloads
+          key: release-downloads-v1-${{ hashFiles('examples/examples.yaml') }}
+          restore-keys: |
+            release-downloads-v1-
+      - name: Download release JSONs
+        if: steps.cache-release-downloads.outputs.cache-hit != 'true'
+        run: uv run ./tests/download_release_jsons.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   test:
+    needs: setup-cache
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -25,16 +48,13 @@ jobs:
       - name: Install dependencies
         run: |
           uv sync --all-extras
-      - name: Cache release downloads
-        id: cache-release-downloads
+      - name: Restore release downloads cache
         uses: actions/cache@v4
         with:
           path: tests/release_downloads
-          key: release-downloads-${{ runner.os }}-${{ hashFiles('examples/examples.yaml') }}
-      - name: Download release JSONs
-        run: uv run ./tests/download_release_jsons.py
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          key: release-downloads-v1-${{ hashFiles('examples/examples.yaml') }}
+          restore-keys: |
+            release-downloads-v1-
       - name: Run pytest
         run: uv run pytest -vvv
       - name: Upload coverage reports to Codecov
