@@ -493,14 +493,6 @@ tools:
 
   micromamba:
     repo: mamba-org/micromamba-releases
-    extract_archive: false
-    path_in_archive: bin/micromamba
-    arch_map:
-      amd64: 64
-      arm64: aarch64
-    asset_patterns:
-      linux: micromamba-linux-{arch}
-      macos: micromamba-osx-arm64
     shell_code: |
       alias mm="micromamba"
 
@@ -675,6 +667,7 @@ tools:
   lsd: lsd-rs/lsd                 # Next-gen ls command with icons and colors
   mcfly: cantino/mcfly            # Fly through your shell history
   micro: zyedidia/micro           # Modern and intuitive terminal-based text editor
+  micromamba: mamba-org/micromamba-releases # Conda-like distribution
   navi: denisidoro/navi           # Interactive cheatsheet tool for the CLI
   neovim: neovim/neovim           # Modern text editor
   nu: nushell/nushell             # Modern shell for the GitHub era
