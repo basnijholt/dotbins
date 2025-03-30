@@ -1688,7 +1688,10 @@ def test_tool_shell_code_in_shell_scripts(
 
             # Nushell-specific starship code
             assert 'mkdir ($nu.data-dir | path join "vendor/autoload")' in content
-            assert 'starship init nu | save -f ($nu.data-dir | path join "vendor/autoload/starship.nu")' in content
+            assert (
+                'starship init nu | save -f ($nu.data-dir | path join "vendor/autoload/starship.nu")'
+                in content
+            )
 
             # Check tool without shell_code has no block
             assert "if (which bat) != null {" not in content
@@ -1708,7 +1711,10 @@ def test_eza_arch_detection(
                 "eza": {
                     "repo": "eza-community/eza",
                     "arch_map": {"amd64": "x86_64", "arm64": "aarch64"},
-                    "asset_patterns": {"linux": "eza_{arch}-unknown-linux-gnu.tar.gz", "macos": None},  # type: ignore[typeddict-item]
+                    "asset_patterns": {
+                        "linux": "eza_{arch}-unknown-linux-gnu.tar.gz",
+                        "macos": None,
+                    },  # type: ignore[typeddict-item]
                 },
             },
         },
@@ -1717,8 +1723,14 @@ def test_eza_arch_detection(
     config.tools["eza"]._latest_release = {
         "tag_name": "0.12.1",
         "assets": [
-            {"name": "eza_x86_64-unknown-linux-gnu.tar.gz", "browser_download_url": "https://example.com/eza_x86_64-unknown-linux-gnu.tar.gz"},
-            {"name": "eza_aarch64-unknown-linux-gnu.tar.gz", "browser_download_url": "https://example.com/eza_aarch64-unknown-linux-gnu.tar.gz"},
+            {
+                "name": "eza_x86_64-unknown-linux-gnu.tar.gz",
+                "browser_download_url": "https://example.com/eza_x86_64-unknown-linux-gnu.tar.gz",
+            },
+            {
+                "name": "eza_aarch64-unknown-linux-gnu.tar.gz",
+                "browser_download_url": "https://example.com/eza_aarch64-unknown-linux-gnu.tar.gz",
+            },
         ],
     }
 

@@ -256,7 +256,12 @@ def _filter_tools(
     architecture: str | None = None,
 ) -> list[_Spec]:
     """Filter tools based on platform and architecture."""
-    return [spec for spec in tools if (spec.platform == platform or platform is None) and (spec.architecture == architecture or architecture is None)]
+    return [
+        spec
+        for spec in tools
+        if (spec.platform == platform or platform is None)
+        and (spec.architecture == architecture or architecture is None)
+    ]
 
 
 def _expected_tools(

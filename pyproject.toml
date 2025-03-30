@@ -64,11 +64,8 @@ omit = [
     "tests/download_release_jsons.py",
 ]
 
-[tool.black]
-line_length = 100
-
 [tool.ruff]
-line-length = 150
+line-length = 100
 target-version = "py39"
 
 [tool.ruff.lint]
@@ -95,6 +92,7 @@ ignore = [
     "FBT002",  # Boolean default positional argument in function definition
     "PLR2004", # Magic value used in comparison, consider replacing `2` with a constant variable
     "FBT003",  # Boolean positional value in function call
+    "E501",    # Line too long
 ]
 
 [tool.ruff.lint.per-file-ignores]

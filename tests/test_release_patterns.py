@@ -212,7 +212,9 @@ def test_autodetect_asset(program: str, platform: str, arch: str, expected_asset
 
     if expected_asset is None:
         # For cases where we expect ambiguous detection, assert that no asset is found
-        assert matching_asset is None, f"Expected no match due to ambiguity, but found: {matching_asset}"
+        assert matching_asset is None, (
+            f"Expected no match due to ambiguity, but found: {matching_asset}"
+        )
     else:
         # For normal cases, assert that the correct asset is found
         assert matching_asset is not None

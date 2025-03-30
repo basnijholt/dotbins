@@ -79,7 +79,9 @@ class Config:
             The Path object pointing to the bin directory
 
         """
-        bin_dir = self.tools_dir / platform / arch / "bin" if self._bin_dir is None else self._bin_dir
+        bin_dir = (
+            self.tools_dir / platform / arch / "bin" if self._bin_dir is None else self._bin_dir
+        )
         if create:
             bin_dir.mkdir(parents=True, exist_ok=True)
         return bin_dir
@@ -361,7 +363,9 @@ class BinSpec:
             self.arch,
         )
         destination_dir = config.bin_dir(self.platform, self.arch)
-        all_exist = all((destination_dir / binary_name).exists() for binary_name in self.tool_config.binary_name)
+        all_exist = all(
+            (destination_dir / binary_name).exists() for binary_name in self.tool_config.binary_name
+        )
         if tool_info and tool_info["version"] == self.version and all_exist and not force:
             dt = humanize_time_ago(tool_info["updated_at"])
             log(
@@ -520,7 +524,9 @@ def _normalize_asset_patterns(  # noqa: PLR0912
     ```{ platform: { arch: pattern_str } }```.
     """
     # Start by initializing empty patterns for each platform/arch
-    normalized: dict[str, dict[str, str | None]] = {platform: dict.fromkeys(arch_list) for platform, arch_list in platforms.items()}
+    normalized: dict[str, dict[str, str | None]] = {
+        platform: dict.fromkeys(arch_list) for platform, arch_list in platforms.items()
+    }
     if not patterns:
         return normalized
 
@@ -598,7 +604,10 @@ def _validate_tool_config(tool_name: str, tool_config: ToolConfig) -> None:
         log(f"Tool [b]{tool_name}[/] is missing required field [b]'repo'[/]", "error")
 
     # If binary lists differ in length, log an error
-    if len(tool_config.binary_name) != len(tool_config.path_in_archive) and tool_config.path_in_archive:
+    if (
+        len(tool_config.binary_name) != len(tool_config.path_in_archive)
+        and tool_config.path_in_archive
+    ):
         log(
             f"Tool [b]{tool_name}[/]: [b]'binary_name'[/] and [b]'path_in_archive'[/] must have the same length if both are specified as lists.",
             "error",

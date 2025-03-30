@@ -72,7 +72,10 @@ def test_generate_readme_content(mock_current_platform: MagicMock, mock_config: 
 
     # Verify expected sections are in the content
     assert "# 🛠️ dotbins Tool Collection" in content
-    assert "[![dotbins](https://img.shields.io/badge/powered%20by-dotbins-blue.svg?style=flat-square)]" in content
+    assert (
+        "[![dotbins](https://img.shields.io/badge/powered%20by-dotbins-blue.svg?style=flat-square)]"
+        in content
+    )
     assert "## 📋 Table of Contents" in content
     assert "- [What is dotbins?](#-what-is-dotbins)" in content
     assert "## 📦 What is dotbins?" in content
@@ -81,7 +84,9 @@ def test_generate_readme_content(mock_current_platform: MagicMock, mock_config: 
     assert "📦" in content
     assert "Tools" in content
     assert "Total Size" in content
-    assert "| Tool | Total Size | Avg Size per Architecture |" in content  # Check for new table header
+    assert (
+        "| Tool | Total Size | Avg Size per Architecture |" in content
+    )  # Check for new table header
     assert "| :--- | :-------- | :------------------------ |" in content
     assert "## 💻 Shell Integration" in content
     assert "For **Bash**:" in content

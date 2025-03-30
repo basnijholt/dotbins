@@ -165,7 +165,17 @@ def _prioritize_assets(assets: Assets, os_name: str) -> Assets:
     package_exts = {".deb", ".rpm", ".apk", ".pkg"}
 
     # Known archive formats to prioritize (high priority)
-    archive_exts = {".tar.gz", ".tgz", ".zip", ".tar.bz2", ".tbz2", ".tar.xz", ".txz", ".7z", ".tar"}
+    archive_exts = {
+        ".tar.gz",
+        ".tgz",
+        ".zip",
+        ".tar.bz2",
+        ".tbz2",
+        ".tar.xz",
+        ".txz",
+        ".7z",
+        ".tar",
+    }
 
     # These extensions should be ignored when considering if a file is an archive
     ignored_exts = {".sig", ".sha256", ".sha256sum", ".sbom", ".pem"}
@@ -185,7 +195,9 @@ def _prioritize_assets(assets: Assets, os_name: str) -> Assets:
 
         # Check if it has no extension
         if "." not in basename or basename.rindex(".") == 0:
-            if basename.endswith("-update"):  # from cargo-dist, e.g., atuin-x86_64-unknown-linux-gnu-update
+            if basename.endswith(
+                "-update",
+            ):  # from cargo-dist, e.g., atuin-x86_64-unknown-linux-gnu-update
                 continue
             no_extension.append(asset)
             continue
@@ -210,7 +222,12 @@ def _prioritize_assets(assets: Assets, os_name: str) -> Assets:
         def prioritize_by_gnu(assets_list: Assets) -> Assets:
             gnu = [a for a in assets_list if "gnu" in os.path.basename(a).lower()]
             musl = [a for a in assets_list if "musl" in os.path.basename(a).lower()]
-            others = [a for a in assets_list if "gnu" not in os.path.basename(a).lower() and "musl" not in os.path.basename(a).lower()]
+            others = [
+                a
+                for a in assets_list
+                if "gnu" not in os.path.basename(a).lower()
+                and "musl" not in os.path.basename(a).lower()
+            ]
             return sorted(gnu) + sorted(others) + sorted(musl)
 
         appimages = prioritize_by_gnu(appimages)
@@ -220,7 +237,13 @@ def _prioritize_assets(assets: Assets, os_name: str) -> Assets:
         package_formats = prioritize_by_gnu(package_formats)
 
     # Return assets in priority order - package formats have lowest priority
-    return sorted(appimages) + sorted(no_extension) + sorted(archives) + sorted(others) + sorted(package_formats)
+    return (
+        sorted(appimages)
+        + sorted(no_extension)
+        + sorted(archives)
+        + sorted(others)
+        + sorted(package_formats)
+    )
 
 
 def _detect_system(os_obj: _OS, arch: _Arch) -> DetectFunc:
