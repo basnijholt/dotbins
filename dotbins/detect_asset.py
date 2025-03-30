@@ -131,31 +131,57 @@ def _prioritize_assets(assets: Assets, os_name: str) -> Assets:
     Priority order:
     1. For Linux: .appimage files
     2. Files with no extension
-    3. Archive files
+    3. Archive files (.tar.gz, .tgz, .zip, etc.)
     4. Others
+
+    Files with extensions like .deb, .rpm, .apk are deprioritized.
     """
     # Sort assets into priority groups
     appimages = []
     no_extension = []
     archives = []
+    package_formats = []
     others = []
+
+    # Known package formats to deprioritize
+    package_exts = {".deb", ".rpm", ".apk", ".pkg"}
+    # Known archive formats to prioritize
+    archive_exts = {".tar.gz", ".tgz", ".zip", ".tar.bz2", ".tbz2", ".tar.xz", ".txz", ".7z", ".tar"}
+    # These extensions should be ignored when considering if a file is an archive
+    ignored_exts = {".pem", ".sig", ".sha256", ".sha256sum", ".sbom"}
 
     for asset in assets:
         basename = os.path.basename(asset)
-        # Check if it's a Linux AppImage
+
+        # Check if it's a Linux AppImage (highest priority for Linux)
         if os_name == "linux" and basename.lower().endswith(".appimage"):
             appimages.append(asset)
+            continue
+
+        # Skip signature and checksum files
+        if any(basename.lower().endswith(ext) for ext in ignored_exts):
+            continue
+
         # Check if it has no extension
-        elif "." not in basename or basename.rindex(".") == 0:
+        if "." not in basename or basename.rindex(".") == 0:
             no_extension.append(asset)
-        # Check if it's an archive
-        elif basename.lower().endswith((".tar", ".tar.gz", ".tgz", ".zip", ".tar.bz2", ".tbz2", ".7z")):
+            continue
+
+        # Check if it's a package format (lowest priority)
+        if any(basename.lower().endswith(ext) for ext in package_exts):
+            package_formats.append(asset)
+            continue
+
+        # Check if it's an archive (medium-high priority)
+        if any(basename.lower().endswith(ext) for ext in archive_exts):
             archives.append(asset)
-        else:
-            others.append(asset)
+            continue
+
+        # Everything else goes here
+        others.append(asset)
 
     # Return assets in priority order
-    return appimages + no_extension + archives + others
+    return appimages + no_extension + archives + others + package_formats
 
 
 def _detect_system(os_obj: _OS, arch: _Arch) -> DetectFunc:
