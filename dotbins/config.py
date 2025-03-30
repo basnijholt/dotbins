@@ -647,17 +647,14 @@ def _auto_detect_asset(
 ) -> _AssetDict | None:
     """Auto-detect an asset for the tool."""
     log(f"Auto-detecting asset for [b]{platform}/{arch}[/]", "info")
-    from dotbins.detect_asset import _prioritize_assets
     detect_fn = create_system_detector(platform, arch)
     asset_names = [x["name"] for x in assets]
     asset_name, candidates, err = detect_fn(asset_names)
     if err is not None:
         if err.endswith("matches found"):
             assert candidates is not None
-            log(f"Found multiple candidates: {candidates}, selecting best match", "info")
-            # Prioritize the candidates and select the first (highest priority) one
-            prioritized = _prioritize_assets(candidates, platform)
-            asset_name = prioritized[0] if prioritized else sorted(candidates)[0]
+            log(f"Found multiple candidates: {candidates}, selecting first match", "info")
+            asset_name = candidates[0]
         else:
             if candidates:
                 log(f"Found multiple candidates: {candidates}, manually select one", "info", "⁉️")
