@@ -32,7 +32,7 @@ jobs:
           path: tests/release_downloads
           key: release-downloads-${{ hashFiles('examples/examples.yaml') }}
       - name: Download release JSONs
-        run: ./tests/download_release_jsons.py
+        run: uv run ./tests/download_release_jsons.py
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Run pytest

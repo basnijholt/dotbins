@@ -1,9 +1,15 @@
-#!/usr/bin/env -S uv run --with pyyaml --with requests
+#!/usr/bin/env -S uv run
 """Script to download GitHub release JSONs for testing purposes.
 
 This script will download the JSON from the latest GitHub release for each tool
 listed in examples/examples.yaml and save it to tests/release_jsons/.
 """
+# /// script
+# dependencies = [
+#   "requests",
+#   "pyyaml",
+# ]
+# ///
 
 import json
 import os
