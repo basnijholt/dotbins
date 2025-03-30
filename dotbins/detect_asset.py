@@ -100,11 +100,11 @@ def _match_os(os_obj: _OS, asset: str) -> bool:
 
 def _match_arch(arch: _Arch, asset: str) -> bool:
     """Returns True if the architecture matches the given string."""
-    # First, let's try standard pattern matching using the defined regex
+    # First, try standard pattern matching
     if bool(arch.regex.search(asset)):
         return True
 
-    # Handle special cases for AMD64 architecture
+    # Then, handle special cases for AMD64 architecture
     if arch.name == "amd64":
         basename = os.path.basename(asset.lower())
 
