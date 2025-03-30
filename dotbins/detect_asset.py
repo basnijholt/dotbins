@@ -29,7 +29,6 @@ class _OS(NamedTuple):
     name: str
     regex: Pattern
     anti: Pattern | None = None
-    priority: Pattern | None = None
 
 
 class _Arch(NamedTuple):
@@ -46,7 +45,6 @@ OSLinux = _OS(
     name="linux",
     regex=re.compile(r"(?i)(linux|ubuntu)"),
     anti=re.compile(r"(?i)(android)"),
-    priority=re.compile(r"\.appimage$"),
 )
 OSNetBSD = _OS(name="netbsd", regex=re.compile(r"(?i)(netbsd)"))
 OSFreeBSD = _OS(name="freebsd", regex=re.compile(r"(?i)(freebsd)"))
@@ -89,15 +87,11 @@ arch_mapping: dict[str, _Arch] = {
 }
 
 
-def _match_os(os_obj: _OS, asset: str) -> tuple[bool, bool]:
-    """Match returns true if the asset name matches the OS. Also returns if this is a priority match."""
+def _match_os(os_obj: _OS, asset: str) -> bool:
+    """Match returns true if the asset name matches the OS."""
     if os_obj.anti is not None and os_obj.anti.search(asset):
-        return False, False
-    if os_obj.priority is not None:
-        main_match = os_obj.regex.search(asset) is not None
-        priority_match = os_obj.priority.search(asset) is not None
-        return main_match, main_match and priority_match
-    return os_obj.regex.search(asset) is not None, False
+        return False
+    return os_obj.regex.search(asset) is not None
 
 
 def _match_arch(arch: _Arch, asset: str) -> bool:
@@ -131,29 +125,57 @@ def detect_single_asset(asset: str, anti: bool = False) -> DetectFunc:
     return detector
 
 
+def _prioritize_assets(assets: Assets, os_name: str) -> Assets:
+    """Prioritize assets based on predefined rules.
+
+    Priority order:
+    1. For Linux: .appimage files
+    2. Files with no extension
+    3. Archive files
+    4. Others
+    """
+    # Sort assets into priority groups
+    appimages = []
+    no_extension = []
+    archives = []
+    others = []
+
+    for asset in assets:
+        basename = os.path.basename(asset)
+        # Check if it's a Linux AppImage
+        if os_name == "linux" and basename.lower().endswith(".appimage"):
+            appimages.append(asset)
+        # Check if it has no extension
+        elif "." not in basename or basename.rindex(".") == 0:
+            no_extension.append(asset)
+        # Check if it's an archive
+        elif basename.lower().endswith((".tar", ".tar.gz", ".tgz", ".zip", ".tar.bz2", ".tbz2", ".7z")):
+            archives.append(asset)
+        else:
+            others.append(asset)
+
+    # Return assets in priority order
+    return appimages + no_extension + archives + others
+
+
 def _detect_system(os_obj: _OS, arch: _Arch) -> DetectFunc:
     """Returns a function that detects based on OS and architecture."""
 
-    def detector(assets: Assets) -> DetectResult:  # noqa: PLR0911
-        priority = []
+    def detector(assets: Assets) -> DetectResult:
         matches = []
         candidates = []
         all_assets = []
 
         for a in assets:
-            if a.endswith((".sha256", ".sha256sum", ".deb", ".pkg", ".dmg", ".apk", ".rpm")):
+            if a.endswith((".sha256", ".sha256sum")):
                 continue
 
-            os_match, extra = _match_os(os_obj, a)
+            os_match = _match_os(os_obj, a)
             arch_match = _match_arch(arch, a)
 
             # Track OS+Arch matches specifically - highest priority
             if os_match and arch_match:
                 matches.append(a)
-
-                # Among arch matches, track which ones are priority formats
-                if extra:
-                    priority.append(a)
 
             # Still track other matches for fallback
             if os_match:
@@ -161,26 +183,20 @@ def _detect_system(os_obj: _OS, arch: _Arch) -> DetectFunc:
 
             all_assets.append(a)
 
-        candidates = sorted(candidates)
-        matches = sorted(matches)
-        priority = sorted(priority)
-
-        if len(matches) == 1:  # One exact OS+Arch match
-            return matches[0], None, None
-        if len(matches) > 1:  # Multiple OS+Arch matches
-            if len(priority) == 1:  # One priority format among arch matches
-                return priority[0], None, None
-            if len(priority) > 1:  # Multiple priority formats with matching arch
-                return "", priority, f"{len(priority)} priority arch matches found"
-            # No priority formats, but multiple arch matches
-            return "", matches, f"{len(matches)} arch matches found"
+        # Apply prioritization when multiple matches are found
+        if len(matches) > 0:
+            prioritized = _prioritize_assets(matches, os_obj.name)
+            if len(prioritized) == 1:
+                return prioritized[0], None, None
+            return "", prioritized, f"{len(prioritized)} arch matches found"
 
         # Fallbacks when no exact arch match is found
-        if len(candidates) == 1:  # TODO(Bas): seems wrong? # noqa: FIX002, TD003
+        if len(candidates) == 1:
             return candidates[0], None, None
         if len(candidates) > 1:
-            return ("", candidates, f"{len(candidates)} candidates found (unsure architecture)")
-        if len(all_assets) == 1:  # TODO(Bas): seems wrong? # noqa: FIX002, TD003
+            prioritized = _prioritize_assets(candidates, os_obj.name)
+            return ("", prioritized, f"{len(prioritized)} candidates found (unsure architecture)")
+        if len(all_assets) == 1:
             return all_assets[0], None, None
 
         return "", all_assets, "no candidates found"
