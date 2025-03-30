@@ -44,12 +44,6 @@ tools:
 
   atuin:
     repo: atuinsh/atuin
-    arch_map:
-      amd64: x86_64
-      arm64: aarch64
-    asset_patterns:
-      linux: atuin-{arch}-unknown-linux-gnu.tar.gz
-      macos: atuin-{arch}-apple-darwin.tar.gz
     shell_code: |
       source <(atuin init zsh --disable-up-arrow)
 
