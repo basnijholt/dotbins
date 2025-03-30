@@ -39,7 +39,9 @@ def _create_mock_release_info(
 
 
 def _set_mock_release_info(
-    config: Config, version: str = "1.2.3", extension: str = ".tar.gz",
+    config: Config,
+    version: str = "1.2.3",
+    extension: str = ".tar.gz",
 ) -> None:
     """Set the mock release info for the given config."""
     for tool_name, tool_config in config.tools.items():
@@ -690,6 +692,7 @@ def test_get_tool_command_with_remote_config(
     assert (dest_dir / "tool1").exists()
     assert (dest_dir / "tool2").exists()
 
+
 def test_get_tool_command_with_local_config(
     tmp_path: Path,
     create_dummy_archive: Callable,
@@ -1217,7 +1220,9 @@ def test_download_file_request_exception(
         err_msg = "Connection refused"
         raise requests.RequestException(err_msg)
 
-    with (patch("dotbins.utils.requests.get", side_effect=mock_requests_get),):
+    with (
+        patch("dotbins.utils.requests.get", side_effect=mock_requests_get),
+    ):
         config.sync_tools(verbose=False)  # Turn off verbose to reduce processing
 
     # Capture the output
@@ -1683,10 +1688,48 @@ def test_tool_shell_code_in_shell_scripts(
 
             # Nushell-specific starship code
             assert 'mkdir ($nu.data-dir | path join "vendor/autoload")' in content
-            assert (
-                'starship init nu | save -f ($nu.data-dir | path join "vendor/autoload/starship.nu")'
-                in content
-            )
+            assert 'starship init nu | save -f ($nu.data-dir | path join "vendor/autoload/starship.nu")' in content
 
             # Check tool without shell_code has no block
             assert "if (which bat) != null {" not in content
+
+
+def test_eza_arch_detection(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+) -> None:
+    """Test that eza is detected correctly for different architectures."""
+    # Covers the "If p_val is a single string, apply to all arch" case
+    config = Config.from_dict(
+        {
+            "tools_dir": str(tmp_path),
+            "platforms": {"linux": ["amd64", "arm64"]},
+            "tools": {
+                "eza": {
+                    "repo": "eza-community/eza",
+                    "arch_map": {"amd64": "x86_64", "arm64": "aarch64"},
+                    "asset_patterns": {"linux": "eza_{arch}-unknown-linux-gnu.tar.gz", "macos": None},  # type: ignore[typeddict-item]
+                },
+            },
+        },
+    )
+
+    config.tools["eza"]._latest_release = {
+        "tag_name": "0.12.1",
+        "assets": [
+            {"name": "eza_x86_64-unknown-linux-gnu.tar.gz", "browser_download_url": "https://example.com/eza_x86_64-unknown-linux-gnu.tar.gz"},
+            {"name": "eza_aarch64-unknown-linux-gnu.tar.gz", "browser_download_url": "https://example.com/eza_aarch64-unknown-linux-gnu.tar.gz"},
+        ],
+    }
+
+    def mock_download_file(
+        url: str,  # noqa: ARG001
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        create_dummy_archive(Path(destination), "eza")
+        return destination
+
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools()
