@@ -482,12 +482,6 @@ tools:
 
   eza:
     repo: eza-community/eza
-    arch_map:
-      amd64: x86_64
-      arm64: aarch64
-    asset_patterns:
-      linux: eza_{arch}-unknown-linux-gnu.tar.gz
-      macos: null  # No macOS binaries available as of now
     shell_code: |
       alias l="eza -lah --git"
 
