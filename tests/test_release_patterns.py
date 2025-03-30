@@ -28,7 +28,7 @@ CASES = [
     ("choose", "linux", "amd64", "choose-x86_64-unknown-linux-gnu"),
     ("choose", "linux", "arm64", "choose-aarch64-unknown-linux-gnu"),
     ("choose", "macos", "arm64", "choose-aarch64-apple-darwin"),
-    ("croc", "linux", "amd64", None),  # Expect no match due to ambiguous detection
+    ("croc", "linux", "amd64", "croc_v10.2.2_Linux-64bit.tar.gz"),
     ("croc", "linux", "arm64", "croc_v10.2.2_Linux-ARM64.tar.gz"),
     ("croc", "macos", "arm64", "croc_v10.2.2_macOS-ARM64.tar.gz"),
     ("ctop", "linux", "amd64", "ctop-0.7.7-linux-amd64"),

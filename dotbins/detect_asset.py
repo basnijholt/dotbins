@@ -70,7 +70,7 @@ os_mapping: dict[str, _OS] = {
 }
 
 # Define Arch constants
-ArchAMD64 = _Arch(name="amd64", regex=re.compile(r"(?i)(x64|amd64|x86(-|_)?64|[-_]64\b)"))
+ArchAMD64 = _Arch(name="amd64", regex=re.compile(r"(?i)(x64|amd64|x86[-_]?64)"))
 ArchI386 = _Arch(name="386", regex=re.compile(r"(?i)(x32|amd32|x86(-|_)?32|i?386)"))
 ArchArm = _Arch(name="arm", regex=re.compile(r"(?i)(arm32|armv6|arm\b)"))
 ArchArm64 = _Arch(name="arm64", regex=re.compile(r"(?i)(arm64|armv8|aarch64)"))
@@ -100,7 +100,23 @@ def _match_os(os_obj: _OS, asset: str) -> bool:
 
 def _match_arch(arch: _Arch, asset: str) -> bool:
     """Returns True if the architecture matches the given string."""
-    return bool(arch.regex.search(asset))
+    # First, let's try standard pattern matching using the defined regex
+    if bool(arch.regex.search(asset)):
+        return True
+
+    # Special case handling for specific architecture patterns
+    lower_asset = asset.lower()
+
+    # Handle special cases for AMD64 architecture
+    if arch.name == "amd64":
+        basename = os.path.basename(lower_asset)
+
+        # For micromamba-linux-64 and similar formats
+        # Match patterns like [prefix]-linux-64, [prefix]_linux_64, etc.
+        if "linux-64" in basename or "linux_64" in basename:
+            return True
+
+    return False
 
 
 def detect_single_asset(asset: str, anti: bool = False) -> DetectFunc:
@@ -193,6 +209,7 @@ def _prioritize_assets(assets: Assets, os_name: str) -> Assets:
     # For Linux, prioritize gnu over musl within each category
     # TODO: Improve the gnu/musl decision logic with more sophisticated criteria  # noqa: FIX002, TD002, TD003
     if os_name == "linux":
+
         def prioritize_by_gnu(assets_list: Assets) -> Assets:
             gnu = [a for a in assets_list if "gnu" in os.path.basename(a).lower()]
             musl = [a for a in assets_list if "musl" in os.path.basename(a).lower()]
