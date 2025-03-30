@@ -493,14 +493,6 @@ tools:
 
   micromamba:
     repo: mamba-org/micromamba-releases
-    extract_archive: false
-    path_in_archive: bin/micromamba
-    arch_map:
-      amd64: 64
-      arm64: aarch64
-    asset_patterns:
-      linux: micromamba-linux-{arch}
-      macos: micromamba-osx-arm64
     shell_code: |
       alias mm="micromamba"
 
