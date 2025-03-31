@@ -322,6 +322,7 @@ When multiple compatible assets are available for your platform and architecture
 defaults:
   prefer_appimage: true   # Prioritize AppImage format when available
   libc: musl              # Prefer musl over glibc on Linux
+  shells: zsh,bash,nushell,powershell,fish  # Generate shell scrips for these shells
 ```
 
 These are also the built-in defaults if no custom settings are provided.

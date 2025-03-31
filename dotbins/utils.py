@@ -176,7 +176,7 @@ def _format_shell_instructions(
             "let _arch = (sys).host.arch",
             'let _arch = if $_arch == "x86_64" { "amd64" } else if $_arch in ["aarch64", "arm64"] { "arm64" } else { $_arch }',
             "",
-            f'$env.PATH = ($env.PATH | prepend $"{tools_dir}/$_os/$_arch/bin")',
+            f'$env.PATH = ($env.PATH | prepend $"{tools_dir_str}/$_os/$_arch/bin")',
         ]
         base_script = "\n".join(script_lines)
         if_start = "if (which {name}) != null {{"
