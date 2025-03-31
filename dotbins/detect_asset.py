@@ -228,19 +228,19 @@ def _sorted(assets: Assets, os_name: str, preference: Literal["musl", "glibc"] =
     return sorted(assets)
 
 
+def _musl_or_gnu(assets_list: Assets, preference: Literal["musl", "glibc"] = "musl") -> Assets:
+    gnu = sorted([a for a in assets_list if _is_gnu(a)])
+    musl = sorted([a for a in assets_list if _is_musl(a)])
+    others = sorted([a for a in assets_list if not _is_gnu(a) and not _is_musl(a)])
+    return musl + others + gnu if preference == "musl" else gnu + others + musl
+
+
 def _is_musl(asset: str) -> bool:
     return "musl" in os.path.basename(asset).lower()
 
 
 def _is_gnu(asset: str) -> bool:
     return "gnu" in os.path.basename(asset).lower()
-
-
-def _musl_or_gnu(assets_list: Assets, preference: Literal["musl", "glibc"] = "musl") -> Assets:
-    gnu = sorted([a for a in assets_list if _is_gnu(a)])
-    musl = sorted([a for a in assets_list if _is_musl(a)])
-    others = sorted([a for a in assets_list if not _is_gnu(a) and not _is_musl(a)])
-    return musl + others + gnu if preference == "musl" else gnu + others + musl
 
 
 def _detect_system(os_obj: _OS, arch: _Arch) -> DetectFunc:
