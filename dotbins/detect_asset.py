@@ -233,6 +233,7 @@ def _prioritize_assets(
         archives = prioritize_by_gnu(archives)
         others = prioritize_by_gnu(others)
         package_formats = prioritize_by_gnu(package_formats)
+        return appimages + no_extension + archives + others + package_formats
 
     # Return assets in priority order - package formats have lowest priority
     return (
