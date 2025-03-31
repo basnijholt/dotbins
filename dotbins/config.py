@@ -60,6 +60,9 @@ class Config:
     platforms: dict[str, list[str]] = field(default_factory=_default_platforms)
     tools: dict[str, ToolConfig] = field(default_factory=dict)
     config_path: Path | None = field(default=None, init=False)
+    preferences: dict[str, dict[str, dict[str, str | bool] | str | bool]] = field(
+        default_factory=dict,
+    )
     _bin_dir: Path | None = field(default=None, init=False)
     _update_summary: UpdateSummary = field(default_factory=UpdateSummary, init=False)
     _latest_releases: dict | None = field(default=None, init=False)
@@ -303,6 +306,9 @@ class ToolConfig:
     platform_map: dict[str, str] = field(default_factory=dict)
     arch_map: dict[str, str] = field(default_factory=dict)
     shell_code: str | dict[str, str] | None = None
+    preferences: dict[str, dict[str, dict[str, str | bool] | str | bool]] = field(
+        default_factory=dict,
+    )
     _latest_release: dict | None = field(default=None, init=False)
 
     def bin_spec(self, arch: str, platform: str) -> BinSpec:
@@ -347,13 +353,42 @@ class BinSpec:
         )
 
     def matching_asset(self) -> _AssetDict | None:
-        """Find a matching asset for the tool."""
-        asset_pattern = self.asset_pattern()
+        """Find the best matching asset for this tool, arch, platform.
+
+        Returns:
+            The best matching asset, or None if no match found
+
+        """
         assert self.tool_config._latest_release is not None
         assets = self.tool_config._latest_release["assets"]
-        if asset_pattern is None:
-            return _auto_detect_asset(self.platform, self.arch, assets)
-        return _find_matching_asset(asset_pattern, assets)
+
+        # Create a detector for this platform and architecture
+        preferences = None
+        if self.platform in self.tool_config.preferences:
+            preferences = self.tool_config.preferences
+
+        system_detector = create_system_detector(
+            self.platform,
+            self.arch,
+            preferences=preferences,
+        )
+
+        # If we have a specific asset pattern, use it
+        asset_pattern = self.asset_pattern()
+        if asset_pattern:
+            # Try to find an exact match based on our pattern
+            matching_asset = _find_matching_asset(asset_pattern, assets)
+            if matching_asset:
+                return matching_asset
+
+        # Fallback: Try to find the best match by auto-detecting
+        asset, _, _ = system_detector(list(a["name"] for a in assets))
+        if asset:
+            for a in assets:
+                if a["name"] == asset:
+                    return a
+
+        return None
 
     def skip_download(self, config: Config, force: bool) -> bool:
         """Check if download should be skipped (binary already exists)."""
@@ -384,6 +419,7 @@ class RawConfigDict(TypedDict, total=False):
     tools_dir: str
     platforms: dict[str, list[str]]
     tools: dict[str, str | RawToolConfigDict]
+    preferences: dict[str, dict[str, dict[str, str | bool] | str | bool]]
 
 
 class RawToolConfigDict(TypedDict, total=False):
@@ -397,6 +433,10 @@ class RawToolConfigDict(TypedDict, total=False):
     path_in_archive: str | list[str]  # Path(s) to binary within archive
     asset_patterns: str | dict[str, str] | dict[str, dict[str, str | None]]
     shell_code: str | dict[str, str] | None  # Shell code to configure the tool
+    preferences: dict[
+        str,
+        dict[str, dict[str, str | bool] | str | bool],
+    ]  # Tool-specific preferences
 
 
 class _AssetDict(TypedDict):
@@ -411,42 +451,42 @@ def build_tool_config(
     raw_data: RawToolConfigDict,
     platforms: dict[str, list[str]] | None = None,
 ) -> ToolConfig:
-    """Create a ToolConfig object from raw YAML data.
+    """Build a ToolConfig object from raw data."""
+    if isinstance(raw_data, str):
+        # If the tool config is just a string, it's the repo
+        raw_data = {"repo": raw_data}
 
-    Performing any expansions
-    or normalization that used to happen inside the constructor.
-    """
-    if not platforms:
-        platforms = _default_platforms()
+    repo = raw_data["repo"]
 
-    # Safely grab data from raw_data (or set default if missing).
-    repo = raw_data.get("repo") or ""
-    extract_archive = raw_data.get("extract_archive")
+    # Set up mapping of platform and architecture names
     platform_map = raw_data.get("platform_map", {})
     arch_map = raw_data.get("arch_map", {})
-    # Might be str or list
-    raw_binary_name = raw_data.get("binary_name", tool_name)
-    raw_path_in_archive = raw_data.get("path_in_archive", [])
 
-    # Convert to lists
-    binary_name: list[str] = _ensure_list(raw_binary_name)
-    path_in_archive: list[Path] = [Path(p) for p in _ensure_list(raw_path_in_archive)]
+    # Configure binary names
+    binary_name = raw_data.get("binary_name", tool_name)
+    binary_names = _ensure_list(binary_name)
 
-    # Normalize asset patterns to dict[platform][arch].
-    raw_patterns = raw_data.get("asset_patterns")
-    asset_patterns = _normalize_asset_patterns(tool_name, raw_patterns, platforms)
+    # Configure paths in archive
+    path_in_archive = raw_data.get("path_in_archive", [])
+    paths_in_archive = _ensure_list(path_in_archive) if path_in_archive else []
+    paths_in_archive = [Path(p) for p in paths_in_archive]
 
-    # Build our final data-class object
+    # Detect asset patterns
+    patterns = raw_data.get("asset_patterns", None)
+    asset_patterns = _normalize_asset_patterns(tool_name, patterns, platforms)
+    preferences = raw_data.get("preferences", {})
+
     return ToolConfig(
         tool_name=tool_name,
         repo=repo,
-        binary_name=binary_name,
-        path_in_archive=path_in_archive,
-        extract_archive=extract_archive,
+        binary_name=binary_names,
+        path_in_archive=paths_in_archive,
+        extract_archive=raw_data.get("extract_archive"),
         asset_patterns=asset_patterns,
         platform_map=platform_map,
         arch_map=arch_map,
         shell_code=raw_data.get("shell_code"),
+        preferences=preferences,
     )
 
 
@@ -475,20 +515,32 @@ def config_from_file(config_path: str | Path | None = None) -> Config:
 
 
 def _config_from_dict(data: RawConfigDict) -> Config:
+    """Creates a Config object from a raw Python dictionary.
+
+    Takes a Python dictionary (expected from loading YAML data),
+    and creates a Config object with all proper defaults.
+
+    Args:
+        data: A dictionary with configuration settings
+
+    Returns:
+        A Config object with the settings from data and appropriate defaults
+
+    """
     tools_dir = data.get("tools_dir", DEFAULT_TOOLS_DIR)
     platforms = data.get("platforms", _default_platforms())
     raw_tools = data.get("tools", {})
+    preferences = data.get("preferences", {})
 
-    tools_dir_path = Path(os.path.expanduser(tools_dir))
+    config = Config(
+        tools_dir=Path(os.path.expanduser(tools_dir)),
+        platforms=platforms,
+        preferences=preferences,
+    )
 
-    tool_configs: dict[str, ToolConfig] = {}
-    for tool_name, tool_data in raw_tools.items():
-        if isinstance(tool_data, str):
-            tool_data = {"repo": tool_data}  # noqa: PLW2901
-        tool_configs[tool_name] = build_tool_config(tool_name, tool_data, platforms)
+    for tool_name, raw_tool_data in raw_tools.items():
+        config.tools[tool_name] = build_tool_config(tool_name, raw_tool_data, platforms)
 
-    config = Config(tools_dir=tools_dir_path, platforms=platforms, tools=tool_configs)
-    config.validate()
     return config
 
 
