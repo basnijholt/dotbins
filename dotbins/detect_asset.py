@@ -191,9 +191,8 @@ def _prioritize_assets(
 
         # Check if it has no extension
         if "." not in basename or basename.rindex(".") == 0:
-            if basename.endswith(
-                "-update",
-            ):  # from cargo-dist, e.g., atuin-x86_64-unknown-linux-gnu-update
+            if basename.endswith("-update"):
+                # from cargo-dist, e.g., atuin-x86_64-unknown-linux-gnu-update
                 continue
             no_extension.append(asset)
             continue
