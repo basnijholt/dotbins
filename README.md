@@ -40,6 +40,7 @@ See this example `.dotbins` repository: [basnijholt/.dotbins](https://github.com
     - [Basic Configuration](#basic-configuration)
     - [Tool Configuration](#tool-configuration)
     - [Platform and Architecture Mapping](#platform-and-architecture-mapping)
+    - [Asset Format Preferences](#asset-format-preferences)
     - [Pattern Variables](#pattern-variables)
     - [Multiple Binaries](#multiple-binaries)
     - [Configuration Examples](#configuration-examples)
