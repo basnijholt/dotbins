@@ -36,6 +36,7 @@ else:  # pragma: no cover
     from typing_extensions import Required
 
 DEFAULT_TOOLS_DIR = "~/.dotbins"
+PreferencesDict = dict[str, dict[str, dict[str, str | bool] | str | bool]]
 
 
 def _default_platforms() -> dict[str, list[str]]:
@@ -60,9 +61,7 @@ class Config:
     platforms: dict[str, list[str]] = field(default_factory=_default_platforms)
     tools: dict[str, ToolConfig] = field(default_factory=dict)
     config_path: Path | None = field(default=None, init=False)
-    preferences: dict[str, dict[str, dict[str, str | bool] | str | bool]] = field(
-        default_factory=dict,
-    )
+    preferences: PreferencesDict = field(default_factory=dict)
     _bin_dir: Path | None = field(default=None, init=False)
     _update_summary: UpdateSummary = field(default_factory=UpdateSummary, init=False)
     _latest_releases: dict | None = field(default=None, init=False)
@@ -306,9 +305,7 @@ class ToolConfig:
     platform_map: dict[str, str] = field(default_factory=dict)
     arch_map: dict[str, str] = field(default_factory=dict)
     shell_code: str | dict[str, str] | None = None
-    preferences: dict[str, dict[str, dict[str, str | bool] | str | bool]] = field(
-        default_factory=dict,
-    )
+    preferences: PreferencesDict = field(default_factory=dict)
     _latest_release: dict | None = field(default=None, init=False)
 
     def bin_spec(self, arch: str, platform: str) -> BinSpec:
@@ -419,7 +416,7 @@ class RawConfigDict(TypedDict, total=False):
     tools_dir: str
     platforms: dict[str, list[str]]
     tools: dict[str, str | RawToolConfigDict]
-    preferences: dict[str, dict[str, dict[str, str | bool] | str | bool]]
+    preferences: PreferencesDict
 
 
 class RawToolConfigDict(TypedDict, total=False):
@@ -433,10 +430,7 @@ class RawToolConfigDict(TypedDict, total=False):
     path_in_archive: str | list[str]  # Path(s) to binary within archive
     asset_patterns: str | dict[str, str] | dict[str, dict[str, str | None]]
     shell_code: str | dict[str, str] | None  # Shell code to configure the tool
-    preferences: dict[
-        str,
-        dict[str, dict[str, str | bool] | str | bool],
-    ]  # Tool-specific preferences
+    preferences: PreferencesDict  # Tool-specific preferences
 
 
 class _AssetDict(TypedDict):
