@@ -170,9 +170,6 @@ def _prioritize_assets(
     # Known package formats to deprioritize (lowest priority)
     package_exts = {".deb", ".rpm", ".apk", ".pkg"}
 
-    # Known archive formats to prioritize (high priority)
-    archive_exts = SUPPORTED_ARCHIVE_EXTENSIONS
-
     # These extensions should be ignored when considering if a file is an archive
     ignored_exts = {".sig", ".sha256", ".sha256sum", ".sbom", ".pem"}
 
@@ -198,7 +195,7 @@ def _prioritize_assets(
             continue
 
         # Check if it's an archive format (high priority)
-        if any(lower_basename.endswith(ext) for ext in archive_exts):
+        if any(lower_basename.endswith(ext) for ext in SUPPORTED_ARCHIVE_EXTENSIONS):
             archives.append(asset)
             continue
 
