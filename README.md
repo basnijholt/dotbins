@@ -474,12 +474,6 @@ platforms:
   macos:
     - arm64
 
-# Example preferences for asset selection
-preferences:
-  linux:
-    prefer_appimage: false
-    libc: glibc
-
 tools:
   delta: dandavison/delta
   duf: muesli/duf
@@ -499,10 +493,6 @@ tools:
     shell_code: |
       alias bat="bat --paging=never"
       alias cat="bat --plain --paging=never"
-    # Example of tool-specific preference
-    preferences:
-      linux:
-        prefer_appimage: true
   direnv:
     repo: direnv/direnv
     shell_code: |
