@@ -198,45 +198,64 @@ def _prepare_download_task(
             # Means we failed to fetch the release info
             return None
         bin_spec = tool_config.bin_spec(arch, platform)
+
+        # Skip download if the tool is already up to date
         if bin_spec.skip_download(config, force):
+            log(
+                f"Skipping [b]{tool_name}[/]: Already up to date (version [b]{bin_spec.version}[/])",
+                "info",
+                "⏭️",
+            )
             config._update_summary.add_skipped_tool(
                 tool_name,
                 platform,
                 arch,
-                version=bin_spec.version,
-                reason="Already up-to-date",
+                bin_spec.version,
+                reason="Already up to date",
             )
             return None
-        asset = bin_spec.matching_asset()
-        if asset is None:
-            config._update_summary.add_failed_tool(
+
+        # Find the matching asset for this platform and architecture
+        matching_asset = bin_spec.matching_asset()
+        if not matching_asset:
+            log(
+                f"No matching asset found for {tool_name} ({platform}/{arch}) in latest release ({bin_spec.version})",
+                "warning",
+                "⚠️",
+            )
+            # Check asset_pattern to see if there's one defined
+            if bin_spec.asset_pattern() is not None:
+                log(f"Pattern was: {bin_spec.asset_pattern()}", "warning", "⚠️")
+            config._update_summary.add_skipped_tool(
                 tool_name,
                 platform,
                 arch,
-                version=bin_spec.version,
-                reason="No matching asset found",
+                bin_spec.version,
+                reason="No matching asset",
             )
             return None
-        tmp_dir = Path(tempfile.gettempdir())
-        temp_path = tmp_dir / asset["browser_download_url"].split("/")[-1]
-        return _DownloadTask(
-            bin_spec=bin_spec,
-            asset_url=asset["browser_download_url"],
-            asset_name=asset["name"],
-            destination_dir=config.bin_dir(platform, arch),
-            temp_path=temp_path,
-        )
-    except Exception as e:
+
+        # Set up temporary download location
+        os_temp_dir = tempfile.gettempdir()
+        temp_path = Path(os_temp_dir) / f"{tool_name}_{platform}_{arch}_{bin_spec.version}"
+
+        download_url = matching_asset["browser_download_url"]
+        asset_name = matching_asset["name"]
+        bin_dir = config.bin_dir(platform, arch, create=True)
+
         log(
-            f"Error processing {tool_name} for {platform}/{arch}: {e!s}",
-            "error",
-            print_exception=verbose,
+            f"Found asset for [b]{tool_name}[/] ([b]{platform}/{arch}[/]): [b]{asset_name}[/]",
+            "info",
+            "🔍",
         )
+        return _DownloadTask(bin_spec, download_url, asset_name, bin_dir, temp_path)
+    except Exception as e:
+        log(f"Error preparing download for {tool_name}: {e!s}", "error", print_exception=verbose)
         config._update_summary.add_failed_tool(
             tool_name,
             platform,
             arch,
-            version="Unknown",
+            "Unknown",
             reason=f"Error preparing download: {e!s}",
         )
         return None

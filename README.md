@@ -40,6 +40,7 @@ See this example `.dotbins` repository: [basnijholt/.dotbins](https://github.com
     - [Basic Configuration](#basic-configuration)
     - [Tool Configuration](#tool-configuration)
     - [Platform and Architecture Mapping](#platform-and-architecture-mapping)
+    - [Asset Format Preferences](#asset-format-preferences)
     - [Pattern Variables](#pattern-variables)
     - [Multiple Binaries](#multiple-binaries)
     - [Configuration Examples](#configuration-examples)
@@ -312,6 +313,39 @@ tool-name:
     arm64: aarch64                 # Converts "arm64" to "aarch64" in patterns
 ```
 
+### Asset Format Preferences
+
+You can specify preferences for asset formats and library types:
+
+```yaml
+# Global preferences for all tools
+preferences:
+  linux:
+    prefer_appimage: false  # Set to true to prefer AppImage when available
+    libc: glibc            # Use 'glibc' or 'musl'
+
+# Tool-specific preferences (override global)
+tool-name:
+  # Other fields...
+  preferences:
+    linux:
+      prefer_appimage: true
+      libc: musl
+```
+
+You can also set per-architecture preferences:
+
+```yaml
+preferences:
+  linux:
+    amd64:
+      prefer_appimage: false
+      libc: glibc
+    arm64:
+      prefer_appimage: true
+      libc: musl
+```
+
 ### Pattern Variables
 
 In asset patterns, you can use these variables:
@@ -440,6 +474,12 @@ platforms:
   macos:
     - arm64
 
+# Example preferences for asset selection
+preferences:
+  linux:
+    prefer_appimage: false
+    libc: glibc
+
 tools:
   delta: dandavison/delta
   duf: muesli/duf
@@ -459,6 +499,10 @@ tools:
     shell_code: |
       alias bat="bat --paging=never"
       alias cat="bat --plain --paging=never"
+    # Example of tool-specific preference
+    preferences:
+      linux:
+        prefer_appimage: true
   direnv:
     repo: direnv/direnv
     shell_code: |

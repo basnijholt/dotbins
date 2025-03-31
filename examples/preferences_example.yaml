@@ -1,0 +1,56 @@
+tools_dir: ~/.dotbins
+
+# Global preferences for all tools
+preferences:
+  linux:
+    # Default preferences for all architectures on Linux
+    prefer_appimage: false  # Set to true to prefer AppImage when available
+    libc: glibc            # Use 'glibc' or 'musl'
+
+    # Architecture-specific preferences (overrides default)
+    amd64:
+      prefer_appimage: true
+      libc: glibc
+    arm64:
+      prefer_appimage: false
+      libc: musl
+
+# Platforms to download tools for
+platforms:
+  linux:
+    - amd64
+    - arm64
+  macos:
+    - arm64
+
+tools:
+  # Tool with global preferences
+  rg:
+    repo: BurntSushi/ripgrep
+    binary_name: rg
+
+  # Tool with its own preferences (overrides global)
+  atuin:
+    repo: atuinsh/atuin
+    shell_code: |
+      source <(atuin init zsh --disable-up-arrow)
+    # Tool-specific preferences override global preferences
+    preferences:
+      linux:
+        prefer_appimage: true
+        libc: musl
+
+  # Tool with per-architecture preferences
+  bat:
+    repo: sharkdp/bat
+    shell_code: |
+      alias bat="bat --paging=never"
+      alias cat="bat --plain --paging=never"
+    preferences:
+      linux:
+        amd64:
+          prefer_appimage: false
+          libc: glibc
+        arm64:
+          prefer_appimage: true
+          libc: musl
