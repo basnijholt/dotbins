@@ -6,7 +6,7 @@ import os.path
 import re
 import sys
 from re import Pattern
-from typing import Callable, NamedTuple, Optional
+from typing import Callable, Literal, NamedTuple, Optional
 
 from .utils import SUPPORTED_ARCHIVE_EXTENSIONS
 
@@ -144,7 +144,11 @@ def detect_single_asset(asset: str, anti: bool = False) -> DetectFunc:
     return detector
 
 
-def _prioritize_assets(assets: Assets, os_name: str) -> Assets:
+def _prioritize_assets(
+    assets: Assets,
+    os_name: str,
+    preference: Literal["musl", "glibc"] = "musl",
+) -> Assets:
     """Prioritize assets based on predefined rules.
 
     Priority order:
@@ -220,6 +224,8 @@ def _prioritize_assets(assets: Assets, os_name: str) -> Assets:
                 if "gnu" not in os.path.basename(a).lower()
                 and "musl" not in os.path.basename(a).lower()
             ]
+            if preference == "musl":
+                return sorted(musl) + sorted(others) + sorted(gnu)
             return sorted(gnu) + sorted(others) + sorted(musl)
 
         appimages = prioritize_by_gnu(appimages)
