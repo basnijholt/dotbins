@@ -65,11 +65,11 @@ See this example `.dotbins` repository: [basnijholt/.dotbins](https://github.com
     - [Windows-Specific Issues](#windows-specific-issues)
   - [Getting Help](#getting-help)
 - [:thinking: Comparison with Alternatives](#thinking-comparison-with-alternatives)
-- [Key Alternatives](#key-alternatives)
-  - [Version Managers (e.g., `binenv`, `asdf`)](#version-managers-eg-binenv-asdf)
-  - [Binary Downloaders (e.g., `eget`)](#binary-downloaders-eg-eget)
-  - [System Package Managers (`apt`, `brew`, etc.)](#system-package-managers-apt-brew-etc)
-- [The `dotbins` Difference](#the-dotbins-difference)
+  - [Key Alternatives](#key-alternatives)
+    - [Version Managers (e.g., `binenv`, `asdf`)](#version-managers-eg-binenv-asdf)
+    - [Binary Downloaders (e.g., `eget`)](#binary-downloaders-eg-eget)
+    - [System Package Managers (`apt`, `brew`, etc.)](#system-package-managers-apt-brew-etc)
+  - [The `dotbins` Difference](#the-dotbins-difference)
 - [:heart: Support and Contributions](#heart-support-and-contributions)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
