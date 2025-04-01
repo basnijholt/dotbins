@@ -97,7 +97,13 @@ def test_prioritize_assets_with_preferences() -> None:
     ]
 
     # Test with prefer_appimage=True
-    prioritized = _prioritize_assets(assets, "linux", libc_preference="glibc", prefer_appimage=True)
+    prioritized = _prioritize_assets(
+        assets,
+        "linux",
+        libc_preference="glibc",
+        windows_abi="msvc",
+        prefer_appimage=True,
+    )
     assert prioritized is not None
     assert prioritized[0].endswith(".AppImage")
 
@@ -106,12 +112,19 @@ def test_prioritize_assets_with_preferences() -> None:
         assets,
         "linux",
         libc_preference="glibc",
+        windows_abi="msvc",
         prefer_appimage=False,
     )
     assert not prioritized[0].endswith(".AppImage")
 
     # Test libc preference
-    prioritized = _prioritize_assets(assets, "linux", libc_preference="musl", prefer_appimage=False)
+    prioritized = _prioritize_assets(
+        assets,
+        "linux",
+        libc_preference="musl",
+        windows_abi="msvc",
+        prefer_appimage=False,
+    )
     # First non-AppImage asset should be musl
     for asset in prioritized:
         if not asset.endswith(".AppImage") and not asset.endswith(".deb"):

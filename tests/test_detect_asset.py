@@ -149,7 +149,7 @@ def test_create_system_detector() -> None:
 
 def test_system_detector_detect() -> None:
     """Test the detect_system function."""
-    detector = _detect_system(OSLinux, ArchAMD64, "musl", True)
+    detector = _detect_system(OSLinux, ArchAMD64, "musl", "msvc", True)
 
     # Perfect match
     assets = [
@@ -229,7 +229,7 @@ def test_system_detector_detect() -> None:
 
 def test_system_detector_single_asset_fallback() -> None:
     """Test that when there's only one asset, it's returned even if it doesn't match criteria."""
-    detector = _detect_system(OSLinux, ArchAMD64, "musl", True)
+    detector = _detect_system(OSLinux, ArchAMD64, "musl", "msvc", True)
 
     # Single asset with a name that doesn't match any OS or arch patterns
     assets = ["completely-unrelated-name.zip"]
