@@ -194,15 +194,18 @@ The `sync` command is the core of dotbins, keeping your tools up-to-date across 
 Here's what happens during `dotbins sync`:
 
 1. **Version Detection**:
+
    - Checks each tool's current version in `versions.json`
    - Queries GitHub API for the latest release of each tool
 
 2. **Smart Updates**:
+
    - Only downloads tools with newer versions available
    - Skips up-to-date tools (unless `--force` is used)
    - Reports which tools were updated, skipped, or failed
 
 3. **Multi-Platform Management**:
+
    - Processes each platform/architecture combination configured
    - Can be filtered to specific platforms: `dotbins sync -p linux`
    - Can be limited to current system only: `dotbins sync -c`
@@ -829,7 +832,6 @@ source "$HOME/.dotbins/shell/fish.fish"
 source $env.HOME/.dotbins/shell/nushell.nu
 ```
 
-
 ---
 
 ## :books: Examples with 50+ Tools
@@ -919,7 +921,6 @@ platforms:
 
 <!-- OUTPUT:END -->
 
-
 ---
 
 ## :wrench: Troubleshooting
@@ -930,6 +931,7 @@ platforms:
 
 **Issue**: `Failed to fetch latest release: rate limit exceeded`
 **Solution**:
+
 - Create a GitHub token with `public_repo` scope
 - Use the token with: `dotbins sync --github-token YOUR_TOKEN`
 - Or set the environment variable: `GITHUB_TOKEN=YOUR_TOKEN dotbins sync`
@@ -939,6 +941,7 @@ platforms:
 
 **Issue**: PowerShell execution policy preventing script execution
 **Solution**:
+
 - Run PowerShell as administrator
 - Execute: `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`
 
