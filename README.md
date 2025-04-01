@@ -368,6 +368,10 @@ tools:
 
 dotbins will auto-detect the latest release, choose the appropriate asset for your platform, and install binaries to the specified `tools_dir` (defaults to `~/.dotbins`).
 
+> [!NOTE]
+> dotbins excels at auto-detecting the correct assets and binary paths for many tools.
+> Always try the minimal configuration first!
+
 When auto-detection isn't possible or you want more control, you can provide detailed configuration:
 
 ```yaml
@@ -917,9 +921,9 @@ platforms:
 
 ---
 
-## Key Alternatives
+### Key Alternatives
 
-### Version Managers (e.g., `binenv`, `asdf`)
+#### Version Managers (e.g., `binenv`, `asdf`)
 
 - **Pros:** Advanced version management (constraints like `>=1.2.3`), multiple versions side-by-side
 - **Cons vs. `dotbins`:**
@@ -928,7 +932,7 @@ platforms:
   - Often use shims or more complex architecture
 - **When to choose:** For development environments where you need multiple versions of tools
 
-### Binary Downloaders (e.g., `eget`)
+#### Binary Downloaders (e.g., `eget`)
 
 - **Pros:** Lightweight, fast for one-off downloads
 - **Cons vs. `dotbins`:**
@@ -937,7 +941,7 @@ platforms:
   - No version tracking between sessions
 - **When to choose:** For quick installation of individual tools without configuration needs
 
-### System Package Managers (`apt`, `brew`, etc.)
+#### System Package Managers (`apt`, `brew`, etc.)
 
 - **Pros:** System-wide installation, dependency management
 - **Cons vs. `dotbins`:**
@@ -946,9 +950,7 @@ platforms:
   - Cannot be version-controlled in dotfiles
 - **When to choose:** For system-wide software needed by multiple users
 
----
-
-## The `dotbins` Difference
+### The `dotbins` Difference
 
 `dotbins` uniquely combines:
 
