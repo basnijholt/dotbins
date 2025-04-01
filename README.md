@@ -76,8 +76,6 @@ See this example `.dotbins` repository: [basnijholt/.dotbins](https://github.com
 
 </details>
 
----
-
 ## :zap: Quick Start
 
 Using the amazing [`uv`](https://docs.astral.sh/uv/) package manager (`uv tool install dotbins`):
@@ -97,8 +95,6 @@ dotbins get https://github.com/basnijholt/.dotbins/blob/main/dotbins.yaml
 
 [![asciicast](https://asciinema.org/a/709229.svg)](https://asciinema.org/a/709229)
 
----
-
 ## :star2: Features
 
 - 🌐 Supports multiple platforms (macOS, Linux, Windows) and architectures (amd64, arm64, etc.)
@@ -109,8 +105,6 @@ dotbins get https://github.com/basnijholt/.dotbins/blob/main/dotbins.yaml
 - 📂 Organizes tools by platform and architecture for easy access
 - 🐙 Easy integration with your dotfiles repository for version control
 - ⚙️ **Automatic PATH & Shell Code:** Configures `PATH` and applies custom shell snippets (`shell_code`).
-
----
 
 ## :bulb: Why I Created dotbins
 
