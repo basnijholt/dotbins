@@ -502,14 +502,6 @@ When both formats are available:
 
 With `prefer_appimage=true`, dotbins selects the AppImage version.
 
-### Pattern Variables
-
-In asset patterns, you can use these variables:
-
-- `{version}` - Release version (without 'v' prefix)
-- `{platform}` - Platform name (after applying platform_map)
-- `{arch}` - Architecture name (after applying arch_map)
-
 ### Multiple Binaries
 
 For tools that provide multiple binaries:
