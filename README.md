@@ -398,6 +398,57 @@ tool-name:
       arm64: pattern-for-macos-arm64.tar.gz
 ```
 
+Asset patterns support variables like `{version}`, `{platform}`, and `{arch}` that are automatically replaced with the appropriate values (see Pattern Variables section for details).
+
+### Pattern Variables
+
+In asset patterns, you can use special variables that get replaced with actual values when dotbins searches for the correct asset to download:
+
+- `{version}` - Release version (without 'v' prefix)
+- `{platform}` - Platform name (after applying platform_map)
+- `{arch}` - Architecture name (after applying arch_map)
+
+For example, if a tool release has version `v2.4.0` and you're on `linux/amd64`:
+
+```yaml
+mytool:
+  repo: owner/mytool
+  asset_patterns: mytool-{version}-{platform}_{arch}.tar.gz
+```
+
+This would search for an asset named: `mytool-2.4.0-linux_amd64.tar.gz`
+
+With platform and architecture mapping:
+
+```yaml
+mytool:
+  repo: owner/mytool
+  platform_map:
+    macos: darwin # Convert "macos" to "darwin" in patterns
+  arch_map:
+    amd64: x86_64 # Convert "amd64" to "x86_64" in patterns
+  asset_patterns: mytool-{version}-{platform}_{arch}.tar.gz
+```
+
+For macOS/amd64, this would search for: `mytool-2.4.0-darwin_x86_64.tar.gz`
+
+**Real-world example:**
+
+```yaml
+ripgrep:
+  repo: BurntSushi/ripgrep
+  binary_name: rg
+  arch_map:
+    amd64: x86_64
+    arm64: aarch64
+  asset_patterns:
+    linux: ripgrep-{version}-{arch}-unknown-linux-musl.tar.gz
+    macos: ripgrep-{version}-{arch}-apple-darwin.tar.gz
+```
+
+For Linux/amd64, this would search for: `ripgrep-14.1.1-x86_64-unknown-linux-musl.tar.gz`
+For macOS/arm64, this would search for: `ripgrep-14.1.1-aarch64-apple-darwin.tar.gz`
+
 ### Platform and Architecture Mapping
 
 If the tool uses different naming for platforms or architectures:
