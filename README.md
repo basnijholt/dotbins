@@ -46,6 +46,7 @@ See this example `.dotbins` repository: [basnijholt/.dotbins](https://github.com
   - [Asset auto-detection defaults](#asset-auto-detection-defaults)
     - [Example: libc selection](#example-libc-selection)
     - [Example: AppImage preference](#example-appimage-preference)
+    - [Example: Windows ABI](#example-windows-abi)
   - [Multiple Binaries](#multiple-binaries)
   - [Configuration Examples](#configuration-examples)
     - [Minimal Tool Configuration](#minimal-tool-configuration)
@@ -475,6 +476,7 @@ When multiple compatible assets are available for your platform and architecture
 defaults:
   prefer_appimage: true   # Prioritize AppImage format when available
   libc: musl              # Prefer musl over glibc on Linux
+  windows_abi: msvc       # Prefer MSVC over GNU ABI on Windows
 ```
 
 These are also the built-in defaults if no custom settings are provided.
@@ -484,6 +486,8 @@ These are also the built-in defaults if no custom settings are provided.
 - **musl libc**: Statically linked musl binaries offer maximum portability across all Linux distributions regardless of the system's native C library. They eliminate glibc version conflicts (the notorious `GLIBC_X.YZ not found` errors), work on **both** glibc and musl-based distributions (like Alpine Linux), and generally provide a more reliable user experience.
 
 - **AppImage**: AppImage bundles all dependencies in a single, self-contained file that works across different Linux distributions without installation, making it ideal for portable applications, (such as neovim, which requires extra runtime files.)
+
+- **Windows ABI**: The MSVC ABI is the default on Windows as it's the most widely used and generally more stable. However, if you're using MinGW or prefer GNU tools, you can set this to "gnu".
 
 #### Example: libc selection
 
@@ -503,6 +507,16 @@ When both formats are available:
 - `nvim-linux-x86_64.tar.gz`
 
 With `prefer_appimage=true`, dotbins selects the AppImage version.
+
+#### Example: Windows ABI
+
+When requesting Windows x86_64 and both of these assets are available:
+
+- `bat-v0.25.0-x86_64-pc-windows-gnu.zip` (uses GNU ABI)
+- `bat-v0.25.0-x86_64-pc-windows-msvc.zip` (uses MSVC ABI)
+
+With `windows_abi="msvc"`, dotbins selects the MSVC version.
+With `windows_abi="gnu"`, dotbins selects the GNU version.
 
 ### Multiple Binaries
 
