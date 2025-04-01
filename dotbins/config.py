@@ -38,10 +38,12 @@ else:  # pragma: no cover
 DEFAULT_TOOLS_DIR = "~/.dotbins"
 DEFAULT_PREFER_APPIMAGE = True
 DEFAULT_LIBC: Literal["musl"] = "musl"
+DEFAULT_WINDOWS_ABI: Literal["msvc", "gnu"] = "msvc"
 
 DEFAULTS: DefaultsDict = {
     "prefer_appimage": DEFAULT_PREFER_APPIMAGE,
     "libc": DEFAULT_LIBC,
+    "windows_abi": DEFAULT_WINDOWS_ABI,
 }
 
 
@@ -400,6 +402,7 @@ class DefaultsDict(TypedDict, total=False):
 
     prefer_appimage: bool
     libc: Literal["glibc", "musl"]
+    windows_abi: Literal["msvc", "gnu"]
 
 
 class RawToolConfigDict(TypedDict, total=False):
@@ -690,6 +693,7 @@ def _auto_detect_asset(
         platform,
         arch,
         defaults["libc"],
+        defaults["windows_abi"],
         defaults["prefer_appimage"],
     )
     asset_names = [x["name"] for x in assets]

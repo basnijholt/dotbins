@@ -5,6 +5,7 @@ from __future__ import annotations
 import os.path
 import re
 import sys
+from functools import partial
 from re import Pattern
 from typing import Callable, Literal, NamedTuple, Optional
 
@@ -148,6 +149,7 @@ def _prioritize_assets(
     assets: Assets,
     os_name: str,
     libc_preference: Literal["musl", "glibc"],
+    windows_abi: Literal["msvc", "gnu"],
     prefer_appimage: bool,
 ) -> Assets:
     """Prioritize assets based on predefined rules.
@@ -210,11 +212,11 @@ def _prioritize_assets(
         others.append(asset)
 
     # Return assets in priority order
-    appimages = _sorted(appimages, os_name, libc_preference)
-    no_extension = _sorted(no_extension, os_name, libc_preference)
-    archives = _sorted(archives, os_name, libc_preference)
-    others = _sorted(others, os_name, libc_preference)
-    package_formats = _sorted(package_formats, os_name, libc_preference)
+    appimages = _sorted(appimages, os_name, libc_preference, windows_abi)
+    no_extension = _sorted(no_extension, os_name, libc_preference, windows_abi)
+    archives = _sorted(archives, os_name, libc_preference, windows_abi)
+    others = _sorted(others, os_name, libc_preference, windows_abi)
+    package_formats = _sorted(package_formats, os_name, libc_preference, windows_abi)
     return (
         appimages + no_extension + archives + others + package_formats
         if prefer_appimage
@@ -226,9 +228,12 @@ def _sorted(
     assets: Assets,
     os_name: str,
     libc_preference: Literal["musl", "glibc"],
+    windows_abi: Literal["msvc", "gnu"],
 ) -> Assets:
     if os_name == "linux":
         return _musl_or_gnu(assets, libc_preference)
+    if os_name == "windows":
+        return _msvc_or_gnu(assets, windows_abi)
     return sorted(assets)
 
 
@@ -237,6 +242,17 @@ def _musl_or_gnu(assets_list: Assets, libc_preference: Literal["musl", "glibc"])
     musl = sorted([a for a in assets_list if _is_musl(a)])
     others = sorted([a for a in assets_list if not _is_gnu(a) and not _is_musl(a)])
     return musl + gnu + others if libc_preference == "musl" else gnu + musl + others
+
+
+def _msvc_or_gnu(assets_list: Assets, windows_abi: Literal["msvc", "gnu"]) -> Assets:
+    msvc = sorted([a for a in assets_list if _is_msvc(a)])
+    gnu = sorted([a for a in assets_list if _is_gnu(a)])
+    others = sorted([a for a in assets_list if not _is_msvc(a) and not _is_gnu(a)])
+    return msvc + gnu + others if windows_abi == "msvc" else gnu + msvc + others
+
+
+def _is_msvc(asset: str) -> bool:
+    return "msvc" in os.path.basename(asset).lower()
 
 
 def _is_musl(asset: str) -> bool:
@@ -251,6 +267,7 @@ def _detect_system(
     os_obj: _OS,
     arch: _Arch,
     libc_preference: Literal["musl", "glibc"],
+    windows_abi: Literal["msvc", "gnu"],
     prefer_appimage: bool,
 ) -> DetectFunc:
     """Returns a function that detects based on OS and architecture."""
@@ -272,14 +289,16 @@ def _detect_system(
             all_assets.append(a)
 
         # Apply prioritization (in case multiple matches are found)
-        os_matches = _prioritize_assets(os_matches, os_obj.name, libc_preference, prefer_appimage)
-        full_matches = _prioritize_assets(
-            full_matches,
-            os_obj.name,
-            libc_preference,
-            prefer_appimage,
+        prio = partial(
+            _prioritize_assets,
+            os_name=os_obj.name,
+            libc_preference=libc_preference,
+            windows_abi=windows_abi,
+            prefer_appimage=prefer_appimage,
         )
-        all_assets = _prioritize_assets(all_assets, os_obj.name, libc_preference, prefer_appimage)
+        os_matches = prio(os_matches)
+        full_matches = prio(full_matches)
+        all_assets = prio(all_assets)
 
         if len(full_matches) == 1:
             return full_matches[0], None, None
@@ -302,6 +321,7 @@ def create_system_detector(
     os_name: str,
     arch_name: str,
     libc_preference: Literal["musl", "glibc"] = "musl",
+    windows_abi: Literal["msvc", "gnu"] = "msvc",
     prefer_appimage: bool = True,
 ) -> DetectFunc:
     """Create a OS detector function for a given OS and architecture."""
@@ -315,5 +335,6 @@ def create_system_detector(
         os_mapping[os_name],
         arch_mapping[arch_name],
         libc_preference,
+        windows_abi,
         prefer_appimage,
     )
