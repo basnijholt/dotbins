@@ -46,7 +46,6 @@ See this example `.dotbins` repository: [basnijholt/.dotbins](https://github.com
   - [Asset auto-detection defaults](#asset-auto-detection-defaults)
     - [Example: libc selection](#example-libc-selection)
     - [Example: AppImage preference](#example-appimage-preference)
-  - [Pattern Variables](#pattern-variables-1)
   - [Multiple Binaries](#multiple-binaries)
   - [Configuration Examples](#configuration-examples)
     - [Minimal Tool Configuration](#minimal-tool-configuration)
