@@ -76,6 +76,8 @@ See this example `.dotbins` repository: [basnijholt/.dotbins](https://github.com
 
 </details>
 
+---
+
 ## :zap: Quick Start
 
 Using the amazing [`uv`](https://docs.astral.sh/uv/) package manager (`uv tool install dotbins`):
@@ -95,6 +97,8 @@ dotbins get https://github.com/basnijholt/.dotbins/blob/main/dotbins.yaml
 
 [![asciicast](https://asciinema.org/a/709229.svg)](https://asciinema.org/a/709229)
 
+---
+
 ## :star2: Features
 
 - 🌐 Supports multiple platforms (macOS, Linux, Windows) and architectures (amd64, arm64, etc.)
@@ -105,6 +109,8 @@ dotbins get https://github.com/basnijholt/.dotbins/blob/main/dotbins.yaml
 - 📂 Organizes tools by platform and architecture for easy access
 - 🐙 Easy integration with your dotfiles repository for version control
 - ⚙️ **Automatic PATH & Shell Code:** Configures `PATH` and applies custom shell snippets (`shell_code`).
+
+---
 
 ## :bulb: Why I Created dotbins
 
@@ -121,6 +127,8 @@ It allows me to:
 Now when I clone my dotfiles on any new system, I get not just my configurations but also all the CLI tools I depend on for productivity, **ready to use with their specific aliases and shell initializations automatically configured**.
 
 **_No package manager, no sudo, no problem!_**
+
+---
 
 ## :books: Usage
 
@@ -259,9 +267,11 @@ This is perfect for:
 The `get` command automatically detects whether you're providing a GitHub repository or a configuration URL/path.
 When using a URL/path, it will download all tools defined in the configuration for your current platform and architecture.
 
+---
+
 ## :hammer_and_wrench: Installation
 
-We highly recommend to use [`uv`](https://docs.astral.sh/uv/) to run `dotbins`:
+We highly recommend to use [`uv`](https://docs.astral.sh/uv/) to install/run `dotbins`:
 
 ```bash
 uvx dotbins
@@ -280,6 +290,8 @@ pip install dotbins
 ```
 
 You'll also need to create or update your `dotbins.yaml` configuration file either in the same directory as the script or at a custom location specified with `--tools-dir`.
+
+---
 
 ## :gear: Configuration
 
@@ -550,6 +562,8 @@ starship:
 
 This is the author's configuration file:
 
+<details><summary>Click to view author's full dotbins.yaml</summary>
+
 <!-- CODE:BASH:START -->
 <!-- echo '```yaml' -->
 <!-- cat dotbins.yaml -->
@@ -626,6 +640,10 @@ tools:
 
 <!-- OUTPUT:END -->
 
+</details>
+
+---
+
 ## :bulb: Examples
 
 List all available tools in your configuration:
@@ -652,7 +670,7 @@ Install or update tools for a specific platform/architecture:
 dotbins sync -p macos -a arm64
 ```
 
-Install tools only for your current system:
+Install or update tools only for the current system's platform and architecture, skipping others defined in the config:
 
 ```bash
 dotbins sync -c
@@ -695,11 +713,13 @@ dotbins status --platform macos
 dotbins status --architecture arm64
 ```
 
+---
+
 ## :computer: Shell Integration
 
 dotbins creates shell scripts that add binaries to your `PATH` and apply your custom tool configurations.
 
-After running `dotbins sync` or `dotbins init`, shell integration scripts are created in `~/.dotbins/shell/` for various shells.
+After running `dotbins sync` or `dotbins init`, shell integration scripts are created in `~/.dotbins/shell/` for various shells (Bash, Zsh, Fish, Nushell, and PowerShell)
 
 ### What's in the Shell Scripts?
 
@@ -768,6 +788,8 @@ source "$HOME/.dotbins/shell/fish.fish"
 source $env.HOME/.dotbins/shell/nushell.nu
 ```
 
+
+---
 
 ## :books: Examples with 50+ Tools
 
@@ -857,6 +879,8 @@ platforms:
 <!-- OUTPUT:END -->
 
 
+---
+
 ## :wrench: Troubleshooting
 
 ### Common Issues
@@ -883,6 +907,8 @@ platforms:
 - Check all installed tool versions with: `dotbins status`
 - Join GitHub Discussions for help: https://github.com/basnijholt/dotbins/discussions
 
+---
+
 ## :thinking: Comparison with Alternatives
 
 `dotbins` fills a specific niche in the binary management ecosystem. Here's how it compares to key alternatives:
@@ -894,6 +920,8 @@ platforms:
 | **eget**      | Latest or specific only            | None                          | Not focused on                 | Quick one-off installs     |
 | **asdf/aqua** | Multiple plugins & versions        | Plugin-specific               | Not focused on                 | Development environments   |
 | **apt/brew**  | System packages                    | None                          | Not possible                   | System-wide management     |
+
+---
 
 ## Key Alternatives
 
@@ -924,6 +952,8 @@ platforms:
   - Cannot be version-controlled in dotfiles
 - **When to choose:** For system-wide software needed by multiple users
 
+---
+
 ## The `dotbins` Difference
 
 `dotbins` uniquely combines:
@@ -940,6 +970,8 @@ platforms:
 4. **Cross-platform portability** - Works the same across Linux, macOS, Windows
 
 This makes it perfect for users who want to manage their complete shell environment in a version-controlled dotfiles repository that can be easily deployed on any system.
+
+---
 
 ## :heart: Support and Contributions
 
