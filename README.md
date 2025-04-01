@@ -558,7 +558,7 @@ starship:
 
 ### Full Configuration Example
 
-This is the author's configuration file:
+This is the author's configuration file (and resulting [`basnijholt/.dotbins`](https://github.com/basnijholt/.dotbins) repo):
 
 <details><summary>Click to view author's full dotbins.yaml</summary>
 
