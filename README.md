@@ -313,6 +313,39 @@ tools:
   # Tool configuration entries
 ```
 
+### Directory Structure
+
+When you run `dotbins sync`, it creates a directory structure that organizes binaries by platform and architecture, and generates shell integration scripts.
+
+Here's what gets created:
+
+```bash
+~/.dotbins/                # Root tools directory (configurable)
+├── README.md              # Auto-generated documentation
+├── dotbins.yaml           # Your configuration file (if copied)
+├── linux/                 # Platform-specific directories
+│   ├── amd64/bin/         # Architecture-specific binaries
+│   │   ├── bat
+│   │   ├── fzf
+│   │   └── ...
+│   └── arm64/bin/
+│       ├── bat
+│       ├── fzf
+│       └── ...
+├── macos/
+│   └── arm64/bin/
+│       ├── bat
+│       ├── fzf
+│       └── ...
+├── shell/                 # Shell integration scripts
+│   ├── bash.sh
+│   ├── fish.fish
+│   ├── nushell.nu
+│   ├── powershell.ps1
+│   └── zsh.sh
+└── versions.json          # Version tracking information
+```
+
 ### Tool Configuration
 
 Each tool must be configured with at least a GitHub repository.
@@ -593,39 +626,6 @@ tools:
 
 <!-- OUTPUT:END -->
 
-### Directory Structure
-
-When you run `dotbins sync`, it creates a directory structure that organizes binaries by platform and architecture, and generates shell integration scripts.
-
-Here's what gets created:
-
-```bash
-~/.dotbins/                # Root tools directory (configurable)
-├── README.md              # Auto-generated documentation
-├── dotbins.yaml           # Your configuration file (if copied)
-├── linux/                 # Platform-specific directories
-│   ├── amd64/bin/         # Architecture-specific binaries
-│   │   ├── bat
-│   │   ├── fzf
-│   │   └── ...
-│   └── arm64/bin/
-│       ├── bat
-│       ├── fzf
-│       └── ...
-├── macos/
-│   └── arm64/bin/
-│       ├── bat
-│       ├── fzf
-│       └── ...
-├── shell/                 # Shell integration scripts
-│   ├── bash.sh
-│   ├── fish.fish
-│   ├── nushell.nu
-│   ├── powershell.ps1
-│   └── zsh.sh
-└── versions.json          # Version tracking information
-```
-
 ## :bulb: Examples
 
 List all available tools in your configuration:
@@ -883,7 +883,7 @@ platforms:
 - Check all installed tool versions with: `dotbins status`
 - Join GitHub Discussions for help: https://github.com/basnijholt/dotbins/discussions
 
-# :thinking: Comparison with Alternatives
+## :thinking: Comparison with Alternatives
 
 `dotbins` fills a specific niche in the binary management ecosystem. Here's how it compares to key alternatives:
 
