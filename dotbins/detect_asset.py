@@ -83,7 +83,7 @@ ArchRiscv64 = _Arch(name="riscv64", regex=re.compile(r"(?i)(riscv64)"))
 arch_mapping: dict[str, _Arch] = {
     "amd64": ArchAMD64,  # 64-bit (2000s-now)
     "386": ArchI386,  # 32-bit (1980s-2000s)
-    "i686": ArchI386,  # alias for 386 (1980s-2000s)
+    "i686": ArchI386,  # alias for 386
     "arm": ArchArm,  # 32-bit (1990s-2010s)
     "arm64": ArchArm64,  # 64-bit (2010s-now)
     "aarch64": ArchArm64,  # alias for arm64 (2010s-now)
