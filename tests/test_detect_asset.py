@@ -254,6 +254,7 @@ def test_sort_arch_order() -> None:
         "app-linux-i486.tar.gz",
         "app-linux-i586.tar.gz",
         "app-linux-i686.tar.gz",
+        "app-linux-arm.tar.gz",
     ]
     match, candidates, error = detector(assets)
     assert not match
