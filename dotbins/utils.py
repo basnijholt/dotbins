@@ -100,6 +100,8 @@ def current_platform() -> tuple[str, str]:
     arch = {
         "aarch64": "arm64",
         "x86_64": "amd64",
+        "i686": "386",
+        "i386": "386",
     }.get(machine, machine)
 
     return platform, arch
