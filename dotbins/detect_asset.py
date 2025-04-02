@@ -254,7 +254,7 @@ def _msvc_or_gnu(assets_list: Assets, windows_abi: Literal["msvc", "gnu"]) -> As
 
 def _sort_arch(assets_list: Assets) -> Assets:
     def arch_priority(asset: str) -> tuple[int, str]:
-        # Prefer i686 (newer) over i486 (older)
+        # Prefer i686 (newer) over i386 (older)
         if "i686" in asset.lower():
             return 0, asset
         if "i586" in asset.lower():
