@@ -244,3 +244,23 @@ def test_system_detector_single_asset_fallback() -> None:
     assert match == ""
     assert candidates == []
     assert error == "no candidates found"
+
+
+def test_sort_arch_order() -> None:
+    """Test the sort_arch function."""
+    detector = _detect_system(OSLinux, ArchI386, "musl", "msvc", True)
+    assets = [
+        "app-linux-i386.tar.gz",
+        "app-linux-i486.tar.gz",
+        "app-linux-i586.tar.gz",
+        "app-linux-i686.tar.gz",
+    ]
+    match, candidates, error = detector(assets)
+    assert not match
+    assert candidates == [
+        "app-linux-i686.tar.gz",
+        "app-linux-i586.tar.gz",
+        "app-linux-i486.tar.gz",
+        "app-linux-i386.tar.gz",
+    ]
+    assert error == "4 arch matches found"
