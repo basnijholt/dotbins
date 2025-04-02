@@ -235,24 +235,24 @@ def _sorted(
         return _musl_or_gnu(assets, libc_preference)
     if os_name == "windows":
         return _msvc_or_gnu(assets, windows_abi)
-    return _sort(assets)
+    return _sort_arch(assets)
 
 
 def _musl_or_gnu(assets_list: Assets, libc_preference: Literal["musl", "glibc"]) -> Assets:
-    gnu = _sort([a for a in assets_list if _is_gnu(a)])
-    musl = _sort([a for a in assets_list if _is_musl(a)])
-    others = _sort([a for a in assets_list if not _is_gnu(a) and not _is_musl(a)])
+    gnu = _sort_arch([a for a in assets_list if _is_gnu(a)])
+    musl = _sort_arch([a for a in assets_list if _is_musl(a)])
+    others = _sort_arch([a for a in assets_list if not _is_gnu(a) and not _is_musl(a)])
     return musl + gnu + others if libc_preference == "musl" else gnu + musl + others
 
 
 def _msvc_or_gnu(assets_list: Assets, windows_abi: Literal["msvc", "gnu"]) -> Assets:
-    msvc = _sort([a for a in assets_list if _is_msvc(a)])
-    gnu = _sort([a for a in assets_list if _is_gnu(a)])
-    others = _sort([a for a in assets_list if not _is_msvc(a) and not _is_gnu(a)])
+    msvc = _sort_arch([a for a in assets_list if _is_msvc(a)])
+    gnu = _sort_arch([a for a in assets_list if _is_gnu(a)])
+    others = _sort_arch([a for a in assets_list if not _is_msvc(a) and not _is_gnu(a)])
     return msvc + gnu + others if windows_abi == "msvc" else gnu + msvc + others
 
 
-def _sort(assets_list: Assets) -> Assets:
+def _sort_arch(assets_list: Assets) -> Assets:
     def arch_priority(asset: str) -> tuple[int, str]:
         # Prefer i686 (newer) over i486 (older)
         if "i686" in asset.lower():
