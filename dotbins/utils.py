@@ -143,7 +143,7 @@ def _format_shell_instructions(
             export PATH="{tools_dir_str}/$_os/$_arch/bin:$PATH"
             """,
         )
-        if_start = "if command -v {name} >/dev/null 2>&1; then"
+        if_start = "if command -v {name} &> /dev/null; then"
         if_end = "fi"
         base_script += _add_shell_code_to_script(tools, shell, if_start, if_end)
 

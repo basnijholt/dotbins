@@ -899,12 +899,12 @@ export PATH="$HOME/.dotbins/$_os/$_arch/bin:$PATH"
 
 # Tool-specific configurations
 # Configuration for fzf
-if command -v fzf >/dev/null 2>&1; then
+if command -v fzf &> /dev/null; then
     source <(fzf --zsh)
 fi
 
 # Configuration for bat
-if command -v bat >/dev/null 2>&1; then
+if command -v bat &> /dev/null; then
     alias bat="bat --paging=never"
     alias cat="bat --plain --paging=never"
 fi

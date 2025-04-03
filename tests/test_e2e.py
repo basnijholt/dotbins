@@ -1646,7 +1646,7 @@ def test_tool_shell_code_in_shell_scripts(
         if shell in ("bash", "zsh"):
             # Check tools with shell_code
             for tool in ["fzf", "zoxide", "eza", "starship"]:
-                assert f"if command -v {tool} >/dev/null 2>&1; then" in content
+                assert f"if command -v {tool} &> /dev/null; then" in content
 
             # Verify specific shell code for each tool
             assert "source <(fzf --zsh)" in content
@@ -1660,7 +1660,7 @@ def test_tool_shell_code_in_shell_scripts(
                 assert 'eval "$(starship init zsh)"' in content
 
             # Check tool without shell_code has no block
-            assert "if command -v bat >/dev/null 2>&1; then" not in content
+            assert "if command -v bat &> /dev/null; then" not in content
 
         elif shell == "fish":
             # Check tools with shell_code (fish syntax)
