@@ -577,9 +577,10 @@ def test_get_tool_command(tmp_path: Path, create_dummy_archive: Callable) -> Non
     dest_dir.mkdir(parents=True, exist_ok=True)
     platform, arch = current_platform()
 
-    def mock_latest_release_info(
+    def mock_fetch_release_info(
         repo: str,  # noqa: ARG001
-        github_token: str | None,  # noqa: ARG001
+        version: str = "latest",  # noqa: ARG001
+        github_token: str | None = None,  # noqa: ARG001
     ) -> dict:
         return {
             "tag_name": "v1.0.0",
@@ -602,7 +603,7 @@ def test_get_tool_command(tmp_path: Path, create_dummy_archive: Callable) -> Non
 
     with (
         patch("dotbins.download.download_file", side_effect=mock_download_file),
-        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
+        patch("dotbins.config.fetch_release_info", side_effect=mock_fetch_release_info),
     ):
         _get_tool(source="basnijholt/mytool", dest_dir=dest_dir)
 
@@ -653,9 +654,10 @@ def test_get_tool_command_with_remote_config(
         log(f"Mock HTTP GET for URL: {url}", "info")
         return MockResponse(yaml_content.encode("utf-8"))
 
-    def mock_latest_release_info(
+    def mock_fetch_release_info(
         repo: str,
-        github_token: str | None,  # noqa: ARG001
+        version: str = "latest",  # noqa: ARG001
+        github_token: str | None = None,  # noqa: ARG001
     ) -> dict:
         log(f"Getting release info for repo: {repo}", "info")
         tool_name = repo.split("/")[-1]
@@ -684,7 +686,7 @@ def test_get_tool_command_with_remote_config(
     with (
         patch("dotbins.utils.requests.get", side_effect=mock_requests_get),
         patch("dotbins.download.download_file", side_effect=mock_download_file),
-        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
+        patch("dotbins.config.fetch_release_info", side_effect=mock_fetch_release_info),
     ):
         _get_tool(source="https://example.com/config.yaml", dest_dir=dest_dir)
 
@@ -721,9 +723,10 @@ def test_get_tool_command_with_local_config(
     cfg_path = tmp_path / "dotbins.yaml"
     cfg_path.write_text(yaml_content)
 
-    def mock_latest_release_info(
+    def mock_fetch_release_info(
         repo: str,
-        github_token: str | None,  # noqa: ARG001
+        version: str = "latest",  # noqa: ARG001
+        github_token: str | None = None,  # noqa: ARG001
     ) -> dict:
         log(f"Getting release info for repo: {repo}", "info")
         tool_name = repo.split("/")[-1]
@@ -751,7 +754,7 @@ def test_get_tool_command_with_local_config(
 
     with (
         patch("dotbins.download.download_file", side_effect=mock_download_file),
-        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
+        patch("dotbins.config.fetch_release_info", side_effect=mock_fetch_release_info),
     ):
         _get_tool(source=str(cfg_path), dest_dir=dest_dir)
 

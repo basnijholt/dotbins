@@ -21,9 +21,9 @@ from .summary import UpdateSummary, display_update_summary
 from .utils import (
     current_platform,
     execute_in_parallel,
+    fetch_release_info,
     github_url_to_raw_url,
     humanize_time_ago,
-    latest_release_info,
     log,
     replace_home_in_path,
     write_shell_scripts,
@@ -306,6 +306,7 @@ class ToolConfig:
 
     tool_name: str
     repo: str
+    version: str = "latest"
     binary_name: list[str] = field(default_factory=list)
     path_in_archive: list[Path] = field(default_factory=list)
     extract_archive: bool | None = None
@@ -451,6 +452,9 @@ def build_tool_config(
     raw_binary_name = raw_data.get("binary_name", tool_name)
     raw_path_in_archive = raw_data.get("path_in_archive", [])
 
+    version: str = raw_data.get("version", "latest")
+    assert isinstance(version, str), "Version must be a string"
+
     # Convert to lists
     binary_name: list[str] = _ensure_list(raw_binary_name)
     path_in_archive: list[Path] = [Path(p) for p in _ensure_list(raw_path_in_archive)]
@@ -463,6 +467,7 @@ def build_tool_config(
     return ToolConfig(
         tool_name=tool_name,
         repo=repo,
+        version=version,
         binary_name=binary_name,
         path_in_archive=path_in_archive,
         extract_archive=extract_archive,
@@ -736,7 +741,7 @@ def _fetch_release(
     if tool_config._latest_release is not None:
         return
     try:
-        latest_release = latest_release_info(tool_config.repo, github_token)
+        latest_release = fetch_release_info(tool_config.repo, tool_config.version, github_token)
         tool_config._latest_release = latest_release
     except Exception as e:
         msg = f"Failed to fetch latest release for {tool_config.repo}: {e}"

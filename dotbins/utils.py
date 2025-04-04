@@ -48,17 +48,25 @@ def _maybe_github_token_header(github_token: str | None) -> dict[str, str]:  # p
 
 
 @functools.cache
-def latest_release_info(repo: str, github_token: str | None) -> dict | None:
+def fetch_release_info(
+    repo: str,
+    version: str = "latest",
+    github_token: str | None = None,
+) -> dict | None:
     """Fetch release information from GitHub for a single repository."""
-    url = f"https://api.github.com/repos/{repo}/releases/latest"
-    log(f"Fetching latest release from {url}", "info")
+    if version == "latest":
+        url = f"https://api.github.com/repos/{repo}/releases/latest"
+    else:
+        url = f"https://api.github.com/repos/{repo}/releases/tags/{version}"
+
+    log(f"Fetching release from {url}", "info")
     headers = _maybe_github_token_header(github_token)
     try:
         response = requests.get(url, headers=headers, timeout=30)
         response.raise_for_status()
         return response.json()
     except requests.RequestException as e:
-        msg = f"Failed to fetch latest release for {repo}: {e}"
+        msg = f"Failed to fetch release for {repo}: {e}"
         raise RuntimeError(msg) from e
 
 
