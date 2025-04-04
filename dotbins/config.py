@@ -306,7 +306,7 @@ class ToolConfig:
 
     tool_name: str
     repo: str
-    version: str = "latest"
+    tag: str | None = None
     binary_name: list[str] = field(default_factory=list)
     path_in_archive: list[Path] = field(default_factory=list)
     extract_archive: bool | None = None
@@ -452,8 +452,7 @@ def build_tool_config(
     raw_binary_name = raw_data.get("binary_name", tool_name)
     raw_path_in_archive = raw_data.get("path_in_archive", [])
 
-    version: str = raw_data.get("version", "latest")
-    assert isinstance(version, str), "Version must be a string"
+    tag: str | None = raw_data.get("tag")  # type: ignore[assignment]
 
     # Convert to lists
     binary_name: list[str] = _ensure_list(raw_binary_name)
@@ -467,7 +466,7 @@ def build_tool_config(
     return ToolConfig(
         tool_name=tool_name,
         repo=repo,
-        version=version,
+        tag=tag,
         binary_name=binary_name,
         path_in_archive=path_in_archive,
         extract_archive=extract_archive,
@@ -741,7 +740,7 @@ def _fetch_release(
     if tool_config._latest_release is not None:
         return
     try:
-        latest_release = fetch_release_info(tool_config.repo, tool_config.version, github_token)
+        latest_release = fetch_release_info(tool_config.repo, tool_config.tag, github_token)
         tool_config._latest_release = latest_release
     except Exception as e:
         msg = f"Failed to fetch latest release for {tool_config.repo}: {e}"

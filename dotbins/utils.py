@@ -50,14 +50,14 @@ def _maybe_github_token_header(github_token: str | None) -> dict[str, str]:  # p
 @functools.cache
 def fetch_release_info(
     repo: str,
-    version: str = "latest",
+    tag: str | None = None,
     github_token: str | None = None,
 ) -> dict | None:
     """Fetch release information from GitHub for a single repository."""
-    if version == "latest":
+    if tag is None:
         url = f"https://api.github.com/repos/{repo}/releases/latest"
     else:
-        url = f"https://api.github.com/repos/{repo}/releases/tags/{version}"
+        url = f"https://api.github.com/repos/{repo}/releases/tags/{tag}"
 
     log(f"Fetching release from {url}", "info")
     headers = _maybe_github_token_header(github_token)
