@@ -1,7 +1,5 @@
 # dotbins 🧰
 
-<img src="https://github.com/user-attachments/assets/d90a6736-402b-43bf-af6d-278828d23f92" align="right" style="width: 350px;" />
-
 ![Build Status](https://github.com/basnijholt/dotbins/actions/workflows/pytest.yml/badge.svg)
 [![Coverage](https://img.shields.io/codecov/c/github/basnijholt/dotbins)](https://codecov.io/gh/basnijholt/dotbins)
 [![GitHub](https://img.shields.io/github/stars/basnijholt/dotbins.svg?style=social)](https://github.com/basnijholt/dotbins/stargazers)
@@ -9,6 +7,8 @@
 [![License](https://img.shields.io/github/license/basnijholt/dotbins)](https://github.com/basnijholt/dotbins/blob/main/LICENSE)
 [![Downloads](https://img.shields.io/pypi/dm/dotbins)](https://pypi.python.org/pypi/dotbins)
 ![Open Issues](https://img.shields.io/github/issues-raw/basnijholt/dotbins)
+
+<img src="https://github.com/user-attachments/assets/d90a6736-402b-43bf-af6d-278828d23f92" align="right" style="width: 350px;" />
 
 **dotbins** manages CLI tool binaries in your dotfiles repository, offering:
 
