@@ -695,12 +695,15 @@ tools:
 
 If you want to make your config compatible with multiple shells (e.g., zsh, bash, fish), you can use the following syntax:
 
+- **Separate entries per shell:** Define the code for each shell individually.
+- **Comma-separated shells:** Define the same code for multiple shells by listing them separated by commas (e.g., `bash,zsh:`).
+- **Placeholder:** Use the `__DOTBINS_SHELL__` placeholder within the shell code. This placeholder will be replaced by the actual shell name (`bash`, `zsh`, etc.) when the integration scripts are generated.
+
 ```yaml
 starship:
   repo: starship/starship
   shell_code:
-    zsh: eval "$(starship init zsh)"
-    bash: eval "$(starship init bash)"
+    bash,zsh: eval "$(starship init __DOTBINS_SHELL__)" # Use placeholder for bash and zsh
     fish: starship init fish | source
 ```
 
@@ -741,8 +744,8 @@ tools:
   atuin:
     repo: atuinsh/atuin
     shell_code:
-      zsh: |
-        source <(atuin init zsh --disable-up-arrow)
+      bash,zsh: |
+        eval "$(atuin init __DOTBINS_SHELL__ --disable-up-arrow)"
   bat:
     repo: sharkdp/bat
     shell_code:
@@ -752,8 +755,10 @@ tools:
   direnv:
     repo: direnv/direnv
     shell_code:
-      zsh: |
-        eval "$(direnv hook zsh)"
+      bash,zsh: | # Apply to both bash and zsh using placeholder
+        eval "$(direnv hook __DOTBINS_SHELL__)"
+      fish: | # Example for fish if different
+        direnv hook fish | source
   eza:
     repo: eza-community/eza
     shell_code:
@@ -762,7 +767,7 @@ tools:
   fzf:
     repo: junegunn/fzf
     shell_code:
-      zsh: |
+      zsh: | # Different code for zsh
         source <(fzf --zsh)
       bash:
         eval "$(fzf --bash)"

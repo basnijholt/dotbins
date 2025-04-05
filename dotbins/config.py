@@ -9,7 +9,7 @@ import sys
 from dataclasses import dataclass, field
 from functools import cached_property, partial
 from pathlib import Path
-from typing import Literal, TypedDict
+from typing import Any, Literal, TypedDict
 
 import requests
 import yaml
@@ -618,22 +618,36 @@ def _normalize_shell_code(
     tool_name: str,
     raw_shell_code: str | dict[str, str] | None,
 ) -> dict[str, str]:
-    """Normalize the shell_code into a dict."""
+    """Normalize the shell_code into a dict.
+
+    Supports:
+    - A single string applied to all shells.
+    - A dictionary mapping shell names (or comma-separated names) to code.
+    """
     normalized: dict[str, str] = {}
     if not raw_shell_code:
         return normalized
+
     if isinstance(raw_shell_code, str):
+        # Apply the same code to all shells
         for shell in SUPPORTED_SHELLS:
             normalized[shell] = raw_shell_code
     elif isinstance(raw_shell_code, dict):
-        for shell, code in raw_shell_code.items():
-            for _shell in shell.split(","):
-                if _shell not in SUPPORTED_SHELLS:
+        for shell_key, code in raw_shell_code.items():
+            shells = [s.strip() for s in shell_key.split(",") if s.strip()]
+            for shell in shells:
+                if shell not in SUPPORTED_SHELLS:
                     log(
-                        f"Tool [b]{tool_name}[/]: [b]'shell_code'[/] uses unknown shell [b]'{shell}'[/]",
-                        "error",
+                        f"Tool [b]{tool_name}[/]: [b]'shell_code'[/] uses unknown shell [b]'{shell}'[/] in key '{shell_key}'",
+                        "warning",
                     )
-                normalized[_shell] = code
+                normalized[shell] = code.replace("__DOTBINS_SHELL__", shell)
+    else:
+        log(
+            f"Tool [b]{tool_name}[/]: Invalid type for 'shell_code': {type(raw_shell_code)}. Expected str or dict.",
+            "error",
+        )
+
     return normalized
 
 
@@ -664,7 +678,7 @@ def _find_config_file(config_path: str | Path | None) -> Path | None:
     return None
 
 
-def _ensure_list(value: str | list[str]) -> list[str]:
+def _ensure_list(value: Any) -> list[Any]:
     if isinstance(value, list):
         return value
     return [value]
