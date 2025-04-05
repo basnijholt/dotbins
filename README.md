@@ -1,5 +1,7 @@
 # dotbins 🧰
 
+<img src="https://github.com/user-attachments/assets/d90a6736-402b-43bf-af6d-278828d23f92" align="right" style="width: 350px;" />
+
 ![Build Status](https://github.com/basnijholt/dotbins/actions/workflows/pytest.yml/badge.svg)
 [![Coverage](https://img.shields.io/codecov/c/github/basnijholt/dotbins)](https://codecov.io/gh/basnijholt/dotbins)
 [![GitHub](https://img.shields.io/github/stars/basnijholt/dotbins.svg?style=social)](https://github.com/basnijholt/dotbins/stargazers)
