@@ -309,7 +309,7 @@ def test_autodetect_asset(program: str, platform: str, arch: str, expected_asset
     )
 
     # Set the latest release data directly
-    tool_config._latest_release = release_data
+    tool_config._release_info = release_data
 
     # Test asset selection
     bin_spec = tool_config.bin_spec(arch, platform)

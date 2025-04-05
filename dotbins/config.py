@@ -315,7 +315,7 @@ class ToolConfig:
     arch_map: dict[str, str] = field(default_factory=dict)
     shell_code: str | dict[str, str] | None = None
     defaults: DefaultsDict = field(default_factory=lambda: DEFAULTS.copy())
-    _latest_release: dict | None = field(default=None, init=False)
+    _release_info: dict | None = field(default=None, init=False)
 
     def bin_spec(self, arch: str, platform: str) -> BinSpec:
         """Get a BinSpec object for the tool."""
@@ -324,8 +324,8 @@ class ToolConfig:
     @property
     def latest_version(self) -> str:
         """Get the latest version for the tool."""
-        assert self._latest_release is not None
-        return self._latest_release["tag_name"].lstrip("v")
+        assert self._release_info is not None
+        return self._release_info["tag_name"].lstrip("v")
 
 
 @dataclass(frozen=True)
@@ -361,8 +361,8 @@ class BinSpec:
     def matching_asset(self) -> _AssetDict | None:
         """Find a matching asset for the tool."""
         asset_pattern = self.asset_pattern()
-        assert self.tool_config._latest_release is not None
-        assets = self.tool_config._latest_release["assets"]
+        assert self.tool_config._release_info is not None
+        assets = self.tool_config._release_info["assets"]
         if asset_pattern is None:
             return _auto_detect_asset(self.platform, self.arch, assets, self.tool_config.defaults)
         return _find_matching_asset(asset_pattern, assets)
@@ -737,11 +737,11 @@ def _fetch_release(
     verbose: bool,
     github_token: str | None = None,
 ) -> None:
-    if tool_config._latest_release is not None:
+    if tool_config._release_info is not None:
         return
     try:
         latest_release = fetch_release_info(tool_config.repo, tool_config.tag, github_token)
-        tool_config._latest_release = latest_release
+        tool_config._release_info = latest_release
     except Exception as e:
         msg = f"Failed to fetch latest release for {tool_config.repo}: {e}"
         update_summary.add_failed_tool(

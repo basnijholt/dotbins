@@ -194,7 +194,7 @@ def _prepare_download_task(
     """Prepare a download task, checking if update is needed based on version."""
     try:
         tool_config = config.tools[tool_name]
-        if tool_config._latest_release is None:
+        if tool_config._release_info is None:
             # Means we failed to fetch the release info
             return None
         bin_spec = tool_config.bin_spec(arch, platform)

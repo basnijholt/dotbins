@@ -91,7 +91,7 @@ def test_find_asset() -> None:
         },
         platforms={"linux": ["amd64", "arm64"]},
     )
-    tool_config._latest_release = {
+    tool_config._release_info = {
         "tag_name": "v1.0.0",
         "assets": [
             {"name": "tool-1.0.0-linux_amd64.tar.gz"},
@@ -99,8 +99,8 @@ def test_find_asset() -> None:
             {"name": "tool-1.0.0-darwin_amd64.tar.gz"},
         ],
     }
-    assert tool_config._latest_release is not None
-    assets = tool_config._latest_release["assets"]
+    assert tool_config._release_info is not None
+    assets = tool_config._release_info["assets"]
     assert len(assets) == 3
     bin_spec = tool_config.bin_spec("amd64", "linux")
     assert bin_spec.asset_pattern() == "tool-1.0.0-linux_amd64.tar.gz"
@@ -365,7 +365,7 @@ def test_download_tool_asset_not_found(
         tools_dir=tmp_path,
         tools={"test-tool": test_tool_config},
     )
-    config.tools["test-tool"]._latest_release = {"tag_name": "v1.0.0", "assets": []}
+    config.tools["test-tool"]._release_info = {"tag_name": "v1.0.0", "assets": []}
     # Call the function
     result = dotbins.download._prepare_download_task(
         "test-tool",

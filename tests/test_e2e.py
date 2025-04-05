@@ -45,7 +45,7 @@ def _set_mock_release_info(
 ) -> None:
     """Set the mock release info for the given config."""
     for tool_name, tool_config in config.tools.items():
-        tool_config._latest_release = _create_mock_release_info(
+        tool_config._release_info = _create_mock_release_info(
             tool_name,
             version,
             config.platforms,
@@ -1009,7 +1009,7 @@ def test_error_preparing_download(
             },
         },
     )
-    config.tools["error-tool"]._latest_release = {"tag_name": "v1.0.0", "assets": []}
+    config.tools["error-tool"]._release_info = {"tag_name": "v1.0.0", "assets": []}
 
     # Create a BinSpec.matching_asset method that raises an exception
     def mock_matching_asset(self) -> NoReturn:  # noqa: ANN001, ARG001
@@ -1276,7 +1276,7 @@ def test_no_matching_asset(
             },
         },
     )
-    config.tools["mytool"]._latest_release = {"tag_name": "v1.0.0", "assets": []}
+    config.tools["mytool"]._release_info = {"tag_name": "v1.0.0", "assets": []}
 
     config.sync_tools()
 
@@ -1309,7 +1309,7 @@ def test_auto_detect_asset_multiple_perfect_matches(
     }
     config = Config.from_dict(raw_config)
 
-    config.tools["mytool"]._latest_release = {
+    config.tools["mytool"]._release_info = {
         "tag_name": "v1.2.3",
         "assets": [
             {
@@ -1358,7 +1358,7 @@ def test_auto_detect_asset_no_matches(
     }
     config = Config.from_dict(raw_config)
 
-    config.tools["mytool"]._latest_release = _create_mock_release_info(
+    config.tools["mytool"]._release_info = _create_mock_release_info(
         "mytool",
         "1.2.3",
         {"linux": ["amd64", "i386"]},  # Different arch
@@ -1514,7 +1514,7 @@ def test_sync_tool_match_path_in_archive_with_glob(
         },
     )
     tool_config = config.tools["test-tool"]
-    tool_config._latest_release = {
+    tool_config._release_info = {
         "tag_name": "v1.0.0",
         "assets": [
             {
@@ -1723,7 +1723,7 @@ def test_eza_arch_detection(
         },
     )
 
-    config.tools["eza"]._latest_release = {
+    config.tools["eza"]._release_info = {
         "tag_name": "0.12.1",
         "assets": [
             {
