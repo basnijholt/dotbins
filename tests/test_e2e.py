@@ -1812,7 +1812,7 @@ def test_tool_with_custom_tag(
     bin_dir = config.bin_dir("linux", "amd64")
     name = "tool-binary.exe" if os.name == "nt" else "tool-binary"
     binary_path = bin_dir / name
-    assert binary_path.exists()
+    assert binary_path.exists(), captured.out
     # Verify the version store was updated
     tool_info = config.version_store.get_tool_info("single-bin-tool", "linux", "amd64")
     assert tool_info is not None
