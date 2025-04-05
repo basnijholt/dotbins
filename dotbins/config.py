@@ -453,6 +453,8 @@ def build_tool_config(
     raw_path_in_archive = raw_data.get("path_in_archive", [])
 
     tag: str | None = raw_data.get("tag")  # type: ignore[assignment]
+    if tag == "latest":
+        tag = None
 
     # Convert to lists
     binary_name: list[str] = _ensure_list(raw_binary_name)

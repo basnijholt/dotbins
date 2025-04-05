@@ -1750,11 +1750,13 @@ def test_eza_arch_detection(
         config.sync_tools()
 
 
+@pytest.mark.parametrize("tag", ["latest", "v1.0.0", ""])
 def test_tool_with_custom_tag(
     tmp_path: Path,
     requests_mock: Mocker,
     create_dummy_archive: Callable,
     capsys: pytest.CaptureFixture[str],
+    tag: str,
 ) -> None:
     """Test that a tool with a custom tag is synced correctly."""
     config_path = tmp_path / "dotbins.yaml"
@@ -1767,23 +1769,22 @@ def test_tool_with_custom_tag(
             tools:
                 tool:
                     repo: owner/tool
-                    tag: v1.0.0
+                    tag: {tag}
             """,
         ),
     )
     config = Config.from_file(config_path)
-    requests_mock.get(
-        "https://api.github.com/repos/owner/tool/releases/tags/v1.0.0",
-        json={
-            "tag_name": "v1.0.0",
-            "assets": [
-                {
-                    "name": "tool-v1.0.0-linux-amd64.tar.gz",
-                    "browser_download_url": "https://example.com/tool-v1.0.0-linux-amd64.tar.gz",
-                },
-            ],
-        },
-    )
+    json = {
+        "tag_name": "v1.0.0",
+        "assets": [
+            {
+                "name": "tool-v1.0.0-linux-amd64.tar.gz",
+                "browser_download_url": "https://example.com/tool-v1.0.0-linux-amd64.tar.gz",
+            },
+        ],
+    }
+    requests_mock.get("https://api.github.com/repos/owner/tool/releases/tags/v1.0.0", json=json)
+    requests_mock.get("https://api.github.com/repos/owner/tool/releases/latest", json=json)
 
     def mock_download_file(
         url: str,  # noqa: ARG001
