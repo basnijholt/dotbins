@@ -746,7 +746,7 @@ tools:
   bat:
     repo: sharkdp/bat
     shell_code:
-      zsh: |
+      bash,zsh: |
         alias bat="bat --paging=never"
         alias cat="bat --plain --paging=never"
   direnv:
@@ -757,33 +757,39 @@ tools:
   eza:
     repo: eza-community/eza
     shell_code:
-      zsh: |
+      bash,zsh: |
         alias l="eza -lah --git --icons"
   fzf:
     repo: junegunn/fzf
     shell_code:
       zsh: |
         source <(fzf --zsh)
+      bash:
+        eval "$(fzf --bash)"
   lazygit:
     repo: jesseduffield/lazygit
     shell_code:
-      zsh: |
+      bash,zsh: |
         alias lg="lazygit"
   micromamba:
     repo: mamba-org/micromamba-releases
     shell_code:
-      zsh: |
+      bash,zsh: |
         alias mm="micromamba"
   starship:
     repo: starship/starship
     shell_code:
       zsh: |
         eval "$(starship init zsh)"
+      bash:
+        eval "$(starship init bash)"
   zoxide:
     repo: ajeetdsouza/zoxide
     shell_code:
       zsh: |
         eval "$(zoxide init zsh)"
+      bash:
+        eval "$(zoxide init bash)"
 
   uv:
     repo: astral-sh/uv
