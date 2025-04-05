@@ -105,6 +105,7 @@ dotbins get https://github.com/basnijholt/.dotbins/blob/main/dotbins.yaml
 - 🌐 Supports multiple platforms (macOS, Linux, Windows) and architectures (amd64, arm64, etc.)
 - 📦 Downloads and organizes binaries from GitHub releases
 - 🔄 Installs and updates tools to their latest versions with a single command
+- 📌 Pin tools to specific versions with the `tag` parameter
 - 📊 Tracks installed versions and update timestamps for all tools
 - 🧩 Extracts binaries from various archive formats (zip, tar.gz)
 - 📂 Organizes tools by platform and architecture for easy access
@@ -456,6 +457,7 @@ When auto-detection isn't possible or you want more control, you can provide det
 ```yaml
 tool-name:
   repo: owner/repo                 # Required: GitHub repository
+  tag: v1.2.3                      # Optional: Specific release tag to use (defaults to latest)
   binary_name: executable-name     # Optional: Name of the resulting binary(ies) (defaults to tool-name)
   extract_archive: true            # Optional: Whether to extract from archive (true) or direct download (false) (auto-detected if not specified)
   path_in_archive: path/to/binary  # Optional: Path to the binary within the archive (auto-detected if not specified)
@@ -654,6 +656,14 @@ eza:
   asset_patterns:
     linux: eza_{arch}-unknown-linux-gnu.tar.gz
     macos: null # No macOS version available
+```
+
+#### Version-Pinned Tool
+
+```yaml
+bat:
+  repo: sharkdp/bat
+  tag: v0.23.0  # Pin to specific version instead of latest
 ```
 
 #### Shell-Specific Configuration
