@@ -54,6 +54,7 @@ See this example `.dotbins` repository: [basnijholt/.dotbins](https://github.com
     - [Standard Tool](#standard-tool)
     - [Tool with Multiple Binaries](#tool-with-multiple-binaries)
     - [Platform-Specific Tool](#platform-specific-tool)
+    - [Version-Pinned Tool](#version-pinned-tool)
     - [Shell-Specific Configuration](#shell-specific-configuration)
   - [Full Configuration Example](#full-configuration-example)
 - [:bulb: Examples](#bulb-examples)
