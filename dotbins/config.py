@@ -19,6 +19,7 @@ from .download import download_files_in_parallel, prepare_download_tasks, proces
 from .readme import write_readme_file
 from .summary import UpdateSummary, display_update_summary
 from .utils import (
+    SUPPORTED_SHELLS,
     current_platform,
     execute_in_parallel,
     fetch_release_info,
@@ -313,7 +314,7 @@ class ToolConfig:
     asset_patterns: dict[str, dict[str, str | None]] = field(default_factory=dict)
     platform_map: dict[str, str] = field(default_factory=dict)
     arch_map: dict[str, str] = field(default_factory=dict)
-    shell_code: str | dict[str, str] | None = None
+    shell_code: dict[str, str] = field(default_factory=dict)
     defaults: DefaultsDict = field(default_factory=lambda: DEFAULTS.copy())
     _release_info: dict | None = field(default=None, init=False)
 
@@ -464,6 +465,10 @@ def build_tool_config(
     raw_patterns = raw_data.get("asset_patterns")
     asset_patterns = _normalize_asset_patterns(tool_name, raw_patterns, platforms)
 
+    # Normalize shell code to dict[shell][code].
+    raw_shell_code = raw_data.get("shell_code")
+    shell_code = _normalize_shell_code(tool_name, raw_shell_code)
+
     # Build our final data-class object
     return ToolConfig(
         tool_name=tool_name,
@@ -475,7 +480,7 @@ def build_tool_config(
         asset_patterns=asset_patterns,
         platform_map=platform_map,
         arch_map=arch_map,
-        shell_code=raw_data.get("shell_code"),
+        shell_code=shell_code,
         defaults=defaults,
     )
 
@@ -606,6 +611,29 @@ def _normalize_asset_patterns(  # noqa: PLR0912
                             f"Tool [b]{tool_name}[/]: [b]'asset_patterns'[/] uses unknown arch [b]'{arch}'[/]",
                             "error",
                         )
+    return normalized
+
+
+def _normalize_shell_code(
+    tool_name: str,
+    raw_shell_code: str | dict[str, str] | None,
+) -> dict[str, str]:
+    """Normalize the shell_code into a dict."""
+    normalized: dict[str, str] = {}
+    if not raw_shell_code:
+        return normalized
+    if isinstance(raw_shell_code, str):
+        for shell in SUPPORTED_SHELLS:
+            normalized[shell] = raw_shell_code
+    elif isinstance(raw_shell_code, dict):
+        for shell, code in raw_shell_code.items():
+            for _shell in shell.split(","):
+                if _shell not in SUPPORTED_SHELLS:
+                    log(
+                        f"Tool [b]{tool_name}[/]: [b]'shell_code'[/] uses unknown shell [b]'{shell}'[/]",
+                        "error",
+                    )
+                normalized[_shell] = code
     return normalized
 
 
