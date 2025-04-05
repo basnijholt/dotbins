@@ -33,6 +33,8 @@ tools:
     shell_code:
       zsh: |
         eval "$(direnv hook zsh)"
+      bash:
+        eval "$(direnv hook bash)"
   eza:
     repo: eza-community/eza
     shell_code:
