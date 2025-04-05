@@ -740,8 +740,8 @@ def _fetch_release(
     if tool_config._release_info is not None:
         return
     try:
-        latest_release = fetch_release_info(tool_config.repo, tool_config.tag, github_token)
-        tool_config._release_info = latest_release
+        release_info = fetch_release_info(tool_config.repo, tool_config.tag, github_token)
+        tool_config._release_info = release_info
     except Exception as e:
         msg = f"Failed to fetch latest release for {tool_config.repo}: {e}"
         update_summary.add_failed_tool(
