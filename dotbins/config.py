@@ -629,7 +629,6 @@ def _normalize_shell_code(
         return normalized
 
     if isinstance(raw_shell_code, str):
-        # Apply the same code to all shells
         for shell in SUPPORTED_SHELLS:
             normalized[shell] = raw_shell_code
     elif isinstance(raw_shell_code, dict):
@@ -641,8 +640,8 @@ def _normalize_shell_code(
                         f"Tool [b]{tool_name}[/]: [b]'shell_code'[/] uses unknown shell [b]'{shell}'[/] in key '{shell_key}'",
                         "warning",
                     )
-                normalized[shell] = code.replace("__DOTBINS_SHELL__", shell)
-    else:
+                normalized[shell] = str(code).replace("__DOTBINS_SHELL__", shell)
+    else:  # pragma: no cover
         log(
             f"Tool [b]{tool_name}[/]: Invalid type for 'shell_code': {type(raw_shell_code)}. Expected str or dict.",
             "error",

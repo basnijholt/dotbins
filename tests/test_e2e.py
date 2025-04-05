@@ -1814,3 +1814,74 @@ def test_tool_with_custom_tag(
     tool_info = config.version_store.get_tool_info("tool", "linux", "amd64")
     assert tool_info is not None
     assert tool_info["version"] == "1.0.0"
+
+
+def test_tool_with_custom_shell_code(
+    tmp_path: Path,
+    requests_mock: Mocker,
+    create_dummy_archive: Callable,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test that a tool with a custom tag is synced correctly."""
+    config_path = tmp_path / "dotbins.yaml"
+    config_path.write_text(
+        textwrap.dedent(
+            f"""\
+            tools_dir: {tmp_path!s}
+            platforms:
+                linux: ["amd64"]
+            tools:
+                tool:
+                    repo: owner/tool
+                    shell_code:
+                        bash,zsh: |
+                            echo "__DOTBINS_SHELL__"
+                        unsupported: |
+                            echo "unsupported"
+                        fish: 1.0 # incorrect type
+            """,
+        ),
+    )
+    config = Config.from_file(config_path)
+    json = {
+        "tag_name": "v1.0.0",
+        "assets": [
+            {
+                "name": "tool-v1.0.0-linux-amd64.tar.gz",
+                "browser_download_url": "https://example.com/tool-v1.0.0-linux-amd64.tar.gz",
+            },
+        ],
+    }
+    requests_mock.get("https://api.github.com/repos/owner/tool/releases/latest", json=json)
+
+    def mock_download_file(
+        url: str,  # noqa: ARG001
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        # Create a dummy binary file with executable content
+        create_dummy_archive(Path(destination), binary_names="tool")
+        return destination
+
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        # Run the update which should succeed for the single binary tool
+        config.sync_tools()
+
+    # Capture the output
+    out = capsys.readouterr().out
+
+    # Verify successful messages in the output
+    assert "Successfully installed tool" in out
+    assert "unknown shell" in out
+
+    # Verify that the shell scripts were generated correctly
+    shell_scripts = {
+        "bash": "bash.sh",
+        "zsh": "zsh.sh",
+    }
+    for shell, filename in shell_scripts.items():
+        shell_script_path = tmp_path / "shell" / filename
+        assert shell_script_path.exists(), out
+        content = shell_script_path.read_text()
+        assert f'echo "{shell}"' in content
