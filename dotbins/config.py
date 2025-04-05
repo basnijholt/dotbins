@@ -9,7 +9,7 @@ import sys
 from dataclasses import dataclass, field
 from functools import cached_property, partial
 from pathlib import Path
-from typing import Any, Literal, TypedDict
+from typing import Literal, TypedDict
 
 import requests
 import yaml
@@ -677,7 +677,7 @@ def _find_config_file(config_path: str | Path | None) -> Path | None:
     return None
 
 
-def _ensure_list(value: Any) -> list[Any]:
+def _ensure_list(value: str | list[str]) -> list[str]:
     if isinstance(value, list):
         return value
     return [value]
