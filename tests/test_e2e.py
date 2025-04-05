@@ -1768,8 +1768,6 @@ def test_tool_with_custom_tag(
             tools:
                 single-bin-tool:
                     repo: owner/single-bin-tool
-                    extract_archive: false
-                    binary_name: tool-binary
                     tag: v1.0.0
             """,
         ),
