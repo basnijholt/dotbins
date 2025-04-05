@@ -42,6 +42,10 @@ SUPPORTED_ARCHIVE_EXTENSIONS = [
     ".lzma",
 ]
 
+SUPPORTED_SHELLS = ["bash", "zsh", "fish", "nushell", "powershell"]
+
+Shells = Literal["bash", "zsh", "fish", "nushell", "powershell"]
+
 
 def _maybe_github_token_header(github_token: str | None) -> dict[str, str]:  # pragma: no cover
     return {} if github_token is None else {"Authorization": f"token {github_token}"}
@@ -130,7 +134,7 @@ def replace_home_in_path(path: Path, home: str = "$HOME") -> str:
 
 def _format_shell_instructions(
     tools_dir: Path,
-    shell: Literal["bash", "zsh", "fish", "nushell", "powershell"],
+    shell: Shells,
     tools: dict[str, ToolConfig],
 ) -> str:
     """Format shell instructions for a given shell."""
@@ -216,15 +220,13 @@ def _format_shell_instructions(
 
 def _add_shell_code_to_script(
     tools: dict[str, ToolConfig],
-    shell: Literal["bash", "zsh", "fish", "nushell", "powershell"],
+    shell: Shells,
     if_start: str,
     if_end: str,
 ) -> str:
     lines = []
     for name, config in tools.items():
-        shell_code = config.shell_code
-        if isinstance(shell_code, dict):
-            shell_code = shell_code.get(shell)
+        shell_code = config.shell_code.get(shell)
         if shell_code:
             config_lines = [
                 f"# Configuration for {name}",
