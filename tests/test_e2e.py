@@ -1748,3 +1748,72 @@ def test_eza_arch_detection(
 
     with patch("dotbins.download.download_file", side_effect=mock_download_file):
         config.sync_tools()
+
+
+def test_tool_with_custom_tag(
+    tmp_path: Path,
+    requests_mock: Mocker,
+    create_dummy_archive: Callable,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test that a tool with a custom tag is synced correctly."""
+    # Setup config with a tool that has extract_archive=False and a single binary name
+    config_path = tmp_path / "dotbins.yaml"
+    config_path.write_text(
+        textwrap.dedent(
+            f"""\
+            tools_dir: {tmp_path!s}
+            platforms:
+                linux: ["amd64"]
+            tools:
+                single-bin-tool:
+                    repo: owner/single-bin-tool
+                    extract_archive: false
+                    binary_name: tool-binary
+                    tag: v1.0.0
+            """,
+        ),
+    )
+    config = Config.from_file(config_path)
+    requests_mock.get(
+        "https://api.github.com/repos/owner/single-bin-tool/releases/tags/v1.0.0",
+        json={
+            "tag_name": "v1.0.0",
+            "assets": [
+                {
+                    "name": "tool-binary-v1.0.0-linux-amd64.tar.gz",
+                    "browser_download_url": "https://example.com/tool-binary-v1.0.0-linux-amd64.tar.gz",
+                },
+            ],
+        },
+    )
+
+    def mock_download_file(
+        url: str,  # noqa: ARG001
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        # Create a dummy binary file with executable content
+        create_dummy_archive(Path(destination), binary_names="tool-binary")
+        return destination
+
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        # Run the update which should succeed for the single binary tool
+        config.sync_tools()
+
+    # Capture the output
+    captured = capsys.readouterr()
+
+    # Verify successful messages in the output
+    assert "Successfully installed single-bin-tool" in captured.out
+
+    # Verify that the binary file was created with the correct name
+    bin_dir = config.bin_dir("linux", "amd64")
+    name = "tool-binary.exe" if os.name == "nt" else "tool-binary"
+    binary_path = bin_dir / name
+    assert binary_path.exists()
+    # Verify the version store was updated
+    tool_info = config.version_store.get_tool_info("single-bin-tool", "linux", "amd64")
+    assert tool_info is not None
+    assert tool_info["version"] == "1.0.0"
