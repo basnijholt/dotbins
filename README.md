@@ -755,10 +755,8 @@ tools:
   direnv:
     repo: direnv/direnv
     shell_code:
-      bash,zsh: | # Apply to both bash and zsh using placeholder
+      bash,zsh: |
         eval "$(direnv hook __DOTBINS_SHELL__)"
-      fish: | # Example for fish if different
-        direnv hook fish | source
   eza:
     repo: eza-community/eza
     shell_code:
@@ -767,9 +765,9 @@ tools:
   fzf:
     repo: junegunn/fzf
     shell_code:
-      zsh: | # Different code for zsh
+      zsh: |
         source <(fzf --zsh)
-      bash:
+      bash: |
         eval "$(fzf --bash)"
   lazygit:
     repo: jesseduffield/lazygit
@@ -784,17 +782,13 @@ tools:
   starship:
     repo: starship/starship
     shell_code:
-      zsh: |
-        eval "$(starship init zsh)"
-      bash:
-        eval "$(starship init bash)"
+      bash,zsh: |
+        eval "$(starship init __DOTBINS_SHELL__)"
   zoxide:
     repo: ajeetdsouza/zoxide
     shell_code:
-      zsh: |
-        eval "$(zoxide init zsh)"
-      bash:
-        eval "$(zoxide init bash)"
+      bash,zsh: |
+        eval "$(zoxide init __DOTBINS_SHELL__)"
 
   uv:
     repo: astral-sh/uv
