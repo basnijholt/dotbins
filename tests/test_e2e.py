@@ -1757,7 +1757,6 @@ def test_tool_with_custom_tag(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Test that a tool with a custom tag is synced correctly."""
-    # Setup config with a tool that has extract_archive=False and a single binary name
     config_path = tmp_path / "dotbins.yaml"
     config_path.write_text(
         textwrap.dedent(
@@ -1766,21 +1765,21 @@ def test_tool_with_custom_tag(
             platforms:
                 linux: ["amd64"]
             tools:
-                single-bin-tool:
-                    repo: owner/single-bin-tool
+                tool:
+                    repo: owner/tool
                     tag: v1.0.0
             """,
         ),
     )
     config = Config.from_file(config_path)
     requests_mock.get(
-        "https://api.github.com/repos/owner/single-bin-tool/releases/tags/v1.0.0",
+        "https://api.github.com/repos/owner/tool/releases/tags/v1.0.0",
         json={
             "tag_name": "v1.0.0",
             "assets": [
                 {
-                    "name": "tool-binary-v1.0.0-linux-amd64.tar.gz",
-                    "browser_download_url": "https://example.com/tool-binary-v1.0.0-linux-amd64.tar.gz",
+                    "name": "tool-v1.0.0-linux-amd64.tar.gz",
+                    "browser_download_url": "https://example.com/tool-v1.0.0-linux-amd64.tar.gz",
                 },
             ],
         },
@@ -1793,7 +1792,7 @@ def test_tool_with_custom_tag(
         verbose: bool,  # noqa: ARG001
     ) -> str:
         # Create a dummy binary file with executable content
-        create_dummy_archive(Path(destination), binary_names="tool-binary")
+        create_dummy_archive(Path(destination), binary_names="tool")
         return destination
 
     with patch("dotbins.download.download_file", side_effect=mock_download_file):
@@ -1801,17 +1800,16 @@ def test_tool_with_custom_tag(
         config.sync_tools()
 
     # Capture the output
-    captured = capsys.readouterr()
+    out = capsys.readouterr().out
 
     # Verify successful messages in the output
-    assert "Successfully installed single-bin-tool" in captured.out
+    assert "Successfully installed tool" in out
 
     # Verify that the binary file was created with the correct name
     bin_dir = config.bin_dir("linux", "amd64")
-    name = "tool-binary.exe" if os.name == "nt" else "tool-binary"
-    binary_path = bin_dir / name
-    assert binary_path.exists(), captured.out
+    binary_path = bin_dir / "tool"
+    assert binary_path.exists(), out
     # Verify the version store was updated
-    tool_info = config.version_store.get_tool_info("single-bin-tool", "linux", "amd64")
+    tool_info = config.version_store.get_tool_info("tool", "linux", "amd64")
     assert tool_info is not None
     assert tool_info["version"] == "1.0.0"
