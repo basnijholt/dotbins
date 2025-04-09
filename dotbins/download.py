@@ -218,7 +218,8 @@ def _prepare_download_task(
             )
             return None
         tmp_dir = Path(tempfile.gettempdir())
-        temp_path = tmp_dir / asset["browser_download_url"].split("/")[-1]
+        asset_filename = asset["browser_download_url"].split("/")[-1]
+        temp_path = tmp_dir / f"{platform}-{arch}-{asset_filename}"
         return _DownloadTask(
             bin_spec=bin_spec,
             asset_url=asset["browser_download_url"],
