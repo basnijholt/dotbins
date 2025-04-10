@@ -365,7 +365,13 @@ class BinSpec:
         assert self.tool_config._release_info is not None
         assets = self.tool_config._release_info["assets"]
         if asset_pattern is None:
-            return _auto_detect_asset(self.platform, self.arch, assets, self.tool_config.defaults)
+            return _auto_detect_asset(
+                self.platform,
+                self.arch,
+                assets,
+                self.tool_config.defaults,
+                self.tool_config.tool_name,
+            )
         return _find_matching_asset(asset_pattern, assets)
 
     def skip_download(self, config: Config, force: bool) -> bool:
@@ -734,6 +740,7 @@ def _auto_detect_asset(
     arch: str,
     assets: list[_AssetDict],
     defaults: DefaultsDict,
+    tool_name: str,
 ) -> _AssetDict | None:
     """Auto-detect an asset for the tool."""
     log(f"Auto-detecting asset for [b]{platform}/{arch}[/]", "info")
@@ -751,9 +758,18 @@ def _auto_detect_asset(
             assert candidates is not None
             log(f"Found multiple candidates: {candidates}, selecting first", "info")
             asset_name = candidates[0]
-        else:
-            if candidates:
+        elif candidates:
+            if tool_name in candidates:
+                log(
+                    f"Found multiple candidates: {candidates}, selecting `{tool_name}`"
+                    " because it perfectly matches the tool name",
+                    "info",
+                )
+                asset_name = tool_name
+            else:
                 log(f"Found multiple candidates: {candidates}, manually select one", "info", "⁉️")
+                return None
+        else:
             log(f"Error detecting asset: {err}", "error")
             return None
     asset = assets[asset_names.index(asset_name)]
