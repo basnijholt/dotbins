@@ -365,7 +365,13 @@ class BinSpec:
         assert self.tool_config._release_info is not None
         assets = self.tool_config._release_info["assets"]
         if asset_pattern is None:
-            return _auto_detect_asset(self.platform, self.arch, assets, self.tool_config.defaults)
+            return _auto_detect_asset(
+                self.platform,
+                self.arch,
+                assets,
+                self.tool_config.defaults,
+                self.tool_config.tool_name,
+            )
         return _find_matching_asset(asset_pattern, assets)
 
     def skip_download(self, config: Config, force: bool) -> bool:
@@ -734,9 +740,10 @@ def _auto_detect_asset(
     arch: str,
     assets: list[_AssetDict],
     defaults: DefaultsDict,
+    tool_name: str,
 ) -> _AssetDict | None:
     """Auto-detect an asset for the tool."""
-    log(f"Auto-detecting asset for [b]{platform}/{arch}[/]", "info")
+    log(f"Auto-detecting asset for [b]{platform}/{arch}[/] (tool: {tool_name})", "info")
     detect_fn = create_system_detector(
         platform,
         arch,
@@ -745,20 +752,52 @@ def _auto_detect_asset(
         defaults["prefer_appimage"],
     )
     asset_names = [x["name"] for x in assets]
-    asset_name, candidates, err = detect_fn(asset_names)
+    detected_asset_name, candidates, err = detect_fn(asset_names)
+
     if err is not None:
         if err.endswith("matches found"):
             assert candidates is not None
-            log(f"Found multiple candidates: {candidates}, selecting first", "info")
-            asset_name = candidates[0]
-        else:
+            # Try to find an exact match for tool_name among candidates
+            exact_matches = [c for c in candidates if os.path.basename(c) == tool_name]
+            if exact_matches:
+                # Prefer the exact match if found
+                detected_asset_name = exact_matches[0]
+                log(
+                    f"Found exact match for tool name '{tool_name}' among candidates: {detected_asset_name}",
+                    "info",
+                )
+            else:
+                # No exact match, select the first prioritized candidate (original behavior)
+                detected_asset_name = candidates[0]
+                log(
+                    f"Found multiple candidates: {candidates}, selecting first prioritized: {detected_asset_name}",
+                    "info",
+                )
+            err = None  # Resolved ambiguity by selecting either exact match or first candidate
+
+        # If error still exists (wasn't "matches found" or couldn't be resolved)
+        if err is not None:
             if candidates:
-                log(f"Found multiple candidates: {candidates}, manually select one", "info", "⁉️")
+                log(
+                    f"Found multiple candidates: {candidates}, but couldn't resolve automatically",
+                    "info",
+                    "⁉️",
+                )
             log(f"Error detecting asset: {err}", "error")
             return None
-    asset = assets[asset_names.index(asset_name)]
-    log(f"Found asset: {asset['name']}", "success")
-    return asset
+
+    # If no error, or error was resolved successfully:
+    try:
+        # Find the full asset dictionary based on the selected name
+        asset = next(a for a in assets if a["name"] == detected_asset_name)
+        log(f"Selected asset: {asset['name']}", "success")
+        return asset
+    except StopIteration:  # Handle case where detected_asset_name wasn't in original list
+        log(
+            f"Internal error: Detected asset name '{detected_asset_name}' not found in original asset list.",
+            "error",
+        )
+        return None
 
 
 def _find_matching_asset(
