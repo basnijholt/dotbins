@@ -1029,6 +1029,9 @@ tools:
   yq: mikefarah/yq                # YAML/XML/TOML processor similar to jq
   zellij: zellij-org/zellij       # Terminal multiplexer
   zoxide: ajeetdsouza/zoxide      # Smarter cd command with learning
+  keychain:                       # Keychain manager
+    repo: funtoo/keychain
+    tag: 2.9.0_alpha1  # TODO: Remove this once the tool is released
 
 platforms:
   linux:
