@@ -61,7 +61,10 @@ def main() -> None:
 
         # Fetch release info
         print(f"[{i}/{total}] Downloading {tool_name} from {repo}...")
-        url = f"https://api.github.com/repos/{repo}/releases/latest"
+        if "tag" in value:
+            url = f"https://api.github.com/repos/{repo}/releases/tags/{value['tag']}"
+        else:
+            url = f"https://api.github.com/repos/{repo}/releases/latest"
 
         try:
             response = requests.get(url, headers=headers, timeout=30)

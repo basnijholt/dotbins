@@ -158,6 +158,10 @@ CASES = [
     ("k9s", "linux", "arm64", "k9s_Linux_arm64.tar.gz"),
     ("k9s", "macos", "arm64", "k9s_Darwin_arm64.tar.gz"),
     ("k9s", "windows", "amd64", "k9s_Windows_amd64.zip"),
+    ("keychain@2.9.0_alpha1", "linux", "amd64", "keychain"),
+    ("keychain@2.9.0_alpha1", "linux", "arm64", "keychain"),
+    ("keychain@2.9.0_alpha1", "macos", "arm64", "keychain"),
+    ("keychain@2.9.0_alpha1", "windows", "amd64", "keychain"),
     ("lazygit", "linux", "amd64", "lazygit_{version}_Linux_x86_64.tar.gz"),
     ("lazygit", "linux", "arm64", "lazygit_{version}_Linux_arm64.tar.gz"),
     ("lazygit", "macos", "arm64", "lazygit_{version}_Darwin_arm64.tar.gz"),
@@ -284,6 +288,10 @@ def test_autodetect_asset(program: str, platform: str, arch: str, expected_asset
     3. Verifies that we can find a matching asset for each platform/arch combination
     """
     # Load the release JSON
+    tag = None
+    if "@" in program:
+        program, tag = program.split("@")
+
     json_file = Path(__file__).parent / "release_jsons" / f"{program}.json"
     with open(json_file) as f:
         release_data = json.load(f)
@@ -303,7 +311,7 @@ def test_autodetect_asset(program: str, platform: str, arch: str, expected_asset
     # Create tool config
     tool_config = build_tool_config(
         tool_name=program,
-        raw_data={"repo": f"example/{program}"},
+        raw_data={"tag": tag, "repo": f"example/{program}"},
         platforms={platform: [arch]},
         defaults=defaults,  # type: ignore[arg-type]
     )
@@ -344,7 +352,7 @@ def test_if_complete_tests() -> None:
     json_tool_names = {file.stem for file in test_files}
 
     # Extract tool names directly from CASES
-    tested_tool_names = {program for program, _, _, _ in CASES}
+    tested_tool_names = {program.split("@")[0] for program, _, _, _ in CASES}
 
     # Find any missing tools
     missing_tools = json_tool_names - tested_tool_names
