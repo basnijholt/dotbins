@@ -107,7 +107,7 @@ def _get_tool(
         source: GitHub repository in the format 'owner/repo' or URL/path to a YAML configuration file.
         dest_dir: Directory to install the binary to (e.g., ~/.local/bin)
         name: Optional name to use for the binary (defaults to repo name)
-        tag: Optional tag to use for the binary (if None, the latest tag will be used)
+        tag: Optional tag to use for the binary (if None, the latest release will be used)
 
     """
     platform, arch = current_platform()
@@ -175,7 +175,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
     get_parser.add_argument(
         "--tag",
-        help="Tag to use for the binary (if None, the latest tag will be used)",
+        help="Tag to use for the binary (if None, the latest release will be used)",
     )
 
     # sync command
