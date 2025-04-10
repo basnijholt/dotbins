@@ -610,6 +610,45 @@ def test_get_tool_command(tmp_path: Path, create_dummy_archive: Callable) -> Non
     assert (dest_dir / "mytool").exists()
 
 
+def test_get_tool_command_with_tag(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+    requests_mock: Mocker,
+) -> None:
+    """Test the 'get' command with a custom tag."""
+    dest_dir = tmp_path / "bin"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    platform, arch = current_platform()
+
+    json = {
+        "tag_name": "custom-tag",
+        "assets": [
+            {
+                "name": f"mytool-custom-tag-{platform}_{arch}.tar.gz",
+                "browser_download_url": f"https://example.com/mytool-custom-tag-{platform}_{arch}.tar.gz",
+            },
+        ],
+    }
+    requests_mock.get(
+        "https://api.github.com/repos/owner/mytool/releases/tags/custom-tag",
+        json=json,
+    )
+
+    def mock_download_file(
+        url: str,  # noqa: ARG001
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        create_dummy_archive(Path(destination), binary_names="mytool")
+        return destination
+
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        _get_tool(source="owner/mytool", dest_dir=dest_dir, tag="custom-tag")
+
+    assert (dest_dir / "mytool").exists()
+
+
 def test_get_tool_command_with_remote_config(
     tmp_path: Path,
     create_dummy_archive: Callable,

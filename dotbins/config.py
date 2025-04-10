@@ -418,6 +418,7 @@ class RawToolConfigDict(TypedDict, total=False):
     path_in_archive: str | list[str]  # Path(s) to binary within archive
     asset_patterns: str | dict[str, str] | dict[str, dict[str, str | None]]
     shell_code: str | dict[str, str] | None  # Shell code to configure the tool
+    tag: str | None  # Tag to use for the binary (if None, the latest tag will be used)
 
 
 class _AssetDict(TypedDict):

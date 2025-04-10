@@ -91,7 +91,12 @@ def _initialize(config: Config) -> None:
     config.generate_readme()
 
 
-def _get_tool(source: str, dest_dir: str | Path, name: str | None = None) -> None:
+def _get_tool(
+    source: str,
+    dest_dir: str | Path,
+    name: str | None = None,
+    tag: str | None = None,
+) -> None:
     """Get a specific tool and install it directly to a location.
 
     This command bypasses the standard configuration and tools directory,
@@ -102,6 +107,7 @@ def _get_tool(source: str, dest_dir: str | Path, name: str | None = None) -> Non
         source: GitHub repository in the format 'owner/repo' or URL/path to a YAML configuration file.
         dest_dir: Directory to install the binary to (e.g., ~/.local/bin)
         name: Optional name to use for the binary (defaults to repo name)
+        tag: Optional tag to use for the binary (if None, the latest tag will be used)
 
     """
     platform, arch = current_platform()
@@ -116,7 +122,7 @@ def _get_tool(source: str, dest_dir: str | Path, name: str | None = None) -> Non
         config = Config(
             tools_dir=dest_dir_path,
             platforms={platform: [arch]},
-            tools={tool_name: build_tool_config(tool_name, {"repo": source})},
+            tools={tool_name: build_tool_config(tool_name, {"repo": source, "tag": tag})},
         )
     config._bin_dir = dest_dir_path
     config.sync_tools(current=True, force=True, generate_readme=False, copy_config_file=False)
@@ -166,6 +172,10 @@ def create_parser() -> argparse.ArgumentParser:
     get_parser.add_argument(
         "--name",
         help="Name to use for the binary (defaults to repository name if not specified) and is ignored if source is a URL",
+    )
+    get_parser.add_argument(
+        "--tag",
+        help="Tag to use for the binary (if None, the latest tag will be used)",
     )
 
     # sync command
@@ -305,7 +315,7 @@ def main() -> None:  # pragma: no cover
 
     try:
         if args.command == "get":
-            _get_tool(args.source, args.dest, args.name)
+            _get_tool(args.source, args.dest, args.name, args.tag)
             return
         if args.command is None:
             parser.print_help()
