@@ -772,6 +772,7 @@ def _auto_detect_asset(
         else:
             log(f"Error detecting asset: {err}", "error")
             return None
+
     asset = assets[asset_names.index(asset_name)]
     log(f"Found asset: {asset['name']}", "success")
     return asset
