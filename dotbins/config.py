@@ -758,21 +758,18 @@ def _auto_detect_asset(
             assert candidates is not None
             log(f"Found multiple candidates: {candidates}, selecting first", "info")
             asset_name = candidates[0]
-        elif candidates:
-            if tool_name in candidates:
-                log(
-                    f"Found multiple candidates: {candidates}, selecting `{tool_name}`"
-                    " because it perfectly matches the tool name",
-                    "info",
-                )
-                asset_name = tool_name
-            else:
-                log(f"Found multiple candidates: {candidates}, manually select one", "info", "⁉️")
-                return None
+        elif candidates and tool_name in candidates:
+            log(
+                f"Found multiple candidates: {candidates}, selecting `{tool_name}`"
+                " because it perfectly matches the tool name",
+                "info",
+            )
+            asset_name = tool_name
         else:
+            if candidates:
+                log(f"Found multiple candidates: {candidates}, manually select one", "info", "⁉️")
             log(f"Error detecting asset: {err}", "error")
             return None
-
     asset = assets[asset_names.index(asset_name)]
     log(f"Found asset: {asset['name']}", "success")
     return asset
