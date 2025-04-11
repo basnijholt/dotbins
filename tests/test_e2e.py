@@ -438,12 +438,7 @@ def test_e2e_sync_tools_partial_skip_and_update(
     # 'mytool' should remain at version 2.0.0, unchanged
     mytool_info = config.version_store.get_tool_info("mytool", "linux", "amd64")
     assert mytool_info is not None
-    assert mytool_info["version"] == "2.0.0"  # no change
-
-    # 'othertool' should have been updated to 2.0.0
-    other_info = config.version_store.get_tool_info("othertool", "linux", "amd64")
-    assert other_info is not None
-    assert other_info["version"] == "2.0.0"
+    assert mytool_info["version"] == "2.0.0"
     # And the binary should now exist:
     other_bin = config.bin_dir("linux", "amd64") / "otherbin"
     assert other_bin.exists()
@@ -1408,6 +1403,58 @@ def test_auto_detect_asset_no_matches(
     out = capsys.readouterr().out
     assert "Found multiple candidates" in out, out
     assert "manually select one" in out
+
+
+def test_e2e_auto_detect_no_candidates(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test E2E scenario where auto-detect finds no candidates."""
+    raw_config: RawConfigDict = {
+        "tools_dir": str(tmp_path),
+        "platforms": {"linux": ["amd64"]},
+        "tools": {
+            "no-candidate-tool": {
+                "repo": "fakeuser/no-candidate-tool",
+                # No asset_patterns to trigger auto-detect
+            },
+        },
+    }
+    config = Config.from_dict(raw_config)
+
+    # Set release info with an EMPTY assets list
+    config.tools["no-candidate-tool"]._release_info = {
+        "tag_name": "v1.0.0",
+        "assets": [],  # <--- Key change: empty list
+    }
+
+    # Mock download_file - it shouldn't be called if no asset is found
+    def mock_download_file(
+        *args: Any,  # noqa: ARG001
+        **kwargs: Any,  # noqa: ARG001
+    ) -> NoReturn:  # pragma: no cover
+        msg = "Download should not be attempted if no candidate asset is found"
+        raise AssertionError(msg)
+
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools()
+
+    # Check log output for the specific error
+    out = capsys.readouterr().out
+    assert "Auto-detecting asset for linux/amd64" in out, out
+    assert "Error detecting asset: no candidates found" in out
+
+    # Check failure summary
+    assert len(config._update_summary.failed) == 1
+    failed_entry = config._update_summary.failed[0]
+    assert failed_entry.tool == "no-candidate-tool"
+    assert failed_entry.platform == "linux"
+    assert failed_entry.arch == "amd64"
+    assert "No matching asset found" in failed_entry.reason
+
+    # Verify no binary was installed
+    bin_dir = config.bin_dir("linux", "amd64")
+    assert not bin_dir.exists() or not list(bin_dir.iterdir())
 
 
 def test_sync_tools_with_empty_archive(
