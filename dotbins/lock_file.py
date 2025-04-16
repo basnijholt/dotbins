@@ -44,7 +44,7 @@ class LockFile:
     def __init__(self, tools_dir: Path) -> None:
         """Initialize the VersionStore."""
         self.version_file = tools_dir / "versions.json"
-        self.versions = self._load()
+        self.data = self._load()
 
     def _load(self) -> dict[str, Any]:
         """Load version data from JSON file."""
@@ -57,16 +57,16 @@ class LockFile:
             return {}
 
     def save(self) -> None:
-        """Save version data to JSON file."""
+        """Save lock file to JSON file."""
         self.version_file.parent.mkdir(parents=True, exist_ok=True)
         with self.version_file.open("w", encoding="utf-8") as f:
-            sorted_versions = dict(sorted(self.versions.items()))
+            sorted_versions = dict(sorted(self.data.items()))
             json.dump(sorted_versions, f, indent=2)
 
     def get_tool_info(self, tool: str, platform: str, arch: str) -> dict[str, Any] | None:
         """Get version info for a specific tool/platform/arch combination."""
         key = f"{tool}/{platform}/{arch}"
-        return self.versions.get(key)
+        return self.data.get(key)
 
     def get_tool_version(self, tool: str, platform: str, arch: str) -> str | None:
         """Get version info for a specific tool/platform/arch combination."""
@@ -92,7 +92,7 @@ class LockFile:
 
         """
         key = f"{tool}/{platform}/{arch}"
-        self.versions[key] = {
+        self.data[key] = {
             "tag": tag,
             "updated_at": datetime.now().isoformat(),
             "sha256": sha256,
@@ -107,7 +107,7 @@ class LockFile:
             architecture: Filter by architecture (e.g., 'amd64', 'arm64')
 
         """
-        if not self.versions:
+        if not self.data:
             log("No tool versions recorded yet.", "info")
             return
 
@@ -121,7 +121,7 @@ class LockFile:
         table.add_column("Last Updated", style="magenta")
         table.add_column("SHA256", style="dim")
 
-        installed_tools = _installed_tools(self.versions, platform, architecture)
+        installed_tools = _installed_tools(self.data, platform, architecture)
         if not installed_tools:
             log("No tools found for the specified filters.", "info")
             return
@@ -155,12 +155,12 @@ class LockFile:
             architecture: Filter by architecture (e.g., 'amd64', 'arm64')
 
         """
-        if not self.versions:
+        if not self.data:
             log("No tool versions recorded yet.", "info")
             return
 
         tools = defaultdict(list)
-        installed_tools = _installed_tools(self.versions, platform, architecture)
+        installed_tools = _installed_tools(self.data, platform, architecture)
 
         for spec in installed_tools:
             info = self.get_tool_info(spec.name, spec.platform, spec.architecture)
@@ -221,7 +221,7 @@ class LockFile:
             self._print_full(platform, architecture)
 
         expected_tools = _expected_tools(config, platform, architecture)
-        installed_tools = _installed_tools(self.versions, platform, architecture)
+        installed_tools = _installed_tools(self.data, platform, architecture)
         missing_tools = [tool for tool in expected_tools if tool not in installed_tools]
 
         if missing_tools:

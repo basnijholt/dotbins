@@ -33,7 +33,7 @@ def test_version_store_init(tmp_path: Path) -> None:
     """Test initializing a VersionStore."""
     store = LockFile(tmp_path)
     assert store.version_file == tmp_path / "versions.json"
-    assert store.versions == {}  # Empty if file doesn't exist
+    assert store.data == {}  # Empty if file doesn't exist
 
 
 def test_version_store_load(
@@ -44,13 +44,13 @@ def test_version_store_load(
     store = LockFile(tmp_path)
 
     # Versions should be loaded from the file
-    assert len(store.versions) == 2
-    assert "fzf/linux/amd64" in store.versions
-    assert "bat/macos/arm64" in store.versions
+    assert len(store.data) == 2
+    assert "fzf/linux/amd64" in store.data
+    assert "bat/macos/arm64" in store.data
 
     # Verify data contents
-    assert store.versions["fzf/linux/amd64"]["tag"] == "0.29.0"
-    assert store.versions["bat/macos/arm64"]["updated_at"] == "2023-01-02T14:30:00"
+    assert store.data["fzf/linux/amd64"]["tag"] == "0.29.0"
+    assert store.data["bat/macos/arm64"]["updated_at"] == "2023-01-02T14:30:00"
 
 
 def test_version_store_get_tool_info(
@@ -121,7 +121,7 @@ def test_version_store_load_invalid_json(tmp_path: Path) -> None:
 
     # Should handle gracefully and return empty dict
     store = LockFile(tmp_path)
-    assert store.versions == {}
+    assert store.data == {}
 
 
 def test_version_store_update_existing(
