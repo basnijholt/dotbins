@@ -258,9 +258,12 @@ class Manifest:
         """Convert legacy manifest format from v1 to v2."""
         legacy_file = self.manifest_file.parent / "versions.json"
         if legacy_file.exists():
-            log("Found legacy manifest file", "info")
+            log(
+                "Found legacy manifest file `versions.json`: Converting manifest"
+                " format from v1 to v2 `manifest.json`.",
+                "warning",
+            )
             self.data = json.load(legacy_file.open())
-            log("Converting manifest format from v1 to v2", "info")
             _version_1_to_2(self.data)
             self.save()
             legacy_file.unlink()
