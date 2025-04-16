@@ -98,7 +98,7 @@ def _gather_tool_data(config: Config) -> _ToolData:
             for arch in architectures:
                 tool_info = version_store.get_tool_info(tool_name, platform, arch)
                 if tool_info:
-                    version = tool_info.get("version", "Unknown")
+                    version = tool_info.get("tag", "Unknown")
                     updated_at = tool_info.get("updated_at", "Unknown")
                     updated_at = _format_timestamp(updated_at)
 
@@ -107,7 +107,7 @@ def _gather_tool_data(config: Config) -> _ToolData:
                     current_marker = " ***(current)***" if is_current else ""
 
                     tool_data[tool_name]["platforms"][platform][arch] = {
-                        "version": version,
+                        "tag": version,
                         "updated_at": updated_at,
                         "is_current": is_current,
                         "current_marker": current_marker,
@@ -170,7 +170,7 @@ def _generate_tool_table(tool_data: dict[str, dict[str, Any]]) -> list[str]:
         updated_at = "N/A"
         for archs in data["platforms"].values():
             for info in archs.values():
-                version = info["version"]
+                version = info["tag"]
                 updated_at = info["updated_at"]
                 break
             if version != "Not installed":

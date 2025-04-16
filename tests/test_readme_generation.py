@@ -36,7 +36,7 @@ def mock_config() -> Config:
     version_store = MagicMock()
     version_store.get_tool_info.side_effect = lambda tool, _platform, _arch: (
         {
-            "version": "1.0.0",
+            "tag": "1.0.0",
             "updated_at": "2023-01-01",
         }
         if tool in ["tool1", "tool2"]
@@ -150,7 +150,7 @@ def test_readme_with_missing_tools(mock_current_platform: MagicMock, mock_config
     # Update mock to return None for tool2
     mock_config.version_store.get_tool_info.side_effect = lambda tool, _platform, _arch: (  # type: ignore[attr-defined]
         {
-            "version": "1.0.0",
+            "tag": "1.0.0",
             "updated_at": "2023-01-01",
         }
         if tool == "tool1"

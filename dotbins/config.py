@@ -29,7 +29,7 @@ from .utils import (
     replace_home_in_path,
     write_shell_scripts,
 )
-from .versions import VersionStore
+from .versions import LockFile
 
 if sys.version_info >= (3, 11):
     from typing import Required
@@ -116,9 +116,9 @@ class Config:
         execute_in_parallel(tool_configs, fetch, max_workers=16)
 
     @cached_property
-    def version_store(self) -> VersionStore:
+    def version_store(self) -> LockFile:
         """Return the VersionStore object."""
-        return VersionStore(self.tools_dir)
+        return LockFile(self.tools_dir)
 
     def validate(self) -> None:
         """Check for missing repos, unknown platforms, etc."""
@@ -320,13 +320,13 @@ class ToolConfig:
 
     def bin_spec(self, arch: str, platform: str) -> BinSpec:
         """Get a BinSpec object for the tool."""
-        return BinSpec(tool_config=self, version=self.latest_version, arch=arch, platform=platform)
+        return BinSpec(tool_config=self, tag=self.latest_tag, arch=arch, platform=platform)
 
     @property
-    def latest_version(self) -> str:
+    def latest_tag(self) -> str:
         """Get the latest version for the tool."""
         assert self._release_info is not None
-        return self._release_info["tag_name"].lstrip("v")
+        return self._release_info["tag_name"]
 
 
 @dataclass(frozen=True)
@@ -334,7 +334,7 @@ class BinSpec:
     """Specific arch and platform for a tool."""
 
     tool_config: ToolConfig
-    version: str
+    tag: str
     arch: str
     platform: str
 
@@ -354,7 +354,7 @@ class BinSpec:
             self.tool_config,
             self.platform,
             self.arch,
-            self.version,
+            self.tag,
             self.tool_platform,
             self.tool_arch,
         )
@@ -385,10 +385,10 @@ class BinSpec:
         all_exist = all(
             (destination_dir / binary_name).exists() for binary_name in self.tool_config.binary_name
         )
-        if tool_info and tool_info["version"] == self.version and all_exist and not force:
+        if tool_info and tool_info["tag"] == self.tag and all_exist and not force:
             dt = humanize_time_ago(tool_info["updated_at"])
             log(
-                f"[b]{self.tool_config.tool_name} v{self.version}[/] for"
+                f"[b]{self.tool_config.tool_name} v{self.tag}[/] for"
                 f" [b]{self.platform}/{self.arch}[/] is already up to date"
                 f" (installed [b]{dt}[/] ago) use --force to re-download.",
                 "success",
@@ -710,7 +710,7 @@ def _maybe_asset_pattern(
     tool_config: ToolConfig,
     platform: str,
     arch: str,
-    version: str,
+    tag: str,
     tool_platform: str,
     tool_arch: str,
 ) -> str | None:
@@ -723,13 +723,16 @@ def _maybe_asset_pattern(
             "ℹ️",  # noqa: RUF001
         )
         return None
+    version = tag.lstrip("v")
     return (
         search_pattern.format(
             version=version,
+            tag=tag,
             platform=tool_platform,
             arch=tool_arch,
         )
         .replace("{version}", ".*")
+        .replace("{tag}", ".*")
         .replace("{arch}", ".*")
         .replace("{platform}", ".*")
     )

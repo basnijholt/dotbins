@@ -321,7 +321,7 @@ def main() -> None:  # pragma: no cover
             parser.print_help()
             return
         if args.command == "version":
-            log(f"[yellow]dotbins[/] [bold]v{__version__}[/]")
+            log(f"[yellow]dotbins[/] [bold]{__version__}[/]")
             return
 
         config = Config.from_file(args.config_file)

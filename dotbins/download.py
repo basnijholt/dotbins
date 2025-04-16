@@ -22,7 +22,7 @@ from .utils import (
 if TYPE_CHECKING:
     from .config import BinSpec, Config, ToolConfig
     from .summary import UpdateSummary
-    from .versions import VersionStore
+    from .versions import LockFile
 
 
 def _extract_binary_from_archive(
@@ -80,7 +80,7 @@ def _process_binaries(
         source_path = _find_binary_in_extracted_files(
             temp_dir,
             str(path_in_archive),
-            bin_spec.version,
+            bin_spec.tag,
             bin_spec.tool_arch,
             bin_spec.tool_platform,
         )
@@ -97,12 +97,12 @@ def _log_extracted_files(temp_dir: Path) -> None:
 def _find_binary_in_extracted_files(
     temp_dir: Path,
     path_in_archive: str,
-    version: str,
+    tag: str,
     tool_arch: str,
     tool_platform: str,
 ) -> Path:
     """Find a specific binary in the extracted files."""
-    path_in_archive = _replace_variables_in_path(path_in_archive, version, tool_arch, tool_platform)
+    path_in_archive = _replace_variables_in_path(path_in_archive, tag, tool_arch, tool_platform)
 
     if "*" in path_in_archive:
         matches = list(temp_dir.glob(path_in_archive))
@@ -139,10 +139,14 @@ def _copy_binary_to_destination(
     log(f"Copied binary to [b]{replace_home_in_path(dest_path, '~')}[/]", "success")
 
 
-def _replace_variables_in_path(path: str, version: str, arch: str, platform: str) -> str:
+def _replace_variables_in_path(path: str, tag: str, arch: str, platform: str) -> str:
     """Replace variables in a path with their values."""
+    version = tag.lstrip("v")
     if "{version}" in path and version:
         path = path.replace("{version}", version)
+
+    if "{tag}" in path and tag:
+        path = path.replace("{tag}", tag)
 
     if "{arch}" in path and arch:
         path = path.replace("{arch}", arch)
@@ -171,8 +175,8 @@ class _DownloadTask(NamedTuple):
         return self.bin_spec.tool_config
 
     @property
-    def version(self) -> str:
-        return self.bin_spec.version
+    def tag(self) -> str:
+        return self.bin_spec.tag
 
     @property
     def platform(self) -> str:
@@ -203,7 +207,7 @@ def _prepare_download_task(
                 tool_name,
                 platform,
                 arch,
-                version=bin_spec.version,
+                version=bin_spec.tag,
                 reason="Already up-to-date",
             )
             return None
@@ -213,7 +217,7 @@ def _prepare_download_task(
                 tool_name,
                 platform,
                 arch,
-                version=bin_spec.version,
+                version=bin_spec.tag,
                 reason="No matching asset found",
             )
             return None
@@ -326,7 +330,7 @@ def download_files_in_parallel(
 def _process_downloaded_task(
     task: _DownloadTask,
     success: bool,
-    version_store: VersionStore,
+    version_store: LockFile,
     summary: UpdateSummary,
     verbose: bool,
 ) -> bool:
@@ -336,7 +340,7 @@ def _process_downloaded_task(
             task.tool_name,
             task.platform,
             task.arch,
-            task.version,
+            task.tag,
             reason="Download failed",
         )
         return False
@@ -374,7 +378,7 @@ def _process_downloaded_task(
                     task.tool_name,
                     task.platform,
                     task.arch,
-                    task.version,
+                    task.tag,
                     reason="Expected exactly one binary name",
                 )
                 return False
@@ -392,7 +396,7 @@ def _process_downloaded_task(
             task.tool_name,
             task.platform,
             task.arch,
-            task.version,
+            task.tag,
             reason=f"{error_prefix}: {e!s}",
         )
         return False
@@ -401,7 +405,7 @@ def _process_downloaded_task(
             task.tool_name,
             task.platform,
             task.arch,
-            task.version,
+            task.tag,
             old_version=version_store.get_tool_version(task.tool_name, task.platform, task.arch)
             or "—",
         )
@@ -409,12 +413,12 @@ def _process_downloaded_task(
             task.tool_name,
             task.platform,
             task.arch,
-            task.version,
+            task.tag,
             sha256=sha256_hash,
         )
 
         log(
-            f"Successfully installed [b]{task.tool_name} v{task.version}[/] for [b]{task.platform}/{task.arch}[/]",
+            f"Successfully installed [b]{task.tool_name} {task.tag}[/] for [b]{task.platform}/{task.arch}[/]",
             "success",
         )
         return True
@@ -426,7 +430,7 @@ def _process_downloaded_task(
 def process_downloaded_files(
     download_tasks: list[_DownloadTask],
     download_successes: list[bool],
-    version_store: VersionStore,
+    version_store: LockFile,
     summary: UpdateSummary,
     verbose: bool,
 ) -> None:

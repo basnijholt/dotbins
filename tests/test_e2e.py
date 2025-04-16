@@ -23,31 +23,31 @@ if TYPE_CHECKING:
 
 def _create_mock_release_info(
     tool_name: str,
-    version: str,
+    tag: str,
     platforms: dict[str, list[str]],
     extension: str = ".tar.gz",
 ) -> dict[str, Any]:
     assets = [
         {
-            "name": f"{tool_name}-{version}-{platform}_{arch}{extension}",
-            "browser_download_url": f"https://example.com/{tool_name}-{version}-{platform}_{arch}{extension}",
+            "name": f"{tool_name}-{tag[1:]}-{platform}_{arch}{extension}",
+            "browser_download_url": f"https://example.com/{tool_name}-{tag[1:]}-{platform}_{arch}{extension}",
         }
         for platform in platforms
         for arch in platforms[platform]
     ]
-    return {"tag_name": f"v{version}", "assets": assets}
+    return {"tag_name": tag, "assets": assets}
 
 
 def _set_mock_release_info(
     config: Config,
-    version: str = "1.2.3",
+    tag: str = "v1.2.3",
     extension: str = ".tar.gz",
 ) -> None:
     """Set the mock release info for the given config."""
     for tool_name, tool_config in config.tools.items():
         tool_config._release_info = _create_mock_release_info(
             tool_name,
-            version,
+            tag,
             config.platforms,
             extension,
         )
@@ -298,7 +298,7 @@ def test_e2e_sync_tools(
     """Test the end-to-end tool sync workflow with different configurations."""
     config = Config.from_dict(raw_config)
     config.tools_dir = tmp_path
-    _set_mock_release_info(config, version="1.2.3")
+    _set_mock_release_info(config, tag="v1.2.3")
 
     def mock_download_file(
         url: str,
@@ -340,14 +340,14 @@ def test_e2e_sync_tools_skip_up_to_date(
 
     config = Config.from_dict(raw_config)
     config.tools_dir = tmp_path  # Ensures we respect the fixture path
-    _set_mock_release_info(config, version="1.2.3")
+    _set_mock_release_info(config, tag="v1.2.3")
 
-    # Pre-populate version_store with version='1.2.3' so it should SKIP
+    # Pre-populate version_store with tag='v1.2.3' so it should SKIP
     config.version_store.update_tool_info(
         tool="mytool",
         platform="linux",
         arch="amd64",
-        version="1.2.3",
+        tag="v1.2.3",
         sha256="sha256",
     )
     bin_dir = config.bin_dir("linux", "amd64")
@@ -365,7 +365,7 @@ def test_e2e_sync_tools_skip_up_to_date(
     # and the existing version_store is unchanged.
     stored_info = config.version_store.get_tool_info("mytool", "linux", "amd64")
     assert stored_info is not None
-    assert stored_info["version"] == "1.2.3"
+    assert stored_info["tag"] == "v1.2.3"
 
     # Check that no download was attempted
     out = capsys.readouterr().out
@@ -399,14 +399,14 @@ def test_e2e_sync_tools_partial_skip_and_update(
     }
 
     config = Config.from_dict(raw_config)
-    _set_mock_release_info(config, version="2.0.0")
+    _set_mock_release_info(config, tag="v2.0.0")
 
     # Mark 'mytool' as already up-to-date
     config.version_store.update_tool_info(
         tool="mytool",
         platform="linux",
         arch="amd64",
-        version="2.0.0",
+        tag="v2.0.0",
         sha256="sha256",
     )
 
@@ -415,7 +415,7 @@ def test_e2e_sync_tools_partial_skip_and_update(
         tool="othertool",
         platform="linux",
         arch="amd64",
-        version="1.0.0",
+        tag="v1.0.0",
         sha256="sha256",
     )
 
@@ -438,15 +438,15 @@ def test_e2e_sync_tools_partial_skip_and_update(
     # 'mytool' should remain at version 2.0.0, unchanged
     mytool_info = config.version_store.get_tool_info("mytool", "linux", "amd64")
     assert mytool_info is not None
-    assert mytool_info["version"] == "2.0.0"
+    assert mytool_info["tag"] == "v2.0.0"
     # And the binary should now exist:
     other_bin = config.bin_dir("linux", "amd64") / "otherbin"
     assert other_bin.exists()
     assert os.access(other_bin, os.X_OK)
 
     # Check old version is recorded
-    assert config._update_summary.updated[0].old_version == "1.0.0"
-    assert config._update_summary.updated[0].version == "2.0.0"
+    assert config._update_summary.updated[0].old_version == "v1.0.0"
+    assert config._update_summary.updated[0].version == "v2.0.0"
 
 
 def test_e2e_sync_tools_force_re_download(tmp_path: Path, create_dummy_archive: Callable) -> None:
@@ -465,7 +465,7 @@ def test_e2e_sync_tools_force_re_download(tmp_path: Path, create_dummy_archive: 
         },
     }
     config = Config.from_dict(raw_config)
-    _set_mock_release_info(config, version="1.2.3")
+    _set_mock_release_info(config, tag="v1.2.3")
     # Mark 'mytool' as installed at 1.2.3
     config.version_store.update_tool_info("mytool", "linux", "amd64", "1.2.3", "sha256")
     tool_info = config.version_store.get_tool_info("mytool", "linux", "amd64")
@@ -500,7 +500,7 @@ def test_e2e_sync_tools_force_re_download(tmp_path: Path, create_dummy_archive: 
     # The version store should remain '1.2.3', but `updated_at` changes
     tool_info = config.version_store.get_tool_info("mytool", "linux", "amd64")
     assert tool_info is not None
-    assert tool_info["version"] == "1.2.3"
+    assert tool_info["tag"] == "v1.2.3"
     # Check that updated_at changed from the original
     assert tool_info["updated_at"] != original_updated_at
 
@@ -532,7 +532,7 @@ def test_e2e_sync_tools_specific_platform(tmp_path: Path, create_dummy_archive: 
         },
     }
     config = Config.from_dict(raw_config)
-    _set_mock_release_info(config, version="1.0.0")
+    _set_mock_release_info(config, tag="v1.0.0")
 
     downloaded_files = []
 
@@ -833,7 +833,7 @@ def test_copy_config_file(
             (dest_dir / "dotbins.yaml").touch()
 
     config = Config.from_file(cfg_path)
-    _set_mock_release_info(config, version="1.0.0")
+    _set_mock_release_info(config, tag="v1.0.0")
     assert config.tools_dir == dest_dir
     assert config.platforms == {platform: [arch]}
 
@@ -877,7 +877,7 @@ def test_update_nonexistent_platform(tmp_path: Path, capsys: pytest.CaptureFixtu
         ),
     )
     config = Config.from_file(config_path)
-    _set_mock_release_info(config, version="1.0.0")
+    _set_mock_release_info(config, tag="v1.0.0")
 
     config.sync_tools(platform="windows")
     captured = capsys.readouterr()
@@ -918,7 +918,7 @@ def test_non_extract_with_multiple_binary_names(
         ),
     )
     config = Config.from_file(config_path)
-    _set_mock_release_info(config, version="1.0.0")
+    _set_mock_release_info(config, tag="v1.0.0")
 
     def mock_download_file(
         url: str,  # noqa: ARG001
@@ -982,7 +982,7 @@ def test_non_extract_single_binary_copy(
     )
     config = Config.from_file(config_path)
     extension = ".exe" if os.name == "nt" else ".tar.gz"
-    _set_mock_release_info(config, version="1.0.0", extension=extension)
+    _set_mock_release_info(config, tag="v1.0.0", extension=extension)
 
     def mock_download_file(
         url: str,  # noqa: ARG001
@@ -1019,7 +1019,7 @@ def test_non_extract_single_binary_copy(
     # Verify the version store was updated
     tool_info = config.version_store.get_tool_info("single-bin-tool", "linux", "amd64")
     assert tool_info is not None
-    assert tool_info["version"] == "1.0.0"
+    assert tool_info["tag"] == "v1.0.0"
 
 
 def test_error_preparing_download(
@@ -1112,7 +1112,7 @@ def test_binary_not_found_error_handling(
             },
         },
     )
-    _set_mock_release_info(config, version="1.0.0")
+    _set_mock_release_info(config, tag="v1.0.0")
 
     def mock_download_file(
         url: str,  # noqa: ARG001
@@ -1184,7 +1184,7 @@ def test_auto_detect_paths_in_archive_error(
             },
         },
     )
-    _set_mock_release_info(config, version="1.0.0")
+    _set_mock_release_info(config, tag="v1.0.0")
 
     def mock_download_file(
         url: str,  # noqa: ARG001
@@ -1250,7 +1250,7 @@ def test_download_file_request_exception(
             },
         },
     )
-    _set_mock_release_info(config, version="1.0.0")
+    _set_mock_release_info(config, tag="v1.0.0")
 
     def mock_requests_get(*args, **kwargs) -> NoReturn:  # noqa: ANN002, ANN003, ARG001
         # Simulate a network error during the request
@@ -1470,7 +1470,7 @@ def test_sync_tools_with_empty_archive(
         },
     }
     config = Config.from_dict(raw_config)
-    _set_mock_release_info(config, version="1.2.3")
+    _set_mock_release_info(config, tag="v1.2.3")
 
     def mock_download_file(
         url: str,  # noqa: ARG001
@@ -1698,7 +1698,7 @@ def test_tool_shell_code_in_shell_scripts(
             "tools": tool_configs,  # type: ignore[typeddict-item]
         },
     )
-    _set_mock_release_info(config, version="1.2.3")
+    _set_mock_release_info(config, tag="v1.2.3")
 
     # Mock the download_file function
     def mock_download_file(
@@ -1899,7 +1899,7 @@ def test_tool_with_custom_tag(
     # Verify the version store was updated
     tool_info = config.version_store.get_tool_info("tool", "linux", "amd64")
     assert tool_info is not None
-    assert tool_info["version"] == "1.0.0"
+    assert tool_info["tag"] == "v1.0.0"
 
 
 def test_tool_with_custom_shell_code(

@@ -29,7 +29,7 @@ class _Spec(NamedTuple):
         return cls(*key.split("/"))
 
 
-class VersionStore:
+class LockFile:
     """Manages version information for installed tools.
 
     This class tracks which versions of each tool are installed for each platform
@@ -71,14 +71,14 @@ class VersionStore:
     def get_tool_version(self, tool: str, platform: str, arch: str) -> str | None:
         """Get version info for a specific tool/platform/arch combination."""
         info = self.get_tool_info(tool, platform, arch)
-        return info["version"] if info else None
+        return info["tag"] if info else None
 
     def update_tool_info(
         self,
         tool: str,
         platform: str,
         arch: str,
-        version: str,
+        tag: str,
         sha256: str,
     ) -> None:
         """Update version info for a tool.
@@ -87,13 +87,13 @@ class VersionStore:
             tool: Tool name
             platform: Platform (e.g., 'linux', 'macos')
             arch: Architecture (e.g., 'amd64', 'arm64')
-            version: Version string
+            tag: Tag name
             sha256: SHA256 hash of the downloaded archive
 
         """
         key = f"{tool}/{platform}/{arch}"
         self.versions[key] = {
-            "version": version,
+            "tag": tag,
             "updated_at": datetime.now().isoformat(),
             "sha256": sha256,
         }
@@ -136,7 +136,7 @@ class VersionStore:
                 spec.name,
                 spec.platform,
                 spec.architecture,
-                info["version"],
+                info["tag"],
                 updated_str,
                 info["sha256"][:8],
             )
@@ -169,7 +169,7 @@ class VersionStore:
                 {
                     "platform": spec.platform,
                     "arch": spec.architecture,
-                    "version": info["version"],
+                    "tag": info["tag"],
                     "updated_at": info["updated_at"],
                 },
             )
@@ -187,7 +187,7 @@ class VersionStore:
         table.add_column("Last Updated", style="magenta")
 
         for tool_name, instances in sorted(tools.items()):
-            version_list = sorted({i["version"] for i in instances})
+            version_list = sorted({i["tag"] for i in instances})
             platforms = sorted({f"{i['platform']}/{i['arch']}" for i in instances})
             latest_update = max(instances, key=lambda x: x["updated_at"])
             updated_str = humanize_time_ago(latest_update["updated_at"])
