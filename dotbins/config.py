@@ -27,6 +27,7 @@ from .utils import (
     humanize_time_ago,
     log,
     replace_home_in_path,
+    tag_to_version,
     write_shell_scripts,
 )
 from .versions import LockFile
@@ -723,7 +724,7 @@ def _maybe_asset_pattern(
             "ℹ️",  # noqa: RUF001
         )
         return None
-    version = tag.lstrip("v")
+    version = tag_to_version(tag)
     return (
         search_pattern.format(
             version=version,

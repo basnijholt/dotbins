@@ -17,6 +17,7 @@ from .utils import (
     extract_archive,
     log,
     replace_home_in_path,
+    tag_to_version,
 )
 
 if TYPE_CHECKING:
@@ -141,7 +142,7 @@ def _copy_binary_to_destination(
 
 def _replace_variables_in_path(path: str, tag: str, arch: str, platform: str) -> str:
     """Replace variables in a path with their values."""
-    version = tag.lstrip("v")
+    version = tag_to_version(tag)
     if "{version}" in path and version:
         path = path.replace("{version}", version)
 
