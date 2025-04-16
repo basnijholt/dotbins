@@ -51,17 +51,22 @@ class Manifest:
 
     def _load(self) -> dict[str, Any]:
         """Load version data from JSON file."""
+        legacy_file = self.manifest_file.parent / "versions.json"
+        if legacy_file.exists():
+            log("Found legacy manifest file", "info")
+            self.data = json.load(legacy_file.open())
+            log("Converting manifest format from v1 to v2", "info")
+            _version_1_to_2(self.data)
+            legacy_file.unlink()
+            self.save()
+            return self.data
         if not self.manifest_file.exists():
-            return {}
+            return {"version": MANIFEST_VERSION}
         try:
             with self.manifest_file.open() as f:
                 data = json.load(f)
         except (OSError, json.JSONDecodeError):
-            return {}
-        if data.get("version", 1) < 2:
-            # Convert old format to new one
-            log("Converting manifest format from v1 to v2", "info")
-            _version_1_to_2(data)
+            return {"version": MANIFEST_VERSION}
         return data
 
     def save(self) -> None:
@@ -69,7 +74,6 @@ class Manifest:
         self.manifest_file.parent.mkdir(parents=True, exist_ok=True)
         with self.manifest_file.open("w", encoding="utf-8") as f:
             sorted_data = dict(sorted(self.data.items()))
-            sorted_data["version"] = MANIFEST_VERSION
             json.dump(sorted_data, f, indent=2)
 
     def get_tool_info(self, tool: str, platform: str, arch: str) -> dict[str, Any] | None:
@@ -306,11 +310,9 @@ def _version_1_to_2(data: dict[str, Any]) -> None:
     """Convert old format to new one."""
     # "version" field was changed to "tag" (which includes the 'v' prefix)
     for key, value in data.items():
-        if not isinstance(value, dict):
-            continue
-
         data[key] = {
             "tag": value["version"],
             "updated_at": value["updated_at"],
             "sha256": value["sha256"],
         }
+    data["version"] = MANIFEST_VERSION
