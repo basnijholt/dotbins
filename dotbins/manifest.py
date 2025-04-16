@@ -66,6 +66,8 @@ class Manifest:
         self.manifest_file.parent.mkdir(parents=True, exist_ok=True)
         with self.manifest_file.open("w", encoding="utf-8") as f:
             sorted_data = dict(sorted(self.data.items()))
+            sorted_data.pop("version", None)
+            sorted_data = {"version": MANIFEST_VERSION, **sorted_data}
             json.dump(sorted_data, f, indent=2)
 
     def get_tool_info(self, tool: str, platform: str, arch: str) -> dict[str, Any] | None:
