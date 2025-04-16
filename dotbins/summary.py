@@ -30,7 +30,7 @@ class ToolSummaryBase:
 class UpdatedToolSummary(ToolSummaryBase):
     """Summary information for an updated tool."""
 
-    old_version: str = "none"
+    old_tag: str = "none"
     timestamp: str = field(default_factory=_get_current_timestamp)
 
 
@@ -72,7 +72,7 @@ class UpdateSummary:
                 platform=platform,
                 arch=arch,
                 tag=tag,
-                old_version=old_version,
+                old_tag=old_version,
             ),
         )
 
@@ -168,7 +168,7 @@ def display_update_summary(summary: UpdateSummary) -> None:
                 updated_item.tool,
                 updated_item.platform,
                 updated_item.arch,
-                tag_to_version(updated_item.old_version),
+                tag_to_version(updated_item.old_tag),
                 tag_to_version(updated_item.tag),
             )
 

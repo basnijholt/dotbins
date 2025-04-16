@@ -98,7 +98,7 @@ def _gather_tool_data(config: Config) -> _ToolData:
             for arch in architectures:
                 tool_info = version_store.get_tool_info(tool_name, platform, arch)
                 if tool_info:
-                    version = tool_info.get("tag", "Unknown")
+                    tag = tool_info.get("tag", "Unknown")
                     updated_at = tool_info.get("updated_at", "Unknown")
                     updated_at = _format_timestamp(updated_at)
 
@@ -107,7 +107,7 @@ def _gather_tool_data(config: Config) -> _ToolData:
                     current_marker = " ***(current)***" if is_current else ""
 
                     tool_data[tool_name]["platforms"][platform][arch] = {
-                        "tag": version,
+                        "tag": tag,
                         "updated_at": updated_at,
                         "is_current": is_current,
                         "current_marker": current_marker,

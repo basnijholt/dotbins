@@ -445,7 +445,7 @@ def test_e2e_sync_tools_partial_skip_and_update(
     assert os.access(other_bin, os.X_OK)
 
     # Check old version is recorded
-    assert config._update_summary.updated[0].old_version == "v1.0.0"
+    assert config._update_summary.updated[0].old_tag == "v1.0.0"
     assert config._update_summary.updated[0].tag == "v2.0.0"
 
 

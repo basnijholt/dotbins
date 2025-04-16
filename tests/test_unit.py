@@ -13,8 +13,8 @@ import pytest
 
 import dotbins
 from dotbins.config import BinSpec, Config, RawToolConfigDict, _find_config_file, build_tool_config
+from dotbins.lock_file import LockFile
 from dotbins.utils import replace_home_in_path
-from dotbins.versions import LockFile
 
 if TYPE_CHECKING:
     from requests_mock import Mocker

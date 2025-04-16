@@ -33,14 +33,14 @@ def test_updated_tool_summary() -> None:
         platform="linux",
         arch="amd64",
         tag="1.0.0",
-        old_version="0.9.0",
+        old_tag="0.9.0",
         timestamp=fixed_timestamp,
     )
     assert summary.tool == "test-tool"
     assert summary.platform == "linux"
     assert summary.arch == "amd64"
     assert summary.tag == "1.0.0"
-    assert summary.old_version == "0.9.0"
+    assert summary.old_tag == "0.9.0"
     assert summary.timestamp == fixed_timestamp
     # Test default values
     # Note: We can't easily test the auto-generated timestamp as it depends on current time
@@ -119,7 +119,7 @@ def test_update_summary_add_methods() -> None:
     )
     assert len(summary.updated) == 1
     assert summary.updated[0].tool == "tool1"
-    assert summary.updated[0].old_version == "0.9.0"
+    assert summary.updated[0].old_tag == "0.9.0"
 
     # Add a skipped tool
     summary.add_skipped_tool(

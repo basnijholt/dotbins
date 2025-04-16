@@ -22,8 +22,8 @@ from .utils import (
 
 if TYPE_CHECKING:
     from .config import BinSpec, Config, ToolConfig
+    from .lock_file import LockFile
     from .summary import UpdateSummary
-    from .versions import LockFile
 
 
 def _extract_binary_from_archive(

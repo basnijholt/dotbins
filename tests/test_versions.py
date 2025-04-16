@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from dotbins.config import Config
-from dotbins.versions import LockFile
+from dotbins.lock_file import LockFile
 
 
 @pytest.fixture

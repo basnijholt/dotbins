@@ -16,6 +16,7 @@ import yaml
 
 from .detect_asset import create_system_detector
 from .download import download_files_in_parallel, prepare_download_tasks, process_downloaded_files
+from .lock_file import LockFile
 from .readme import write_readme_file
 from .summary import UpdateSummary, display_update_summary
 from .utils import (
@@ -30,7 +31,6 @@ from .utils import (
     tag_to_version,
     write_shell_scripts,
 )
-from .versions import LockFile
 
 if sys.version_info >= (3, 11):
     from typing import Required
