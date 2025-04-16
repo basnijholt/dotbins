@@ -446,7 +446,7 @@ def test_e2e_sync_tools_partial_skip_and_update(
 
     # Check old version is recorded
     assert config._update_summary.updated[0].old_version == "v1.0.0"
-    assert config._update_summary.updated[0].version == "v2.0.0"
+    assert config._update_summary.updated[0].tag == "v2.0.0"
 
 
 def test_e2e_sync_tools_force_re_download(tmp_path: Path, create_dummy_archive: Callable) -> None:

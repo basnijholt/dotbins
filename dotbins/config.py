@@ -810,7 +810,7 @@ def _fetch_release(
             tool_config.tool_name,
             "Any",
             "Any",
-            version="Unknown",
+            tag="Unknown",
             reason=msg,
         )
         log(msg, "error", print_exception=verbose)

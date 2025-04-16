@@ -208,7 +208,7 @@ def _prepare_download_task(
                 tool_name,
                 platform,
                 arch,
-                version=bin_spec.tag,
+                tag=bin_spec.tag,
                 reason="Already up-to-date",
             )
             return None
@@ -218,7 +218,7 @@ def _prepare_download_task(
                 tool_name,
                 platform,
                 arch,
-                version=bin_spec.tag,
+                tag=bin_spec.tag,
                 reason="No matching asset found",
             )
             return None
@@ -242,7 +242,7 @@ def _prepare_download_task(
             tool_name,
             platform,
             arch,
-            version="Unknown",
+            tag="Unknown",
             reason=f"Error preparing download: {e!s}",
         )
         return None
@@ -270,7 +270,7 @@ def prepare_download_tasks(
                     tool_name,
                     platform,
                     architecture if architecture else "Unknown",
-                    version="Unknown",
+                    tag="Unknown",
                     reason="Platform not configured",
                 )
                 log(f"Skipping unknown platform: {platform}", "warning")
@@ -282,7 +282,7 @@ def prepare_download_tasks(
                     tool_name,
                     platform,
                     architecture if architecture else "Unknown",
-                    version="Unknown",
+                    tag="Unknown",
                     reason="No architectures configured",
                 )
                 log(f"Skipping unknown architecture: {architecture}", "warning")
