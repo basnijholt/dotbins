@@ -342,8 +342,8 @@ def test_e2e_sync_tools_skip_up_to_date(
     config.tools_dir = tmp_path  # Ensures we respect the fixture path
     _set_mock_release_info(config, tag="v1.2.3")
 
-    # Pre-populate lock_file with tag='v1.2.3' so it should SKIP
-    config._lock_file.update_tool_info(
+    # Pre-populate version_store with tag='v1.2.3' so it should SKIP
+    config.version_store.update_tool_info(
         tool="mytool",
         platform="linux",
         arch="amd64",
@@ -362,8 +362,8 @@ def test_e2e_sync_tools_skip_up_to_date(
         config.sync_tools()
 
     # If everything is skipped, no new binary is downloaded,
-    # and the existing lock_file is unchanged.
-    stored_info = config._lock_file.get_tool_info("mytool", "linux", "amd64")
+    # and the existing version_store is unchanged.
+    stored_info = config.version_store.get_tool_info("mytool", "linux", "amd64")
     assert stored_info is not None
     assert stored_info["tag"] == "v1.2.3"
 
@@ -402,7 +402,7 @@ def test_e2e_sync_tools_partial_skip_and_update(
     _set_mock_release_info(config, tag="v2.0.0")
 
     # Mark 'mytool' as already up-to-date
-    config._lock_file.update_tool_info(
+    config.version_store.update_tool_info(
         tool="mytool",
         platform="linux",
         arch="amd64",
@@ -411,7 +411,7 @@ def test_e2e_sync_tools_partial_skip_and_update(
     )
 
     # Mark 'othertool' as older so it gets updated
-    config._lock_file.update_tool_info(
+    config.version_store.update_tool_info(
         tool="othertool",
         platform="linux",
         arch="amd64",
@@ -436,7 +436,7 @@ def test_e2e_sync_tools_partial_skip_and_update(
         config.sync_tools()
 
     # 'mytool' should remain at version 2.0.0, unchanged
-    mytool_info = config._lock_file.get_tool_info("mytool", "linux", "amd64")
+    mytool_info = config.version_store.get_tool_info("mytool", "linux", "amd64")
     assert mytool_info is not None
     assert mytool_info["tag"] == "v2.0.0"
     # And the binary should now exist:
@@ -467,8 +467,8 @@ def test_e2e_sync_tools_force_re_download(tmp_path: Path, create_dummy_archive: 
     config = Config.from_dict(raw_config)
     _set_mock_release_info(config, tag="v1.2.3")
     # Mark 'mytool' as installed at 1.2.3
-    config._lock_file.update_tool_info("mytool", "linux", "amd64", "1.2.3", "sha256")
-    tool_info = config._lock_file.get_tool_info("mytool", "linux", "amd64")
+    config.version_store.update_tool_info("mytool", "linux", "amd64", "1.2.3", "sha256")
+    tool_info = config.version_store.get_tool_info("mytool", "linux", "amd64")
     assert tool_info is not None
     original_updated_at = tool_info["updated_at"]
 
@@ -498,7 +498,7 @@ def test_e2e_sync_tools_force_re_download(tmp_path: Path, create_dummy_archive: 
     assert "mytool-1.2.3-linux_amd64.tar.gz" in downloaded_urls[0]
 
     # The version store should remain '1.2.3', but `updated_at` changes
-    tool_info = config._lock_file.get_tool_info("mytool", "linux", "amd64")
+    tool_info = config.version_store.get_tool_info("mytool", "linux", "amd64")
     assert tool_info is not None
     assert tool_info["tag"] == "v1.2.3"
     # Check that updated_at changed from the original
@@ -1017,7 +1017,7 @@ def test_non_extract_single_binary_copy(
     assert "Hello from tool-binary" in binary_path.read_text()
 
     # Verify the version store was updated
-    tool_info = config._lock_file.get_tool_info("single-bin-tool", "linux", "amd64")
+    tool_info = config.version_store.get_tool_info("single-bin-tool", "linux", "amd64")
     assert tool_info is not None
     assert tool_info["tag"] == "v1.0.0"
 
@@ -1080,7 +1080,7 @@ def test_error_preparing_download(
     assert not bin_dir.exists() or not any(bin_dir.iterdir())
 
     # Verify version store doesn't have an entry for this tool
-    tool_info = config._lock_file.get_tool_info("error-tool", "linux", "amd64")
+    tool_info = config.version_store.get_tool_info("error-tool", "linux", "amd64")
     assert tool_info is None
 
 
@@ -1289,7 +1289,7 @@ def test_download_file_request_exception(
     assert not bin_dir.exists() or not any(bin_dir.iterdir())
 
     # Verify version store doesn't have an entry for this tool
-    tool_info = config._lock_file.get_tool_info("download-error-tool", "linux", "amd64")
+    tool_info = config.version_store.get_tool_info("download-error-tool", "linux", "amd64")
     assert tool_info is None
 
 
@@ -1897,7 +1897,7 @@ def test_tool_with_custom_tag(
     binary_path = bin_dir / "tool"
     assert binary_path.exists(), out
     # Verify the version store was updated
-    tool_info = config._lock_file.get_tool_info("tool", "linux", "amd64")
+    tool_info = config.version_store.get_tool_info("tool", "linux", "amd64")
     assert tool_info is not None
     assert tool_info["tag"] == "v1.0.0"
 

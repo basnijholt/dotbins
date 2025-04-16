@@ -7,7 +7,7 @@ import re
 import shutil
 import sys
 from dataclasses import dataclass, field
-from functools import partial
+from functools import cached_property, partial
 from pathlib import Path
 from typing import Literal, TypedDict
 
@@ -75,11 +75,6 @@ class Config:
     _bin_dir: Path | None = field(default=None, init=False)
     _update_summary: UpdateSummary = field(default_factory=UpdateSummary, init=False)
     _latest_releases: dict | None = field(default=None, init=False)
-    _lock_file: LockFile = field(init=False)
-
-    def __post_init__(self) -> None:
-        """Initialize LockFile handler after Config is created."""
-        self._lock_file = LockFile(self.tools_dir)
 
     def bin_dir(self, platform: str, arch: str, *, create: bool = False) -> Path:
         """Return the bin directory path for a specific platform and architecture.
@@ -120,6 +115,11 @@ class Config:
             github_token=github_token,
         )
         execute_in_parallel(tool_configs, fetch, max_workers=16)
+
+    @cached_property
+    def version_store(self) -> LockFile:
+        """Return the VersionStore object."""
+        return LockFile(self.tools_dir)
 
     def validate(self) -> None:
         """Check for missing repos, unknown platforms, etc."""
@@ -232,7 +232,7 @@ class Config:
         process_downloaded_files(
             download_tasks,
             download_successes,
-            self._lock_file,
+            self.version_store,
             self._update_summary,
             verbose,
         )
@@ -377,7 +377,7 @@ class BinSpec:
 
     def skip_download(self, config: Config, force: bool) -> bool:
         """Check if download should be skipped (binary already exists)."""
-        tool_info = config._lock_file.get_tool_info(
+        tool_info = config.version_store.get_tool_info(
             self.tool_config.tool_name,
             self.platform,
             self.arch,
@@ -389,7 +389,7 @@ class BinSpec:
         if tool_info and tool_info["tag"] == self.tag and all_exist and not force:
             dt = humanize_time_ago(tool_info["updated_at"])
             log(
-                f"[b]{self.tool_config.tool_name} {self.tag}[/] for"
+                f"[b]{self.tool_config.tool_name} v{self.tag}[/] for"
                 f" [b]{self.platform}/{self.arch}[/] is already up to date"
                 f" (installed [b]{dt}[/] ago) use --force to re-download.",
                 "success",

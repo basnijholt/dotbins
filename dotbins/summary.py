@@ -63,7 +63,7 @@ class UpdateSummary:
         platform: str,
         arch: str,
         tag: str,
-        old_tag: str = "none",
+        old_version: str = "none",
     ) -> None:
         """Add an updated tool to the summary."""
         self.updated.append(
@@ -72,7 +72,7 @@ class UpdateSummary:
                 platform=platform,
                 arch=arch,
                 tag=tag,
-                old_tag=old_tag,
+                old_tag=old_version,
             ),
         )
 
@@ -139,7 +139,7 @@ def display_update_summary(summary: UpdateSummary) -> None:
         table.add_column("Tool", style="cyan")
         table.add_column("Platform", style="magenta")
         table.add_column("Architecture", style="magenta")
-        table.add_column("Tag (Version)", style="green")
+        table.add_column("Version", style="green")
         table.add_column("Reason", style="yellow")
 
         for skipped_item in summary.skipped:
@@ -160,8 +160,8 @@ def display_update_summary(summary: UpdateSummary) -> None:
         table.add_column("Tool", style="cyan")
         table.add_column("Platform", style="magenta")
         table.add_column("Architecture", style="magenta")
-        table.add_column("Old Tag", style="yellow")
-        table.add_column("New Tag", style="green")
+        table.add_column("Old Version", style="yellow")
+        table.add_column("New Version", style="green")
 
         for updated_item in summary.updated:
             table.add_row(
@@ -181,7 +181,7 @@ def display_update_summary(summary: UpdateSummary) -> None:
         table.add_column("Tool", style="cyan")
         table.add_column("Platform", style="magenta")
         table.add_column("Architecture", style="magenta")
-        table.add_column("Tag (Version)", style="yellow")
+        table.add_column("Version", style="yellow")
         table.add_column("Reason", style="red")
 
         for failed_item in summary.failed:
