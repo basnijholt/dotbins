@@ -8,13 +8,13 @@ from pathlib import Path
 import pytest
 
 from dotbins.config import Config
-from dotbins.manifest import Manifest
+from dotbins.manifest import MANIFEST_VERSION, Manifest
 
 
 @pytest.fixture
 def temp_version_file(tmp_path: Path) -> Path:
     """Create a temporary version file with sample data."""
-    version_file = tmp_path / "versions.json"
+    version_file = tmp_path / "manifest.json"
 
     # Sample version data
     version_data = {
@@ -32,9 +32,9 @@ def temp_version_file(tmp_path: Path) -> Path:
 
 def test_manifest_init(tmp_path: Path) -> None:
     """Test initializing a Manifest."""
-    store = Manifest(tmp_path)
-    assert store.manifest_file == tmp_path / "versions.json"
-    assert store.data == {}  # Empty if file doesn't exist
+    manifest = Manifest(tmp_path)
+    assert manifest.manifest_file == tmp_path / "manifest.json"
+    assert manifest.data == {"version": MANIFEST_VERSION}  # Empty if file doesn't exist
 
 
 def test_manifest_load(
@@ -42,17 +42,17 @@ def test_manifest_load(
     temp_version_file: Path,  # noqa: ARG001
 ) -> None:
     """Test loading version data from file."""
-    store = Manifest(tmp_path)
+    manifest = Manifest(tmp_path)
 
     # Versions should be loaded from the file
-    assert len(store.data) == 3
-    assert "fzf/linux/amd64" in store.data
-    assert "bat/macos/arm64" in store.data
-    assert "version" in store.data
+    assert len(manifest.data) == 3
+    assert "fzf/linux/amd64" in manifest.data
+    assert "bat/macos/arm64" in manifest.data
+    assert "version" in manifest.data
 
     # Verify data contents
-    assert store.data["fzf/linux/amd64"]["tag"] == "0.29.0"
-    assert store.data["bat/macos/arm64"]["updated_at"] == "2023-01-02T14:30:00"
+    assert manifest.data["fzf/linux/amd64"]["tag"] == "0.29.0"
+    assert manifest.data["bat/macos/arm64"]["updated_at"] == "2023-01-02T14:30:00"
 
 
 def test_manifest_get_tool_info(
@@ -60,29 +60,29 @@ def test_manifest_get_tool_info(
     temp_version_file: Path,  # noqa: ARG001
 ) -> None:
     """Test getting tool info for a specific combination."""
-    store = Manifest(tmp_path)
+    manifest = Manifest(tmp_path)
 
     # Test getting existing tool info
-    info = store.get_tool_info("fzf", "linux", "amd64")
+    info = manifest.get_tool_info("fzf", "linux", "amd64")
     assert info is not None
     assert info["tag"] == "0.29.0"
 
     # Test for non-existent tool
-    assert store.get_tool_info("nonexistent", "linux", "amd64") is None
+    assert manifest.get_tool_info("nonexistent", "linux", "amd64") is None
 
 
 def test_manifest_update_tool_info(tmp_path: Path) -> None:
     """Test updating tool information."""
-    store = Manifest(tmp_path)
+    manifest = Manifest(tmp_path)
 
     # Before update
-    assert store.get_tool_info("ripgrep", "linux", "amd64") is None
+    assert manifest.get_tool_info("ripgrep", "linux", "amd64") is None
 
     # Update tool info
-    store.update_tool_info("ripgrep", "linux", "amd64", "13.0.0", "sha256")
+    manifest.update_tool_info("ripgrep", "linux", "amd64", "13.0.0", "sha256")
 
     # After update
-    info = store.get_tool_info("ripgrep", "linux", "amd64")
+    info = manifest.get_tool_info("ripgrep", "linux", "amd64")
     assert info is not None
     assert info["tag"] == "13.0.0"
 
@@ -90,10 +90,10 @@ def test_manifest_update_tool_info(tmp_path: Path) -> None:
     datetime.fromisoformat(info["updated_at"])  # Should not raise exception
 
     # Verify the file was created
-    assert os.path.exists(tmp_path / "versions.json")
+    assert os.path.exists(tmp_path / "manifest.json")
 
     # Read the file and check contents
-    with open(tmp_path / "versions.json") as f:
+    with open(tmp_path / "manifest.json") as f:
         saved_data = json.load(f)
 
     assert "ripgrep/linux/amd64" in saved_data
@@ -103,27 +103,27 @@ def test_manifest_update_tool_info(tmp_path: Path) -> None:
 def test_manifest_save_creates_parent_dirs(tmp_path: Path) -> None:
     """Test that save creates parent directories if needed."""
     nested_dir = tmp_path / "nested" / "path"
-    store = Manifest(nested_dir)
+    manifest = Manifest(nested_dir)
 
     # Update to trigger save
-    store.update_tool_info("test", "linux", "amd64", "1.0.0", "sha256")
+    manifest.update_tool_info("test", "linux", "amd64", "1.0.0", "sha256")
 
     # Verify directories and file were created
     assert os.path.exists(nested_dir)
-    assert os.path.exists(nested_dir / "versions.json")
+    assert os.path.exists(nested_dir / "manifest.json")
 
 
 def test_manifest_load_invalid_json(tmp_path: Path) -> None:
     """Test loading from an invalid JSON file."""
-    version_file = tmp_path / "versions.json"
+    version_file = tmp_path / "manifest.json"
 
     # Write invalid JSON
     with open(version_file, "w") as f:
         f.write("{ this is not valid JSON")
 
     # Should handle gracefully and return empty dict
-    store = Manifest(tmp_path)
-    assert store.data == {}
+    manifest = Manifest(tmp_path)
+    assert manifest.data == {"version": MANIFEST_VERSION}
 
 
 def test_manifest_update_existing(
@@ -131,18 +131,18 @@ def test_manifest_update_existing(
     temp_version_file: Path,  # noqa: ARG001
 ) -> None:
     """Test updating an existing tool entry."""
-    store = Manifest(tmp_path)
+    manifest = Manifest(tmp_path)
 
     # Initial state
-    info = store.get_tool_info("fzf", "linux", "amd64")
+    info = manifest.get_tool_info("fzf", "linux", "amd64")
     assert info is not None
     assert info["tag"] == "0.29.0"
 
     # Update to new version
-    store.update_tool_info("fzf", "linux", "amd64", "0.30.0", "sha256")
+    manifest.update_tool_info("fzf", "linux", "amd64", "0.30.0", "sha256")
 
     # Verify update
-    updated_info = store.get_tool_info("fzf", "linux", "amd64")
+    updated_info = manifest.get_tool_info("fzf", "linux", "amd64")
     assert updated_info is not None
     assert updated_info["tag"] == "0.30.0"
 
@@ -157,13 +157,13 @@ def test_manifest_print(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Test printing version information."""
-    store = Manifest(tmp_path)
-    store._print_full()
+    manifest = Manifest(tmp_path)
+    manifest._print_full()
     out, _ = capsys.readouterr()
     assert "No tool versions recorded yet." in out
 
-    store.update_tool_info("test", "linux", "amd64", "1.0.0", "sha256")
-    store._print_full()
+    manifest.update_tool_info("test", "linux", "amd64", "1.0.0", "sha256")
+    manifest._print_full()
     out, _ = capsys.readouterr()
     assert "test" in out
     assert "linux" in out
@@ -171,14 +171,14 @@ def test_manifest_print(
     assert "1.0.0" in out
 
     # Test filtering by platform
-    store.update_tool_info("test2", "macos", "arm64", "2.0.0", "sha256")
-    store._print_full(platform="linux")
+    manifest.update_tool_info("test2", "macos", "arm64", "2.0.0", "sha256")
+    manifest._print_full(platform="linux")
     out, _ = capsys.readouterr()
     assert "test" in out
     assert "test2" not in out
 
     # Test filtering by architecture
-    store._print_full(architecture="arm64")
+    manifest._print_full(architecture="arm64")
     out, _ = capsys.readouterr()
     assert "test2" in out
     # "test" might appear in the table headers, so we can't assert it's not in the output
@@ -191,17 +191,17 @@ def test_manifest_print_compact(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Test printing compact version information."""
-    store = Manifest(tmp_path)
-    store._print_compact()
+    manifest = Manifest(tmp_path)
+    manifest._print_compact()
     out, _ = capsys.readouterr()
     assert "No tool versions recorded yet." in out
 
     # Add multiple versions of the same tool
-    store.update_tool_info("testtool", "linux", "amd64", "1.0.0", "sha256")
-    store.update_tool_info("testtool", "macos", "arm64", "1.0.0", "sha256")
-    store.update_tool_info("othertool", "linux", "amd64", "2.0.0", "sha256")
+    manifest.update_tool_info("testtool", "linux", "amd64", "1.0.0", "sha256")
+    manifest.update_tool_info("testtool", "macos", "arm64", "1.0.0", "sha256")
+    manifest.update_tool_info("othertool", "linux", "amd64", "2.0.0", "sha256")
 
-    store._print_compact()
+    manifest._print_compact()
     out, _ = capsys.readouterr()
 
     # Check compact format shows just one row per tool
@@ -210,7 +210,7 @@ def test_manifest_print_compact(
     assert "linux/amd64, macos/arm64" in out or "macos/arm64, linux/amd64" in out
 
     # Test filtering in compact view
-    store._print_compact(platform="linux")
+    manifest._print_compact(platform="linux")
     out, _ = capsys.readouterr()
     assert "testtool" in out
     assert "othertool" in out
@@ -238,11 +238,11 @@ def test_print_with_missing(
     )
 
     # Create Manifest with one installed tool
-    store = Manifest(tmp_path)
-    store.update_tool_info("test", "linux", "amd64", "1.0.0", "sha256")
+    manifest = Manifest(tmp_path)
+    manifest.update_tool_info("test", "linux", "amd64", "1.0.0", "sha256")
 
     # Call the method with explicit linux platform
-    store.print(config, platform="linux")
+    manifest.print(config, platform="linux")
 
     # Check output
     out, _ = capsys.readouterr()
@@ -264,18 +264,18 @@ def test_print_with_missing(
     assert "test/repo" not in missing
     assert "dotbins sync" in missing
 
-    store.print(config, platform="windows")
+    manifest.print(config, platform="windows")
 
     out, _ = capsys.readouterr()
     assert "No tools found for the specified filters" in out
 
-    store.print(config, platform="windows", compact=True)
+    manifest.print(config, platform="windows", compact=True)
 
     out, _ = capsys.readouterr()
     assert "No tools found for the specified filters" in out
 
     # Reset the manifest
-    store = Manifest(tmp_path)
-    store.print(config, compact=True)
+    manifest = Manifest(tmp_path)
+    manifest.print(config, compact=True)
     out, _ = capsys.readouterr()
     assert "Run dotbins sync to install missing tools" in out

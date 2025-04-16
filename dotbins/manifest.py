@@ -46,20 +46,12 @@ class Manifest:
 
     def __init__(self, tools_dir: Path) -> None:
         """Initialize the Manifest."""
-        self.manifest_file = tools_dir / "versions.json"
+        self.manifest_file = tools_dir / "manifest.json"
         self.data = self._load()
 
     def _load(self) -> dict[str, Any]:
         """Load version data from JSON file."""
-        legacy_file = self.manifest_file.parent / "versions.json"
-        if legacy_file.exists():
-            log("Found legacy manifest file", "info")
-            self.data = json.load(legacy_file.open())
-            log("Converting manifest format from v1 to v2", "info")
-            _version_1_to_2(self.data)
-            legacy_file.unlink()
-            self.save()
-            return self.data
+        self._maybe_convert_legacy_manifest()
         if not self.manifest_file.exists():
             return {"version": MANIFEST_VERSION}
         try:
@@ -120,7 +112,7 @@ class Manifest:
             architecture: Filter by architecture (e.g., 'amd64', 'arm64')
 
         """
-        if not self.data:
+        if len(self.data) == 1:  # Only 'version'
             log("No tool versions recorded yet.", "info")
             return
 
@@ -168,7 +160,7 @@ class Manifest:
             architecture: Filter by architecture (e.g., 'amd64', 'arm64')
 
         """
-        if not self.data:
+        if len(self.data) == 1:  # Only 'version'
             log("No tool versions recorded yet.", "info")
             return
 
@@ -261,6 +253,17 @@ class Manifest:
                 tip = "\n[bold]Tip:[/] Run [cyan]dotbins sync[/] to install missing tools"
 
             console.print(tip)
+
+    def _maybe_convert_legacy_manifest(self) -> None:
+        """Convert legacy manifest format from v1 to v2."""
+        legacy_file = self.manifest_file.parent / "versions.json"
+        if legacy_file.exists():
+            log("Found legacy manifest file", "info")
+            self.data = json.load(legacy_file.open())
+            log("Converting manifest format from v1 to v2", "info")
+            _version_1_to_2(self.data)
+            self.save()
+            legacy_file.unlink()
 
 
 def _filter_tools(
