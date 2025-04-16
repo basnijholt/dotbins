@@ -20,6 +20,7 @@ def temp_version_file(tmp_path: Path) -> Path:
     version_data = {
         "fzf/linux/amd64": {"tag": "0.29.0", "updated_at": "2023-01-01T12:00:00"},
         "bat/macos/arm64": {"tag": "0.18.3", "updated_at": "2023-01-02T14:30:00"},
+        "version": 2,
     }
 
     # Write to file
@@ -44,9 +45,10 @@ def test_version_store_load(
     store = LockFile(tmp_path)
 
     # Versions should be loaded from the file
-    assert len(store.data) == 2
+    assert len(store.data) == 3
     assert "fzf/linux/amd64" in store.data
     assert "bat/macos/arm64" in store.data
+    assert "version" in store.data
 
     # Verify data contents
     assert store.data["fzf/linux/amd64"]["tag"] == "0.29.0"

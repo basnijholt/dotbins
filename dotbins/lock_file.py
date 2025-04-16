@@ -52,15 +52,20 @@ class LockFile:
             return {}
         try:
             with self.version_file.open() as f:
-                return json.load(f)
+                data = json.load(f)
         except (OSError, json.JSONDecodeError):
             return {}
+        if data.get("version", 1) < 2:
+            # Convert old format to new one
+            _version_1_to_2(data)
+        return data
 
     def save(self) -> None:
         """Save lock file to JSON file."""
         self.version_file.parent.mkdir(parents=True, exist_ok=True)
         with self.version_file.open("w", encoding="utf-8") as f:
             sorted_versions = dict(sorted(self.data.items()))
+            sorted_versions["version"] = 2
             json.dump(sorted_versions, f, indent=2)
 
     def get_tool_info(self, tool: str, platform: str, arch: str) -> dict[str, Any] | None:
@@ -282,12 +287,26 @@ def _expected_tools(
 
 
 def _installed_tools(
-    versions: dict[str, Any],
+    data: dict[str, Any],
     platform: str | None = None,
     architecture: str | None = None,
 ) -> list[_Spec]:
     """Return a list of tools that are installed."""
-    installed_tools = [_Spec.from_key(key) for key in versions]
+    installed_tools = [_Spec.from_key(key) for key in data if key != "version"]
     if platform or architecture:
         installed_tools = _filter_tools(installed_tools, platform, architecture)
     return installed_tools
+
+
+def _version_1_to_2(data: dict[str, Any]) -> None:
+    """Convert old format to new one."""
+    # "version" field was changed to "tag" (which includes the 'v' prefix)
+    for key, value in data.items():
+        if not isinstance(value, dict):
+            continue
+
+        data[key] = {
+            "tag": value["version"],
+            "updated_at": value["updated_at"],
+            "sha256": value["sha256"],
+        }
