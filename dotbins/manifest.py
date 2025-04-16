@@ -260,11 +260,20 @@ class Manifest:
         if legacy_file.exists():
             log(
                 "Found legacy manifest file `versions.json`: Converting manifest"
-                " format from v1 to v2 `manifest.json`.",
+                " format from v1 to v2 `manifest.json`."
+                " This might result in some tools being re-downloaded!",
                 "warning",
             )
-            self.data = json.load(legacy_file.open())
-            _version_1_to_2(self.data)
+            data = json.load(legacy_file.open())
+            # "version" field was changed to "tag" (which includes the 'v' prefix)
+            for key, value in data.items():
+                data[key] = {
+                    "tag": value["version"],
+                    "updated_at": value["updated_at"],
+                    "sha256": value["sha256"],
+                }
+            data["version"] = MANIFEST_VERSION
+            self.data = data
             self.save()
             legacy_file.unlink()
 
@@ -310,15 +319,3 @@ def _installed_tools(
     if platform or architecture:
         installed_tools = _filter_tools(installed_tools, platform, architecture)
     return installed_tools
-
-
-def _version_1_to_2(data: dict[str, Any]) -> None:
-    """Convert old format to new one."""
-    # "version" field was changed to "tag" (which includes the 'v' prefix)
-    for key, value in data.items():
-        data[key] = {
-            "tag": value["version"],
-            "updated_at": value["updated_at"],
-            "sha256": value["sha256"],
-        }
-    data["version"] = MANIFEST_VERSION
