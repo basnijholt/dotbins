@@ -18,6 +18,9 @@ if TYPE_CHECKING:
     from .config import Config
 
 
+MANIFEST_VERSION = 2
+
+
 class _Spec(NamedTuple):
     name: str
     platform: str
@@ -57,6 +60,7 @@ class Manifest:
             return {}
         if data.get("version", 1) < 2:
             # Convert old format to new one
+            log("Converting manifest format from v1 to v2", "info")
             _version_1_to_2(data)
         return data
 
@@ -64,9 +68,9 @@ class Manifest:
         """Save manifest to JSON file."""
         self.manifest_file.parent.mkdir(parents=True, exist_ok=True)
         with self.manifest_file.open("w", encoding="utf-8") as f:
-            sorted_versions = dict(sorted(self.data.items()))
-            sorted_versions["version"] = 2
-            json.dump(sorted_versions, f, indent=2)
+            sorted_data = dict(sorted(self.data.items()))
+            sorted_data["version"] = MANIFEST_VERSION
+            json.dump(sorted_data, f, indent=2)
 
     def get_tool_info(self, tool: str, platform: str, arch: str) -> dict[str, Any] | None:
         """Get version info for a specific tool/platform/arch combination."""
