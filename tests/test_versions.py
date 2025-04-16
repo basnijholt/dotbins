@@ -30,14 +30,14 @@ def temp_version_file(tmp_path: Path) -> Path:
     return version_file
 
 
-def test_version_store_init(tmp_path: Path) -> None:
+def test_manifest_init(tmp_path: Path) -> None:
     """Test initializing a Manifest."""
     store = Manifest(tmp_path)
     assert store.manifest_file == tmp_path / "versions.json"
     assert store.data == {}  # Empty if file doesn't exist
 
 
-def test_version_store_load(
+def test_manifest_load(
     tmp_path: Path,
     temp_version_file: Path,  # noqa: ARG001
 ) -> None:
@@ -55,7 +55,7 @@ def test_version_store_load(
     assert store.data["bat/macos/arm64"]["updated_at"] == "2023-01-02T14:30:00"
 
 
-def test_version_store_get_tool_info(
+def test_manifest_get_tool_info(
     tmp_path: Path,
     temp_version_file: Path,  # noqa: ARG001
 ) -> None:
@@ -71,7 +71,7 @@ def test_version_store_get_tool_info(
     assert store.get_tool_info("nonexistent", "linux", "amd64") is None
 
 
-def test_version_store_update_tool_info(tmp_path: Path) -> None:
+def test_manifest_update_tool_info(tmp_path: Path) -> None:
     """Test updating tool information."""
     store = Manifest(tmp_path)
 
@@ -100,7 +100,7 @@ def test_version_store_update_tool_info(tmp_path: Path) -> None:
     assert saved_data["ripgrep/linux/amd64"]["tag"] == "13.0.0"
 
 
-def test_version_store_save_creates_parent_dirs(tmp_path: Path) -> None:
+def test_manifest_save_creates_parent_dirs(tmp_path: Path) -> None:
     """Test that save creates parent directories if needed."""
     nested_dir = tmp_path / "nested" / "path"
     store = Manifest(nested_dir)
@@ -113,7 +113,7 @@ def test_version_store_save_creates_parent_dirs(tmp_path: Path) -> None:
     assert os.path.exists(nested_dir / "versions.json")
 
 
-def test_version_store_load_invalid_json(tmp_path: Path) -> None:
+def test_manifest_load_invalid_json(tmp_path: Path) -> None:
     """Test loading from an invalid JSON file."""
     version_file = tmp_path / "versions.json"
 
@@ -126,7 +126,7 @@ def test_version_store_load_invalid_json(tmp_path: Path) -> None:
     assert store.data == {}
 
 
-def test_version_store_update_existing(
+def test_manifest_update_existing(
     tmp_path: Path,
     temp_version_file: Path,  # noqa: ARG001
 ) -> None:
@@ -152,7 +152,7 @@ def test_version_store_update_existing(
     assert updated_time > original_time
 
 
-def test_version_store_print(
+def test_manifest_print(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -186,7 +186,7 @@ def test_version_store_print(
     assert "linux" not in out
 
 
-def test_version_store_print_compact(
+def test_manifest_print_compact(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -274,7 +274,7 @@ def test_print_with_missing(
     out, _ = capsys.readouterr()
     assert "No tools found for the specified filters" in out
 
-    # Reset the store
+    # Reset the manifest
     store = Manifest(tmp_path)
     store.print(config, compact=True)
     out, _ = capsys.readouterr()

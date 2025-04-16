@@ -287,8 +287,8 @@ def test_download_tool_already_exists(requests_mock: Mocker, tmp_path: Path) -> 
         },
     )
 
-    version_store = Manifest(tmp_path)
-    version_store.update_tool_info(
+    manifest = Manifest(tmp_path)
+    manifest.update_tool_info(
         "test-tool",
         "linux",
         "amd64",

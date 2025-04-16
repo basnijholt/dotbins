@@ -342,7 +342,7 @@ def test_e2e_sync_tools_skip_up_to_date(
     config.tools_dir = tmp_path  # Ensures we respect the fixture path
     _set_mock_release_info(config, tag="v1.2.3")
 
-    # Pre-populate version_store with tag='v1.2.3' so it should SKIP
+    # Pre-populate manifest with tag='v1.2.3' so it should SKIP
     config.manifest.update_tool_info(
         tool="mytool",
         platform="linux",
@@ -362,7 +362,7 @@ def test_e2e_sync_tools_skip_up_to_date(
         config.sync_tools()
 
     # If everything is skipped, no new binary is downloaded,
-    # and the existing version_store is unchanged.
+    # and the existing manifest is unchanged.
     stored_info = config.manifest.get_tool_info("mytool", "linux", "amd64")
     assert stored_info is not None
     assert stored_info["tag"] == "v1.2.3"
@@ -497,7 +497,7 @@ def test_e2e_sync_tools_force_re_download(tmp_path: Path, create_dummy_archive: 
     assert len(downloaded_urls) == 1
     assert "mytool-1.2.3-linux_amd64.tar.gz" in downloaded_urls[0]
 
-    # The version store should remain '1.2.3', but `updated_at` changes
+    # The manifest should remain '1.2.3', but `updated_at` changes
     tool_info = config.manifest.get_tool_info("mytool", "linux", "amd64")
     assert tool_info is not None
     assert tool_info["tag"] == "v1.2.3"
@@ -1016,7 +1016,7 @@ def test_non_extract_single_binary_copy(
     # Verify the content was copied correctly
     assert "Hello from tool-binary" in binary_path.read_text()
 
-    # Verify the version store was updated
+    # Verify the manifest was updated
     tool_info = config.manifest.get_tool_info("single-bin-tool", "linux", "amd64")
     assert tool_info is not None
     assert tool_info["tag"] == "v1.0.0"
@@ -1079,7 +1079,7 @@ def test_error_preparing_download(
     bin_dir = config.bin_dir("linux", "amd64")
     assert not bin_dir.exists() or not any(bin_dir.iterdir())
 
-    # Verify version store doesn't have an entry for this tool
+    # Verify manifest doesn't have an entry for this tool
     tool_info = config.manifest.get_tool_info("error-tool", "linux", "amd64")
     assert tool_info is None
 
@@ -1288,7 +1288,7 @@ def test_download_file_request_exception(
     bin_dir = config.bin_dir("linux", "amd64")
     assert not bin_dir.exists() or not any(bin_dir.iterdir())
 
-    # Verify version store doesn't have an entry for this tool
+    # Verify manifest doesn't have an entry for this tool
     tool_info = config.manifest.get_tool_info("download-error-tool", "linux", "amd64")
     assert tool_info is None
 
@@ -1896,7 +1896,7 @@ def test_tool_with_custom_tag(
     bin_dir = config.bin_dir("linux", "amd64")
     binary_path = bin_dir / "tool"
     assert binary_path.exists(), out
-    # Verify the version store was updated
+    # Verify the manifest was updated
     tool_info = config.manifest.get_tool_info("tool", "linux", "amd64")
     assert tool_info is not None
     assert tool_info["tag"] == "v1.0.0"

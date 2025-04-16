@@ -331,7 +331,7 @@ def download_files_in_parallel(
 def _process_downloaded_task(
     task: _DownloadTask,
     success: bool,
-    version_store: Manifest,
+    manifest: Manifest,
     summary: UpdateSummary,
     verbose: bool,
 ) -> bool:
@@ -407,9 +407,9 @@ def _process_downloaded_task(
             task.platform,
             task.arch,
             task.tag,
-            old_tag=version_store.get_tool_tag(task.tool_name, task.platform, task.arch) or "—",
+            old_tag=manifest.get_tool_tag(task.tool_name, task.platform, task.arch) or "—",
         )
-        version_store.update_tool_info(
+        manifest.update_tool_info(
             task.tool_name,
             task.platform,
             task.arch,
@@ -430,7 +430,7 @@ def _process_downloaded_task(
 def process_downloaded_files(
     download_tasks: list[_DownloadTask],
     download_successes: list[bool],
-    version_store: Manifest,
+    manifest: Manifest,
     summary: UpdateSummary,
     verbose: bool,
 ) -> None:
@@ -439,7 +439,7 @@ def process_downloaded_files(
         return
     log(f"Processing {len(download_successes)} downloaded tools...", "info", "🔄")
     for task, download_success in zip(download_tasks, download_successes):
-        _process_downloaded_task(task, download_success, version_store, summary, verbose)
+        _process_downloaded_task(task, download_success, manifest, summary, verbose)
 
 
 def _determine_architectures(
