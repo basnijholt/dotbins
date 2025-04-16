@@ -321,7 +321,7 @@ def main() -> None:  # pragma: no cover
             parser.print_help()
             return
         if args.command == "version":
-            log(f"[yellow]dotbins[/] [bold]{__version__}[/]")
+            log(f"[yellow]dotbins[/] [bold]v{__version__}[/]")
             return
 
         config = Config.from_file(args.config_file)
@@ -358,7 +358,7 @@ def main() -> None:  # pragma: no cover
                 platform, arch = current_platform()
 
             # If both --compact and --full are specified, --compact takes precedence
-            config.version_store.print(
+            config.lock_file.print(
                 config,
                 compact=not args.full,
                 platform=platform,

@@ -1,4 +1,4 @@
-"""Tests for the VersionStore class."""
+"""Tests for the LockFile class."""
 
 import json
 import os
@@ -31,7 +31,7 @@ def temp_version_file(tmp_path: Path) -> Path:
 
 
 def test_version_store_init(tmp_path: Path) -> None:
-    """Test initializing a VersionStore."""
+    """Test initializing a LockFile."""
     store = LockFile(tmp_path)
     assert store.version_file == tmp_path / "versions.json"
     assert store.data == {}  # Empty if file doesn't exist
@@ -237,7 +237,7 @@ def test_print_with_missing(
         },
     )
 
-    # Create VersionStore with one installed tool
+    # Create LockFile with one installed tool
     store = LockFile(tmp_path)
     store.update_tool_info("test", "linux", "amd64", "1.0.0", "sha256")
 

@@ -117,8 +117,8 @@ class Config:
         execute_in_parallel(tool_configs, fetch, max_workers=16)
 
     @cached_property
-    def version_store(self) -> LockFile:
-        """Return the VersionStore object."""
+    def lock_file(self) -> LockFile:
+        """Return the LockFile object."""
         return LockFile(self.tools_dir)
 
     def validate(self) -> None:
@@ -232,7 +232,7 @@ class Config:
         process_downloaded_files(
             download_tasks,
             download_successes,
-            self.version_store,
+            self.lock_file,
             self._update_summary,
             verbose,
         )
@@ -377,7 +377,7 @@ class BinSpec:
 
     def skip_download(self, config: Config, force: bool) -> bool:
         """Check if download should be skipped (binary already exists)."""
-        tool_info = config.version_store.get_tool_info(
+        tool_info = config.lock_file.get_tool_info(
             self.tool_config.tool_name,
             self.platform,
             self.arch,

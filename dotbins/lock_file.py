@@ -42,7 +42,7 @@ class LockFile:
     """
 
     def __init__(self, tools_dir: Path) -> None:
-        """Initialize the VersionStore."""
+        """Initialize the LockFile."""
         self.version_file = tools_dir / "versions.json"
         self.data = self._load()
 
@@ -73,7 +73,7 @@ class LockFile:
         key = f"{tool}/{platform}/{arch}"
         return self.data.get(key)
 
-    def get_tool_version(self, tool: str, platform: str, arch: str) -> str | None:
+    def get_tool_tag(self, tool: str, platform: str, arch: str) -> str | None:
         """Get version info for a specific tool/platform/arch combination."""
         info = self.get_tool_info(tool, platform, arch)
         return info["tag"] if info else None

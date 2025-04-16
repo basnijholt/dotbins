@@ -407,8 +407,7 @@ def _process_downloaded_task(
             task.platform,
             task.arch,
             task.tag,
-            old_version=version_store.get_tool_version(task.tool_name, task.platform, task.arch)
-            or "—",
+            old_tag=version_store.get_tool_tag(task.tool_name, task.platform, task.arch) or "—",
         )
         version_store.update_tool_info(
             task.tool_name,

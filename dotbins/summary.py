@@ -63,7 +63,7 @@ class UpdateSummary:
         platform: str,
         arch: str,
         tag: str,
-        old_version: str = "none",
+        old_tag: str = "none",
     ) -> None:
         """Add an updated tool to the summary."""
         self.updated.append(
@@ -72,7 +72,7 @@ class UpdateSummary:
                 platform=platform,
                 arch=arch,
                 tag=tag,
-                old_tag=old_version,
+                old_tag=old_tag,
             ),
         )
 

@@ -115,7 +115,7 @@ def test_update_summary_add_methods() -> None:
         platform="linux",
         arch="amd64",
         tag="1.0.0",
-        old_version="0.9.0",
+        old_tag="0.9.0",
     )
     assert len(summary.updated) == 1
     assert summary.updated[0].tool == "tool1"
