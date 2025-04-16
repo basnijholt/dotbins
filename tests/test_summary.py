@@ -111,26 +111,26 @@ def test_update_summary_add_methods() -> None:
 
     # Add an updated tool
     summary.add_updated_tool(
-        tool="tool1",
+        tool="testtool",
         platform="linux",
         arch="amd64",
-        tag="1.0.0",
-        old_version="0.9.0",
+        tag="v1.0.0",
+        old_tag="v0.9.0",
     )
     assert len(summary.updated) == 1
-    assert summary.updated[0].tool == "tool1"
-    assert summary.updated[0].old_tag == "0.9.0"
+    assert summary.updated[0].tool == "testtool"
+    assert summary.updated[0].old_tag == "v0.9.0"
 
     # Add a skipped tool
     summary.add_skipped_tool(
-        tool="tool2",
+        tool="skippedtool",
         platform="macos",
         arch="arm64",
         tag="1.0.0",
         reason="Already installed",
     )
     assert len(summary.skipped) == 1
-    assert summary.skipped[0].tool == "tool2"
+    assert summary.skipped[0].tool == "skippedtool"
     assert summary.skipped[0].reason == "Already installed"
 
     # Add a failed tool

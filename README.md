@@ -107,9 +107,9 @@ dotbins get https://github.com/basnijholt/.dotbins/blob/main/dotbins.yaml
 
 - 🌐 Supports multiple platforms (macOS, Linux, Windows) and architectures (amd64, arm64, etc.)
 - 📦 Downloads and organizes binaries from GitHub releases
-- 🔄 Installs and updates tools to their latest versions with a single command
-- 📌 Pin tools to specific versions with the `tag` parameter
-- 📊 Tracks installed versions and update timestamps for all tools
+- 🔄 Installs and updates tools to their latest tags (versions) with a single command
+- 📌 Pin tools to specific versions using the `tag` parameter (e.g., `tag: v1.2.3`)
+- 📊 Tracks installed tags (versions) and update timestamps for all tools
 - 🧩 Extracts binaries from various archive formats (zip, tar.gz)
 - 📂 Organizes tools by platform and architecture for easy access
 - 🐙 Easy integration with your dotfiles repository for version control
@@ -164,11 +164,11 @@ Positional Arguments:
                         Command to execute
     get                 Download and install a tool directly without
                         configuration file
-    sync                Install and update tools to their latest versions
+    sync                Install and update tools to their latest tags
     init                Initialize directory structure and generate shell
                         integration scripts
     list                List all available tools defined in your configuration
-    status              Show installed tool versions and when they were last
+    status              Show installed tool tags and when they were last
                         updated
     readme              Generate README.md file with information about
                         installed tools
@@ -190,26 +190,26 @@ Options:
 
 ### Commands
 
-1. **sync** - Install and update tools to their latest versions
+1. **sync** - Install and update tools to their latest tags (versions)
 2. **get** - Download and install a tool directly without using a configuration file
 3. **init** - Initialize the tools directory structure and generate a sample configuration file
 4. **list** - List available tools defined in your configuration
 5. **version** - Print version information
-6. **status** - Show detailed information about available and installed tool versions
+6. **status** - Show detailed information about available and installed tool tags (versions)
 
 ### Update Process with `dotbins sync`
 
 The `sync` command is the core of dotbins, keeping your tools up-to-date across platforms.
 Here's what happens during `dotbins sync`:
 
-1. **Version Detection**:
+1. **Tag (Version) Detection**:
 
-   - Checks each tool's current version in `versions.json`
-   - Queries GitHub API for the latest release of each tool
+   - Checks each tool's current tag (version) in `versions.json`
+   - Queries GitHub API for the latest release tag of each tool
 
 2. **Smart Updates**:
 
-   - Only downloads tools with newer versions available
+   - Only downloads tools with newer tags (versions) available
    - Skips up-to-date tools (unless `--force` is used)
    - Reports which tools were updated, skipped, or failed
 
@@ -220,7 +220,7 @@ Here's what happens during `dotbins sync`:
    - Can be limited to current system only: `dotbins sync -c`
 
 4. **File Generation**:
-   - Updates `versions.json` with new version information
+   - Updates `versions.json` with new tag (version) information
    - Regenerates shell integration scripts with PATH and tool configurations
    - Creates a README in the tools directory with installation status
 
@@ -488,11 +488,11 @@ Asset patterns support variables like `{version}`, `{platform}`, and `{arch}` th
 
 In asset patterns, you can use special variables that get replaced with actual values when dotbins searches for the correct asset to download:
 
-- `{version}` - Release version (without 'v' prefix)
+- `{version}` - Release version/tag (without 'v' prefix, e.g., `1.2.3` from `v1.2.3`)
 - `{platform}` - Platform name (after applying platform_map)
 - `{arch}` - Architecture name (after applying arch_map)
 
-For example, if a tool release has version `v2.4.0` and you're on `linux/amd64`:
+For example, if a tool release has tag `v2.4.0` and you're on `linux/amd64`:
 
 ```yaml
 mytool:
@@ -666,7 +666,7 @@ eza:
 ```yaml
 bat:
   repo: sharkdp/bat
-  tag: v0.23.0  # Pin to specific version instead of latest
+  tag: v0.23.0  # Pin to specific tag (version) instead of latest
 ```
 
 #### Shell-Specific Configuration
@@ -1070,7 +1070,7 @@ platforms:
 ### Getting Help
 
 - Enable verbose logging with `-v` flag: `dotbins sync -v`
-- Check all installed tool versions with: `dotbins status`
+- Check all installed tool tags (versions) with: `dotbins status`
 - Join GitHub Discussions for help: https://github.com/basnijholt/dotbins/discussions
 
 ---
@@ -1079,11 +1079,11 @@ platforms:
 
 `dotbins` fills a specific niche in the binary management ecosystem. Here's how it compares to key alternatives:
 
-| Tool          | Version Management                 | Shell Integration             | Dotfiles Integration           | Primary Use Case           |
+| Tool          | Tag (Version) Management           | Shell Integration             | Dotfiles Integration           | Primary Use Case           |
 | ------------- | ---------------------------------- | ----------------------------- | ------------------------------ | -------------------------- |
-| **dotbins**   | Latest only                        | **Built-in via `shell_code`** | **First-class with Git (LFS)** | Complete dotfiles solution |
+| **dotbins**   | Latest or pinned tag               | **Built-in via `shell_code`** | **First-class with Git (LFS)** | Complete dotfiles solution |
 | **binenv**    | Multiple versions with constraints | Separate completion scripts   | Not focused on                 | Development environments   |
-| **eget**      | Latest or specific only            | None                          | Not focused on                 | Quick one-off installs     |
+| **eget**      | Latest or specific tag only        | None                          | Not focused on                 | Quick one-off installs     |
 | **asdf/aqua** | Multiple plugins & versions        | Plugin-specific               | Not focused on                 | Development environments   |
 | **apt/brew**  | System packages                    | None                          | Not possible                   | System-wide management     |
 
@@ -1093,9 +1093,9 @@ platforms:
 
 #### Version Managers (e.g., `binenv`, `asdf`)
 
-- **Pros:** Advanced version management (constraints like `>=1.2.3`), multiple versions side-by-side
+- **Pros:** Advanced tag/version management (constraints like `>=1.2.3`), multiple versions side-by-side
 - **Cons vs. `dotbins`:**
-  - Focus on version management rather than dotfiles integration
+  - Focus on tag/version management rather than dotfiles integration
   - **Separate configuration needed for shell integration** (aliases, completions)
   - Often use shims or more complex architecture
 - **When to choose:** For development environments where you need multiple versions of tools
@@ -1106,7 +1106,7 @@ platforms:
 - **Cons vs. `dotbins`:**
   - No configuration for multiple tools
   - **No shell integration** for aliases or environment setup
-  - No version tracking between sessions
+  - No tag/version tracking between sessions
 - **When to choose:** For quick installation of individual tools without configuration needs
 
 #### System Package Managers (`apt`, `brew`, etc.)

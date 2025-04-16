@@ -196,7 +196,7 @@ def _prepare_download_task(
     force: bool,
     verbose: bool,
 ) -> _DownloadTask | None:
-    """Prepare a download task, checking if update is needed based on version."""
+    """Prepare a download task, checking if update is needed based on tag."""
     try:
         tool_config = config.tools[tool_name]
         if tool_config._release_info is None:
@@ -331,11 +331,11 @@ def download_files_in_parallel(
 def _process_downloaded_task(
     task: _DownloadTask,
     success: bool,
-    version_store: LockFile,
+    lock_file: LockFile,
     summary: UpdateSummary,
     verbose: bool,
 ) -> bool:
-    """Process a downloaded file."""
+    """Process a downloaded file (extract/copy) and update the lock file."""
     if not success:
         summary.add_failed_tool(
             task.tool_name,
@@ -407,10 +407,9 @@ def _process_downloaded_task(
             task.platform,
             task.arch,
             task.tag,
-            old_version=version_store.get_tool_version(task.tool_name, task.platform, task.arch)
-            or "—",
+            old_tag=lock_file.get_tool_tag(task.tool_name, task.platform, task.arch) or "—",
         )
-        version_store.update_tool_info(
+        lock_file.update_tool_info(
             task.tool_name,
             task.platform,
             task.arch,
@@ -431,16 +430,16 @@ def _process_downloaded_task(
 def process_downloaded_files(
     download_tasks: list[_DownloadTask],
     download_successes: list[bool],
-    version_store: LockFile,
+    lock_file: LockFile,
     summary: UpdateSummary,
     verbose: bool,
 ) -> None:
-    """Process downloaded files."""
+    """Process downloaded files in sequence after parallel download."""
     if not download_successes:
         return
     log(f"Processing {len(download_successes)} downloaded tools...", "info", "🔄")
     for task, download_success in zip(download_tasks, download_successes):
-        _process_downloaded_task(task, download_success, version_store, summary, verbose)
+        _process_downloaded_task(task, download_success, lock_file, summary, verbose)
 
 
 def _determine_architectures(

@@ -13,43 +13,21 @@ from dotbins.readme import generate_readme_content, write_readme_file
 
 
 @pytest.fixture
-def mock_config() -> Config:
+def mock_config(tmp_path: Path) -> Config:
     """Create a mock Config object for testing."""
-    config = MagicMock(spec=Config)
-    config.tools_dir = Path("/home/user/.dotbins")
-    config.platforms = {"linux": ["amd64", "arm64"], "macos": ["arm64"]}
-
-    # Mock tools
-    tool1 = MagicMock()
-    tool1.tool_name = "tool1"
-    tool1.repo = "user/tool1"
-    tool1.binary_name = ["tool1"]
-
-    tool2 = MagicMock()
-    tool2.tool_name = "tool2"
-    tool2.repo = "user/tool2"
-    tool2.binary_name = ["tool2"]
-
-    config.tools = {"tool1": tool1, "tool2": tool2}
-
-    # Mock version store
-    version_store = MagicMock()
-    version_store.get_tool_info.side_effect = lambda tool, _platform, _arch: (
+    return Config.from_dict(
         {
-            "tag": "1.0.0",
-            "updated_at": "2023-01-01",
-        }
-        if tool in ["tool1", "tool2"]
-        else None
+            "tools_dir": str(tmp_path),
+            "tools": {
+                "tool1": {"repo": "owner1/repo1"},
+                "tool2": {"repo": "owner2/repo2", "tag": "v1.0.0"},
+            },
+            "platforms": {
+                "linux": ["amd64", "arm64"],
+                "macos": ["arm64"],
+            },
+        },
     )
-
-    config.version_store = version_store
-
-    # Mock bin_dir to return a non-existent directory
-    config.bin_dir.return_value = MagicMock()
-    config.bin_dir.return_value.exists.return_value = False
-
-    return config
 
 
 @patch("dotbins.readme.current_platform")
@@ -57,6 +35,15 @@ def test_generate_readme_content(mock_current_platform: MagicMock, mock_config: 
     """Test that README content is correctly generated."""
     # Mock the current platform
     mock_current_platform.return_value = ("macos", "arm64")
+
+    # Mock lock_file_handler.get_tool_info on the instance
+    mock_config._lock_file.get_tool_info = MagicMock(  # type: ignore[method-assign]
+        side_effect=lambda tool, _platform, _arch: (
+            {"tag": "v0.1.0", "updated_at": "2023-01-01T12:00:00"}
+            if tool == "tool1"
+            else {"tag": "v1.0.0", "updated_at": "2023-01-02T14:30:00"}
+        ),
+    )
 
     # Patch os.path.expanduser to return a fixed path for testing
     with (
@@ -116,6 +103,27 @@ def test_generate_readme_content(mock_current_platform: MagicMock, mock_config: 
     # Should format 2023-01-01 to something like Jan 01, 2023
     assert "Jan 01, 2023" in content
 
+    # Check table headers and rows
+    assert (
+        "| Tool  | Repository   | Tag (Version) | Updated    | Platforms & Architectures |"
+        in content
+    )
+    assert (
+        "| :---- | :----------- | :------------ | :--------- | :------------------------ |"
+        in content
+    )
+    assert (
+        "| tool1 | owner1/repo1 | v0.1.0        | 2023-01-01 | linux/amd64, linux/arm64, macos/arm64 |"
+        in content
+    )
+    assert (
+        "| tool2 | owner2/repo2 | v1.0.0        | 2023-01-02 | linux/amd64, linux/arm64, macos/arm64 |"
+        in content
+    )
+
+    # Check usage section
+    assert "## Usage" in content
+
 
 def test_write_readme_file() -> None:
     """Test that README file is correctly written."""
@@ -148,13 +156,15 @@ def test_readme_with_missing_tools(mock_current_platform: MagicMock, mock_config
     mock_current_platform.return_value = ("macos", "arm64")
 
     # Update mock to return None for tool2
-    mock_config.version_store.get_tool_info.side_effect = lambda tool, _platform, _arch: (  # type: ignore[attr-defined]
-        {
-            "tag": "1.0.0",
-            "updated_at": "2023-01-01",
-        }
-        if tool == "tool1"
-        else None
+    mock_config._lock_file.get_tool_info = MagicMock(  # type: ignore[method-assign]
+        side_effect=lambda tool, _platform, _arch: (
+            {
+                "tag": "v1.0.0",  # Use v prefix
+                "updated_at": "2023-01-01",
+            }
+            if tool == "tool1"
+            else None
+        ),
     )
 
     # Generate content
@@ -228,3 +238,89 @@ def test_write_readme_file_handles_exception(
             captured = capsys.readouterr()
             out = captured.out
             assert "No such file or directory" in out, out
+
+
+def test_generate_readme_no_tools(tmp_path: Path) -> None:
+    """Test README generation with no tools configured."""
+    config = Config.from_dict({"tools_dir": str(tmp_path), "tools": {}})
+    # Mock lock_file_handler
+    lock_file_handler = MagicMock()
+    lock_file_handler.get_tool_info.return_value = None
+    config._lock_file = lock_file_handler
+
+    content = generate_readme_content(config)
+    assert "**No tools are currently configured or installed.**" in content
+
+
+def test_generate_readme_tool_not_installed(mock_config: Config) -> None:
+    """Test README generation when some tools have no lock file info."""
+    # Mock lock_file_handler to return None for tool1
+    # Patch the method on the instance
+    mock_config._lock_file.get_tool_info = MagicMock(  # type: ignore[method-assign]
+        side_effect=lambda tool, _platform, _arch: (
+            None if tool == "tool1" else {"tag": "v1.0.0", "updated_at": "2023-01-02T14:30:00"}
+        ),
+    )
+
+    content = generate_readme_content(mock_config)
+
+    # Check table headers and rows
+    assert (
+        "| Tool  | Repository   | Tag (Version) | Updated    | Platforms & Architectures |"
+        in content
+    )
+    assert (
+        "| :---- | :----------- | :------------ | :--------- | :------------------------ |"
+        in content
+    )
+    # Expect tool1 to show as Not installed
+    assert (
+        "| tool1 | owner1/repo1 | Not installed | N/A        | *linux/amd64* (missing), *linux/arm64* (missing), *macos/arm64* (missing) |"
+        in content
+    )
+    assert (
+        "| tool2 | owner2/repo2 | v1.0.0        | 2023-01-02 | linux/amd64, linux/arm64, macos/arm64 |"
+        in content
+    )
+
+    # Check usage section
+    assert "## Usage" in content
+
+
+def test_generate_readme_with_shell_code(mock_config: Config) -> None:
+    """Test README generation includes tool-specific shell configurations."""
+    mock_config.tools["tool1"].shell_code = {"bash": "echo tool1"}
+    mock_config.tools["tool2"].shell_code = {"zsh": "alias t2=tool2"}
+    # Mock lock_file_handler method on the instance
+    mock_config._lock_file.get_tool_info = MagicMock(  # type: ignore[method-assign]
+        return_value={"tag": "v0.1.0", "updated_at": "2023-01-01T12:00:00"},
+    )
+
+    content = generate_readme_content(mock_config)
+
+    assert "## Tool-Specific Configurations" in content
+    assert "### tool1" in content
+    assert "```bash" in content
+    assert "echo tool1" in content
+    assert "### tool2" in content
+    assert "```zsh" in content
+    assert "alias t2=tool2" in content
+
+
+def test_generate_readme_write_file(mock_config: Config, tmp_path: Path) -> None:
+    """Test that generate_readme calls write_readme_file."""
+    # Ensure config points to tmp_path
+    with patch("dotbins.config.Config.tools_dir", new_callable=lambda: tmp_path):
+        mock_config.tools_dir = tmp_path
+    # Mock lock_file_handler method on the instance
+    mock_config._lock_file.get_tool_info = MagicMock(  # type: ignore[method-assign]
+        return_value={"tag": "v0.1.0", "updated_at": "2023-01-01T12:00:00"},
+    )
+
+    with patch("dotbins.readme.write_readme_file") as mock_write:
+        mock_config.generate_readme(write_file=True, verbose=False)
+        mock_write.assert_called_once_with(mock_config, verbose=False)
+
+    with patch("dotbins.readme.write_readme_file") as mock_write:
+        mock_config.generate_readme(write_file=False, verbose=True)
+        mock_write.assert_not_called()

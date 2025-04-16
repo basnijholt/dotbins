@@ -1,4 +1,4 @@
-"""Version tracking for installed tools."""
+"""Tag (version) tracking for installed tools."""
 
 from __future__ import annotations
 
@@ -30,24 +30,24 @@ class _Spec(NamedTuple):
 
 
 class LockFile:
-    """Manages version information for installed tools.
+    """Manages tag (version) information for installed tools.
 
-    This class tracks which versions of each tool are installed for each platform
+    This class tracks which tags (versions) of each tool are installed for each platform
     and architecture combination, along with timestamps of when they were last updated.
     This information is used to:
 
-    1. Determine when updates are available
-    2. Avoid unnecessary downloads of the same version
+    1. Determine when updates are available based on tags
+    2. Avoid unnecessary downloads of the same tag (version)
     3. Provide information about the installed tools through the 'status' command
     """
 
     def __init__(self, tools_dir: Path) -> None:
-        """Initialize the VersionStore."""
+        """Initialize the LockFile (formerly VersionStore)."""
         self.version_file = tools_dir / "versions.json"
         self.data = self._load()
 
     def _load(self) -> dict[str, Any]:
-        """Load version data from JSON file."""
+        """Load tag (version) data from JSON file."""
         if not self.version_file.exists():
             return {}
         try:
@@ -55,13 +55,14 @@ class LockFile:
                 data = json.load(f)
         except (OSError, json.JSONDecodeError):
             return {}
-        if data.get("version", 1) < 2:
+        if data and data.get("version", 1) < 2:
             # Convert old format to new one
+            log("Converting lock file from v1 to v2 format", "info")
             _version_1_to_2(data)
         return data
 
     def save(self) -> None:
-        """Save lock file to JSON file."""
+        """Save lock file data to JSON file."""
         self.version_file.parent.mkdir(parents=True, exist_ok=True)
         with self.version_file.open("w", encoding="utf-8") as f:
             sorted_versions = dict(sorted(self.data.items()))
@@ -69,12 +70,12 @@ class LockFile:
             json.dump(sorted_versions, f, indent=2)
 
     def get_tool_info(self, tool: str, platform: str, arch: str) -> dict[str, Any] | None:
-        """Get version info for a specific tool/platform/arch combination."""
+        """Get stored info for a specific tool/platform/arch combination."""
         key = f"{tool}/{platform}/{arch}"
         return self.data.get(key)
 
-    def get_tool_version(self, tool: str, platform: str, arch: str) -> str | None:
-        """Get version info for a specific tool/platform/arch combination."""
+    def get_tool_tag(self, tool: str, platform: str, arch: str) -> str | None:
+        """Get the installed tag for a specific tool/platform/arch combination."""
         info = self.get_tool_info(tool, platform, arch)
         return info["tag"] if info else None
 
@@ -86,7 +87,7 @@ class LockFile:
         tag: str,
         sha256: str,
     ) -> None:
-        """Update version info for a tool.
+        """Update stored info for a tool.
 
         Args:
             tool: Tool name
@@ -105,7 +106,7 @@ class LockFile:
         self.save()
 
     def _print_full(self, platform: str | None = None, architecture: str | None = None) -> None:
-        """Show versions of installed tools in a formatted table.
+        """Show installed tool tags (versions) in a detailed formatted table.
 
         Args:
             platform: Filter by platform (e.g., 'linux', 'macos')
@@ -113,16 +114,16 @@ class LockFile:
 
         """
         if not self.data:
-            log("No tool versions recorded yet.", "info")
+            log("No tool tags (versions) recorded yet.", "info")
             return
 
         console = Console()
-        table = Table(title="✅ Installed Tool Versions")
+        table = Table(title="✅ Installed Tool Tags (Versions)")
 
         table.add_column("Tool", style="cyan")
         table.add_column("Platform", style="green")
         table.add_column("Architecture", style="green")
-        table.add_column("Version", style="yellow")
+        table.add_column("Tag (Version)", style="yellow")
         table.add_column("Last Updated", style="magenta")
         table.add_column("SHA256", style="dim")
 
@@ -161,7 +162,7 @@ class LockFile:
 
         """
         if not self.data:
-            log("No tool versions recorded yet.", "info")
+            log("No tool tags (versions) recorded yet.", "info")
             return
 
         tools = defaultdict(list)
@@ -187,18 +188,18 @@ class LockFile:
         table = Table(title="✅ Installed Tools Summary")
 
         table.add_column("Tool", style="cyan")
-        table.add_column("Version(s)", style="yellow")
+        table.add_column("Tag(s)", style="yellow")
         table.add_column("Platforms", style="green")
         table.add_column("Last Updated", style="magenta")
 
         for tool_name, instances in sorted(tools.items()):
-            version_list = sorted({i["tag"] for i in instances})
+            tag_list = sorted({i["tag"] for i in instances})
             platforms = sorted({f"{i['platform']}/{i['arch']}" for i in instances})
             latest_update = max(instances, key=lambda x: x["updated_at"])
             updated_str = humanize_time_ago(latest_update["updated_at"])
-            version_str = version_list[0] if len(version_list) == 1 else ", ".join(version_list)
+            tag_str = tag_list[0] if len(tag_list) == 1 else ", ".join(tag_list)
             platforms_str = ", ".join(platforms)
-            table.add_row(tool_name, version_str, platforms_str, updated_str)
+            table.add_row(tool_name, tag_str, platforms_str, updated_str)
 
         console.print(table)
 
@@ -209,7 +210,7 @@ class LockFile:
         platform: str | None = None,
         architecture: str | None = None,
     ) -> None:
-        """Show versions of installed tools and list missing tools defined in config.
+        """Show installed tool tags (versions) and list missing tools defined in config.
 
         Args:
             config: Configuration containing tool definitions
@@ -299,14 +300,15 @@ def _installed_tools(
 
 
 def _version_1_to_2(data: dict[str, Any]) -> None:
-    """Convert old format to new one."""
+    """Convert old format (v1) data to new format (v2)."""
     # "version" field was changed to "tag" (which includes the 'v' prefix)
-    for key, value in data.items():
-        if not isinstance(value, dict):
-            continue
-
+    keys_to_update = [k for k, v in data.items() if isinstance(v, dict) and "version" in v]
+    for key in keys_to_update:
+        value = data[key]
         data[key] = {
-            "tag": value["version"],
+            "tag": value["version"],  # Assume v1 format had version key
             "updated_at": value["updated_at"],
             "sha256": value["sha256"],
         }
+    # Update the top-level version key after conversion is done
+    data["version"] = 2

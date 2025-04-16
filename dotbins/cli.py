@@ -181,7 +181,7 @@ def create_parser() -> argparse.ArgumentParser:
     # sync command
     sync_parser = subparsers.add_parser(
         "sync",
-        help="Install and update tools to their latest versions",
+        help="Install and update tools to their latest tags",
         formatter_class=RichHelpFormatter,
     )
     sync_parser.add_argument(
@@ -249,7 +249,7 @@ def create_parser() -> argparse.ArgumentParser:
     # status command
     _status_parser = subparsers.add_parser(
         "status",
-        help="Show installed tool versions and when they were last updated",
+        help="Show installed tool tags (versions) and when they were last updated",
         formatter_class=RichHelpFormatter,
     )
     _status_parser.add_argument(
@@ -358,7 +358,7 @@ def main() -> None:  # pragma: no cover
                 platform, arch = current_platform()
 
             # If both --compact and --full are specified, --compact takes precedence
-            config.version_store.print(
+            config._lock_file.print(
                 config,
                 compact=not args.full,
                 platform=platform,
