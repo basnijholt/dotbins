@@ -43,15 +43,15 @@ class Manifest:
 
     def __init__(self, tools_dir: Path) -> None:
         """Initialize the Manifest."""
-        self.version_file = tools_dir / "versions.json"
+        self.manifest_file = tools_dir / "versions.json"
         self.data = self._load()
 
     def _load(self) -> dict[str, Any]:
         """Load version data from JSON file."""
-        if not self.version_file.exists():
+        if not self.manifest_file.exists():
             return {}
         try:
-            with self.version_file.open() as f:
+            with self.manifest_file.open() as f:
                 data = json.load(f)
         except (OSError, json.JSONDecodeError):
             return {}
@@ -61,9 +61,9 @@ class Manifest:
         return data
 
     def save(self) -> None:
-        """Save lock file to JSON file."""
-        self.version_file.parent.mkdir(parents=True, exist_ok=True)
-        with self.version_file.open("w", encoding="utf-8") as f:
+        """Save manifest to JSON file."""
+        self.manifest_file.parent.mkdir(parents=True, exist_ok=True)
+        with self.manifest_file.open("w", encoding="utf-8") as f:
             sorted_versions = dict(sorted(self.data.items()))
             sorted_versions["version"] = 2
             json.dump(sorted_versions, f, indent=2)

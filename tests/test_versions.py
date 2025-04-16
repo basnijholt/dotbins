@@ -33,7 +33,7 @@ def temp_version_file(tmp_path: Path) -> Path:
 def test_version_store_init(tmp_path: Path) -> None:
     """Test initializing a Manifest."""
     store = Manifest(tmp_path)
-    assert store.version_file == tmp_path / "versions.json"
+    assert store.manifest_file == tmp_path / "versions.json"
     assert store.data == {}  # Empty if file doesn't exist
 
 
