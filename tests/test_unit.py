@@ -152,7 +152,7 @@ def test_extract_from_archive_tar(tmp_path: Path, create_dummy_archive: Callable
     dotbins.download._extract_binary_from_archive(
         archive_path,
         dest_dir,
-        BinSpec(tool_config=tool_config, tag="1.0.0", arch="amd64", platform="linux"),
+        BinSpec(tool_config=tool_config, tag="v1.0.0", arch="amd64", platform="linux"),
         verbose=True,
     )
 
@@ -193,7 +193,7 @@ def test_extract_from_archive_zip(tmp_path: Path, create_dummy_archive: Callable
         dest_dir,
         BinSpec(
             tool_config=tool_config,
-            tag="1.0.0",
+            tag="v1.0.0",
             arch="amd64",
             platform="linux",
         ),
@@ -237,7 +237,7 @@ def test_extract_from_archive_nested(tmp_path: Path, create_dummy_archive: Calla
         dest_dir,
         BinSpec(
             tool_config=tool_config,
-            tag="1.0.0",
+            tag="v1.0.0",
             arch="amd64",
             platform="linux",
         ),
@@ -408,7 +408,7 @@ def test_extract_from_archive_unknown_type(tmp_path: Path) -> None:
             dest_dir,
             BinSpec(
                 tool_config=test_tool_config,
-                tag="1.0.0",
+                tag="v1.0.0",
                 arch="amd64",
                 platform="linux",
             ),
@@ -450,7 +450,7 @@ def test_extract_from_archive_missing_binary(tmp_path: Path) -> None:
             dest_dir,
             BinSpec(
                 tool_config=test_tool_config,
-                tag="1.0.0",
+                tag="v1.0.0",
                 arch="amd64",
                 platform="linux",
             ),
@@ -491,7 +491,7 @@ def test_extract_from_archive_multiple_binaries(
         dest_dir,
         BinSpec(
             tool_config=test_tool_config,
-            tag="1.0.0",
+            tag="v1.0.0",
             arch="amd64",
             platform="linux",
         ),
@@ -582,7 +582,7 @@ def test_extract_from_archive_with_arch_platform_version_in_path(
         dest_dir,
         BinSpec(
             tool_config=tool_config,
-            tag="1.0.0",
+            tag="v1.0.0",
             arch="amd64",
             platform="linux",
         ),
