@@ -16,7 +16,7 @@ import yaml
 
 from .detect_asset import create_system_detector
 from .download import download_files_in_parallel, prepare_download_tasks, process_downloaded_files
-from .lock_file import LockFile
+from .manifest import Manifest
 from .readme import write_readme_file
 from .summary import UpdateSummary, display_update_summary
 from .utils import (
@@ -117,9 +117,9 @@ class Config:
         execute_in_parallel(tool_configs, fetch, max_workers=16)
 
     @cached_property
-    def lock_file(self) -> LockFile:
-        """Return the LockFile object."""
-        return LockFile(self.tools_dir)
+    def manifest(self) -> Manifest:
+        """Return the Manifest object."""
+        return Manifest(self.tools_dir)
 
     def validate(self) -> None:
         """Check for missing repos, unknown platforms, etc."""
@@ -232,7 +232,7 @@ class Config:
         process_downloaded_files(
             download_tasks,
             download_successes,
-            self.lock_file,
+            self.manifest,
             self._update_summary,
             verbose,
         )
@@ -377,7 +377,7 @@ class BinSpec:
 
     def skip_download(self, config: Config, force: bool) -> bool:
         """Check if download should be skipped (binary already exists)."""
-        tool_info = config.lock_file.get_tool_info(
+        tool_info = config.manifest.get_tool_info(
             self.tool_config.tool_name,
             self.platform,
             self.arch,

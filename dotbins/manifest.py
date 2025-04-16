@@ -29,7 +29,7 @@ class _Spec(NamedTuple):
         return cls(*key.split("/"))
 
 
-class LockFile:
+class Manifest:
     """Manages version information for installed tools.
 
     This class tracks which versions of each tool are installed for each platform
@@ -42,7 +42,7 @@ class LockFile:
     """
 
     def __init__(self, tools_dir: Path) -> None:
-        """Initialize the LockFile."""
+        """Initialize the Manifest."""
         self.version_file = tools_dir / "versions.json"
         self.data = self._load()
 

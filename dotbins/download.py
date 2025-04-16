@@ -22,7 +22,7 @@ from .utils import (
 
 if TYPE_CHECKING:
     from .config import BinSpec, Config, ToolConfig
-    from .lock_file import LockFile
+    from .manifest import Manifest
     from .summary import UpdateSummary
 
 
@@ -331,7 +331,7 @@ def download_files_in_parallel(
 def _process_downloaded_task(
     task: _DownloadTask,
     success: bool,
-    version_store: LockFile,
+    version_store: Manifest,
     summary: UpdateSummary,
     verbose: bool,
 ) -> bool:
@@ -430,7 +430,7 @@ def _process_downloaded_task(
 def process_downloaded_files(
     download_tasks: list[_DownloadTask],
     download_successes: list[bool],
-    version_store: LockFile,
+    version_store: Manifest,
     summary: UpdateSummary,
     verbose: bool,
 ) -> None:

@@ -358,7 +358,7 @@ def main() -> None:  # pragma: no cover
                 platform, arch = current_platform()
 
             # If both --compact and --full are specified, --compact takes precedence
-            config.lock_file.print(
+            config.manifest.print(
                 config,
                 compact=not args.full,
                 platform=platform,

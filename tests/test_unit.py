@@ -13,7 +13,7 @@ import pytest
 
 import dotbins
 from dotbins.config import BinSpec, Config, RawToolConfigDict, _find_config_file, build_tool_config
-from dotbins.lock_file import LockFile
+from dotbins.manifest import Manifest
 from dotbins.utils import replace_home_in_path
 
 if TYPE_CHECKING:
@@ -287,7 +287,7 @@ def test_download_tool_already_exists(requests_mock: Mocker, tmp_path: Path) -> 
         },
     )
 
-    version_store = LockFile(tmp_path)
+    version_store = Manifest(tmp_path)
     version_store.update_tool_info(
         "test-tool",
         "linux",

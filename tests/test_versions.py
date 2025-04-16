@@ -1,4 +1,4 @@
-"""Tests for the LockFile class."""
+"""Tests for the Manifest class."""
 
 import json
 import os
@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from dotbins.config import Config
-from dotbins.lock_file import LockFile
+from dotbins.manifest import Manifest
 
 
 @pytest.fixture
@@ -31,8 +31,8 @@ def temp_version_file(tmp_path: Path) -> Path:
 
 
 def test_version_store_init(tmp_path: Path) -> None:
-    """Test initializing a LockFile."""
-    store = LockFile(tmp_path)
+    """Test initializing a Manifest."""
+    store = Manifest(tmp_path)
     assert store.version_file == tmp_path / "versions.json"
     assert store.data == {}  # Empty if file doesn't exist
 
@@ -42,7 +42,7 @@ def test_version_store_load(
     temp_version_file: Path,  # noqa: ARG001
 ) -> None:
     """Test loading version data from file."""
-    store = LockFile(tmp_path)
+    store = Manifest(tmp_path)
 
     # Versions should be loaded from the file
     assert len(store.data) == 3
@@ -60,7 +60,7 @@ def test_version_store_get_tool_info(
     temp_version_file: Path,  # noqa: ARG001
 ) -> None:
     """Test getting tool info for a specific combination."""
-    store = LockFile(tmp_path)
+    store = Manifest(tmp_path)
 
     # Test getting existing tool info
     info = store.get_tool_info("fzf", "linux", "amd64")
@@ -73,7 +73,7 @@ def test_version_store_get_tool_info(
 
 def test_version_store_update_tool_info(tmp_path: Path) -> None:
     """Test updating tool information."""
-    store = LockFile(tmp_path)
+    store = Manifest(tmp_path)
 
     # Before update
     assert store.get_tool_info("ripgrep", "linux", "amd64") is None
@@ -103,7 +103,7 @@ def test_version_store_update_tool_info(tmp_path: Path) -> None:
 def test_version_store_save_creates_parent_dirs(tmp_path: Path) -> None:
     """Test that save creates parent directories if needed."""
     nested_dir = tmp_path / "nested" / "path"
-    store = LockFile(nested_dir)
+    store = Manifest(nested_dir)
 
     # Update to trigger save
     store.update_tool_info("test", "linux", "amd64", "1.0.0", "sha256")
@@ -122,7 +122,7 @@ def test_version_store_load_invalid_json(tmp_path: Path) -> None:
         f.write("{ this is not valid JSON")
 
     # Should handle gracefully and return empty dict
-    store = LockFile(tmp_path)
+    store = Manifest(tmp_path)
     assert store.data == {}
 
 
@@ -131,7 +131,7 @@ def test_version_store_update_existing(
     temp_version_file: Path,  # noqa: ARG001
 ) -> None:
     """Test updating an existing tool entry."""
-    store = LockFile(tmp_path)
+    store = Manifest(tmp_path)
 
     # Initial state
     info = store.get_tool_info("fzf", "linux", "amd64")
@@ -157,7 +157,7 @@ def test_version_store_print(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Test printing version information."""
-    store = LockFile(tmp_path)
+    store = Manifest(tmp_path)
     store._print_full()
     out, _ = capsys.readouterr()
     assert "No tool versions recorded yet." in out
@@ -191,7 +191,7 @@ def test_version_store_print_compact(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Test printing compact version information."""
-    store = LockFile(tmp_path)
+    store = Manifest(tmp_path)
     store._print_compact()
     out, _ = capsys.readouterr()
     assert "No tool versions recorded yet." in out
@@ -237,8 +237,8 @@ def test_print_with_missing(
         },
     )
 
-    # Create LockFile with one installed tool
-    store = LockFile(tmp_path)
+    # Create Manifest with one installed tool
+    store = Manifest(tmp_path)
     store.update_tool_info("test", "linux", "amd64", "1.0.0", "sha256")
 
     # Call the method with explicit linux platform
@@ -275,7 +275,7 @@ def test_print_with_missing(
     assert "No tools found for the specified filters" in out
 
     # Reset the store
-    store = LockFile(tmp_path)
+    store = Manifest(tmp_path)
     store.print(config, compact=True)
     out, _ = capsys.readouterr()
     assert "Run dotbins sync to install missing tools" in out

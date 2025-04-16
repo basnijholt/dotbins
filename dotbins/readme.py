@@ -70,7 +70,7 @@ def _gather_tool_data(config: Config) -> _ToolData:
         - counted_archs: Set of (tool, platform, arch) tuples already counted
 
     """
-    version_store = config.lock_file
+    version_store = config.manifest
     platforms = config.platforms
     tools = sorted(config.tools.keys())
 
