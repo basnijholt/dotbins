@@ -9,6 +9,7 @@ import hashlib
 import lzma
 import os
 import platform as platform_module
+import re
 import shutil
 import sys
 import tarfile
@@ -488,3 +489,49 @@ def humanize_time_ago(date_str: str) -> str:
     if seconds > 0:
         return f"{seconds}s"
     return "0s"
+
+
+def tag_to_version(tag: str) -> str:
+    """Convert a Git tag string to a version string.
+
+    Specifically targeting tags that start with 'v' followed immediately by
+    a digit (like typical semantic version tags).
+
+    Args:
+        tag: The input tag string.
+
+    Returns:
+        The version string (tag without the leading 'v') if the tag matches
+        the pattern 'v' + digit + anything. Otherwise, returns the original
+        tag unchanged.
+
+    Examples:
+        >>> tag_to_version("v0.1.0")
+        '0.1.0'
+        >>> tag_to_version("v1.2.3-alpha.1+build.123")
+        '1.2.3-alpha.1+build.123'
+        >>> tag_to_version("v22.10")
+        '22.10'
+        >>> tag_to_version("vacation") # Does not start with 'v' + digit
+        'vacation'
+        >>> tag_to_version("latest") # Does not start with 'v'
+        'latest'
+        >>> tag_to_version("1.0.0") # Does not start with 'v'
+        '1.0.0'
+        >>> tag_to_version("v-invalid") # Does not start with 'v' + digit
+        'v-invalid'
+
+    """
+    # Regex explanation:
+    # ^       - Anchor to the start of the string
+    # v       - Match the literal character 'v'
+    # (\d.*) - Capture group 1:
+    #   \d    - Match exactly one digit (ensures it's not like "vacation")
+    #   .*    - Match any character (except newline) zero or more times
+    # $       - Anchor to the end of the string
+    match = re.match(r"^v(\d.*)$", tag)
+    if match:
+        # If the pattern matches, return the captured group (the part after 'v')
+        return match.group(1)
+    # If the pattern does not match, return the original tag
+    return tag
