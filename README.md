@@ -956,7 +956,7 @@ source "$HOME/.dotbins/shell/bash.sh"
 source "$HOME/.dotbins/shell/fish.fish"
 
 # For Nushell
-source $env.HOME/.dotbins/shell/nushell.nu
+source ~/.dotbins/shell/nushell.nu
 ```
 
 ---
