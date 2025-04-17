@@ -88,6 +88,9 @@ class Manifest:
         tag: str,
         sha256: str,
         url: str,
+        binary_name: list[str],
+        extract_archive: bool,
+        paths_in_archive: list[Path] | None,
     ) -> None:
         """Update version info for a tool.
 
@@ -98,6 +101,9 @@ class Manifest:
             tag: Tag name
             sha256: SHA256 hash of the downloaded archive
             url: URL of the downloaded archive
+            binary_name: Name(s) of the binary(ies) to extract from the archive
+            extract_archive: Whether to extract the archive
+            paths_in_archive: Paths to extract from the archive
 
         """
         key = f"{tool}/{platform}/{arch}"
@@ -106,6 +112,9 @@ class Manifest:
             "updated_at": datetime.now().isoformat(),
             "sha256": sha256,
             "url": url,
+            "binary_name": binary_name,
+            "extract_archive": extract_archive,
+            "paths_in_archive": [str(p) for p in paths_in_archive] if paths_in_archive else None,
         }
         self.save()
 

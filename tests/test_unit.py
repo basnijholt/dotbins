@@ -295,6 +295,9 @@ def test_download_tool_already_exists(requests_mock: Mocker, tmp_path: Path) -> 
         tag="1.0.0",
         sha256="sha256",
         url="https://example.com/test-tool-1.0.0-linux_amd64.tar.gz",
+        binary_name=["test-tool"],
+        extract_archive=True,
+        paths_in_archive=[Path("test-tool")],
     )
 
     config = Config(
