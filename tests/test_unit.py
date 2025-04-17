@@ -559,7 +559,7 @@ def test_extract_from_archive_with_arch_platform_version_in_path(
     create_dummy_archive(
         dest_path=archive_path,
         binary_names="test-bin",
-        nested_dir="nested-1.0.0-linux-amd64",
+        nested_dir="nested-v1.0.0-linux-amd64-1.0.0",
     )
 
     # Setup tool config
@@ -568,7 +568,7 @@ def test_extract_from_archive_with_arch_platform_version_in_path(
         raw_data={
             "repo": "test/tool",
             "binary_name": "test-tool",
-            "path_in_archive": "nested-{version}-{platform}-{arch}/test-bin",
+            "path_in_archive": "nested-{tag}-{platform}-{arch}-{version}/test-bin",
         },
     )
 
