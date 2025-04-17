@@ -410,11 +410,12 @@ def _process_downloaded_task(
             old_tag=manifest.get_tool_tag(task.tool_name, task.platform, task.arch) or "—",
         )
         manifest.update_tool_info(
-            task.tool_name,
-            task.platform,
-            task.arch,
-            task.tag,
+            tool=task.tool_name,
+            platform=task.platform,
+            arch=task.arch,
+            tag=task.tag,
             sha256=sha256_hash,
+            url=task.asset_url,
         )
 
         log(

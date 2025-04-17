@@ -87,6 +87,7 @@ class Manifest:
         arch: str,
         tag: str,
         sha256: str,
+        url: str,
     ) -> None:
         """Update version info for a tool.
 
@@ -96,6 +97,7 @@ class Manifest:
             arch: Architecture (e.g., 'amd64', 'arm64')
             tag: Tag name
             sha256: SHA256 hash of the downloaded archive
+            url: URL of the downloaded archive
 
         """
         key = f"{tool}/{platform}/{arch}"
@@ -103,6 +105,7 @@ class Manifest:
             "tag": tag,
             "updated_at": datetime.now().isoformat(),
             "sha256": sha256,
+            "url": url,
         }
         self.save()
 

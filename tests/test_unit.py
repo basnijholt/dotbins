@@ -289,11 +289,12 @@ def test_download_tool_already_exists(requests_mock: Mocker, tmp_path: Path) -> 
 
     manifest = Manifest(tmp_path)
     manifest.update_tool_info(
-        "test-tool",
-        "linux",
-        "amd64",
-        "1.0.0",
-        "sha256",
+        tool="test-tool",
+        platform="linux",
+        arch="amd64",
+        tag="1.0.0",
+        sha256="sha256",
+        url="https://example.com/test-tool-1.0.0-linux_amd64.tar.gz",
     )
 
     config = Config(

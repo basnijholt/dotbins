@@ -79,7 +79,14 @@ def test_manifest_update_tool_info(tmp_path: Path) -> None:
     assert manifest.get_tool_info("ripgrep", "linux", "amd64") is None
 
     # Update tool info
-    manifest.update_tool_info("ripgrep", "linux", "amd64", "13.0.0", "sha256")
+    manifest.update_tool_info(
+        tool="ripgrep",
+        platform="linux",
+        arch="amd64",
+        tag="13.0.0",
+        sha256="sha256",
+        url="https://example.com/ripgrep-13.0.0-linux_amd64.tar.gz",
+    )
 
     # After update
     info = manifest.get_tool_info("ripgrep", "linux", "amd64")
@@ -106,7 +113,14 @@ def test_manifest_save_creates_parent_dirs(tmp_path: Path) -> None:
     manifest = Manifest(nested_dir)
 
     # Update to trigger save
-    manifest.update_tool_info("test", "linux", "amd64", "1.0.0", "sha256")
+    manifest.update_tool_info(
+        tool="test",
+        platform="linux",
+        arch="amd64",
+        tag="1.0.0",
+        sha256="sha256",
+        url="https://example.com/test-1.0.0-linux_amd64.tar.gz",
+    )
 
     # Verify directories and file were created
     assert os.path.exists(nested_dir)
@@ -139,7 +153,14 @@ def test_manifest_update_existing(
     assert info["tag"] == "0.29.0"
 
     # Update to new version
-    manifest.update_tool_info("fzf", "linux", "amd64", "0.30.0", "sha256")
+    manifest.update_tool_info(
+        tool="fzf",
+        platform="linux",
+        arch="amd64",
+        tag="0.30.0",
+        sha256="sha256",
+        url="https://example.com/fzf-0.30.0-linux_amd64.tar.gz",
+    )
 
     # Verify update
     updated_info = manifest.get_tool_info("fzf", "linux", "amd64")
@@ -162,7 +183,14 @@ def test_manifest_print(
     out, _ = capsys.readouterr()
     assert "No tool versions recorded yet." in out
 
-    manifest.update_tool_info("test", "linux", "amd64", "1.0.0", "sha256")
+    manifest.update_tool_info(
+        tool="test",
+        platform="linux",
+        arch="amd64",
+        tag="1.0.0",
+        sha256="sha256",
+        url="https://example.com/test-1.0.0-linux_amd64.tar.gz",
+    )
     manifest._print_full()
     out, _ = capsys.readouterr()
     assert "test" in out
@@ -171,7 +199,14 @@ def test_manifest_print(
     assert "1.0.0" in out
 
     # Test filtering by platform
-    manifest.update_tool_info("test2", "macos", "arm64", "2.0.0", "sha256")
+    manifest.update_tool_info(
+        tool="test2",
+        platform="macos",
+        arch="arm64",
+        tag="2.0.0",
+        sha256="sha256",
+        url="https://example.com/test2-2.0.0-macos_arm64.tar.gz",
+    )
     manifest._print_full(platform="linux")
     out, _ = capsys.readouterr()
     assert "test" in out
@@ -197,9 +232,30 @@ def test_manifest_print_compact(
     assert "No tool versions recorded yet." in out
 
     # Add multiple versions of the same tool
-    manifest.update_tool_info("testtool", "linux", "amd64", "1.0.0", "sha256")
-    manifest.update_tool_info("testtool", "macos", "arm64", "1.0.0", "sha256")
-    manifest.update_tool_info("othertool", "linux", "amd64", "2.0.0", "sha256")
+    manifest.update_tool_info(
+        tool="testtool",
+        platform="linux",
+        arch="amd64",
+        tag="1.0.0",
+        sha256="sha256",
+        url="https://example.com/testtool-1.0.0-linux_amd64.tar.gz",
+    )
+    manifest.update_tool_info(
+        tool="testtool",
+        platform="macos",
+        arch="arm64",
+        tag="1.0.0",
+        sha256="sha256",
+        url="https://example.com/testtool-1.0.0-macos_arm64.tar.gz",
+    )
+    manifest.update_tool_info(
+        tool="othertool",
+        platform="linux",
+        arch="amd64",
+        tag="2.0.0",
+        sha256="sha256",
+        url="https://example.com/othertool-2.0.0-linux_amd64.tar.gz",
+    )
 
     manifest._print_compact()
     out, _ = capsys.readouterr()
@@ -239,7 +295,14 @@ def test_print_with_missing(
 
     # Create Manifest with one installed tool
     manifest = Manifest(tmp_path)
-    manifest.update_tool_info("test", "linux", "amd64", "1.0.0", "sha256")
+    manifest.update_tool_info(
+        tool="test",
+        platform="linux",
+        arch="amd64",
+        tag="1.0.0",
+        sha256="sha256",
+        url="https://example.com/test-1.0.0-linux_amd64.tar.gz",
+    )
 
     # Call the method with explicit linux platform
     manifest.print(config, platform="linux")
