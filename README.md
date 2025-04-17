@@ -247,7 +247,7 @@ dotbins sync --force
 # Update tools using only the versions recorded in manifest.json
 dotbins sync --pin-to-manifest
 
-# See what would be updated without making changes
+# See what is installed
 dotbins status
 ```
 
