@@ -290,11 +290,16 @@ def write_shell_scripts(
     log(f"Generated shell scripts in {tools_dir1}/shell/", "success", "📝")
     if print_shell_setup:
         tools_dir2 = replace_home_in_path(tools_dir, "$HOME")
+        tools_dir2_nu = tools_dir2.replace("$HOME", "($nu.home-path)")
         log("Add this to your shell config:", "info")
         log(f"  [b]Bash:[/]       [yellow]source {tools_dir2}/shell/bash.sh[/]", "info", "👉")
         log(f"  [b]Zsh:[/]        [yellow]source {tools_dir2}/shell/zsh.sh[/]", "info", "👉")
         log(f"  [b]Fish:[/]       [yellow]source {tools_dir2}/shell/fish.fish[/]", "info", "👉")
-        log(f"  [b]Nushell:[/]    [yellow]source {tools_dir2}/shell/nushell.nu[/]", "info", "👉")
+        log(
+            f'  [b]Nushell:[/]    [yellow]source $"{tools_dir2_nu}/shell/nushell.nu"[/]',
+            "info",
+            "👉",
+        )
         log(f"  [b]PowerShell:[/] [yellow]. {tools_dir2}/shell/powershell.ps1[/]", "info", "👉")
 
 
