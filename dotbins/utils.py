@@ -186,10 +186,10 @@ def _format_shell_instructions(
         tools_dir_str_nu = tools_dir_str.replace("$HOME", "($nu.home-path)")
         script_lines = [
             "# dotbins - Add platform-specific binaries to PATH",
-            "let _os = sys host | get name | str downcase",
+            "let _os = $nu.os-info | get name",
             'let _os = if $_os == "darwin" { "macos" } else { $_os }',
             "",
-            "let _arch = sys host | get arch",
+            "let _arch = $nu.os-info | get arch",
             'let _arch = if $_arch == "x86_64" { "amd64" } else if $_arch in ["aarch64", "arm64"] { "arm64" } else { $_arch }',
             "",
             f'$env.PATH = ($env.PATH | prepend $"{tools_dir_str_nu}/($_os)/($_arch)/bin")',
