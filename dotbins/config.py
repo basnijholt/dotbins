@@ -74,7 +74,6 @@ class Config:
     config_path: Path | None = field(default=None, init=False)
     _bin_dir: Path | None = field(default=None, init=False)
     _update_summary: UpdateSummary = field(default_factory=UpdateSummary, init=False)
-    _latest_releases: dict | None = field(default=None, init=False)
 
     def bin_dir(self, platform: str, arch: str, *, create: bool = False) -> Path:
         """Return the bin directory path for a specific platform and architecture.
@@ -219,7 +218,11 @@ class Config:
             tool_to_tag_mapping = self.manifest.tool_to_tag_mapping()
             for tool, tool_config in self.tools.items():
                 tag = tool_to_tag_mapping.get(tool)
-                log(f"Using tag {tag} for tool {tool} from manifest", "info")
+                log(
+                    f"Using tag [b]{tag}[/] for tool [b]{tool}[/] from [b]manifest.json[/]",
+                    "info",
+                    "🔒",
+                )
                 tool_config.tag = tag
 
         tools_to_sync = _tools_to_sync(self, tools)

@@ -84,6 +84,8 @@ class Manifest:
         """Get a mapping of tool names to tags."""
         mapping: dict[str, str] = {}
         for key, info in self.data.items():
+            if key == "version":
+                continue
             spec = _Spec.from_key(key)
             if spec.name in mapping and mapping[spec.name] != info["tag"]:
                 log(
