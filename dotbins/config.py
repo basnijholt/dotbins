@@ -177,7 +177,7 @@ class Config:
         github_token: str | None = None,
         verbose: bool = False,
         generate_shell_scripts: bool = True,
-        from_manifest: bool = False,
+        pin_to_manifest: bool = False,
     ) -> None:
         """Install and update tools to their latest versions.
 
@@ -204,7 +204,7 @@ class Config:
             github_token: GitHub API token for authentication (helps with rate limits)
             verbose: If True, show detailed logs during the process
             generate_shell_scripts: If True, generate shell scripts for the tools
-            from_manifest: If True, use the versions from the `manifest.json` file
+            pin_to_manifest: If True, use the tag from the `manifest.json` file
 
         """
         if not self.tools:
@@ -215,7 +215,7 @@ class Config:
             log("Using GitHub token for authentication", "info", "🔑")
             github_token = os.environ["GITHUB_TOKEN"]
 
-        if from_manifest:
+        if pin_to_manifest:
             tool_to_tag_mapping = self.manifest.tool_to_tag_mapping()
             for tool, tool_config in self.tools.items():
                 tag = tool_to_tag_mapping.get(tool)
