@@ -204,7 +204,7 @@ Here's what happens during `dotbins sync`:
 
 1. **Version Detection**:
 
-   - Checks each tool's current version in `versions.json`
+   - Checks each tool's current version in `manifest.json`
    - Queries GitHub API for the latest release of each tool
 
 2. **Smart Updates**:
@@ -220,7 +220,7 @@ Here's what happens during `dotbins sync`:
    - Can be limited to current system only: `dotbins sync -c`
 
 4. **File Generation**:
-   - Updates `versions.json` with new version information
+   - Updates `manifest.json` with new version information
    - Regenerates shell integration scripts with PATH and tool configurations
    - Creates a README in the tools directory with installation status
 
@@ -432,7 +432,7 @@ Here's what gets created:
 │   ├── nushell.nu
 │   ├── powershell.ps1
 │   └── zsh.sh
-└── versions.json          # Version tracking information
+└── manifest.json          # Version tracking information
 ```
 
 ### Tool Configuration
