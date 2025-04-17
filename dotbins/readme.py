@@ -70,8 +70,6 @@ def _gather_tool_data(config: Config) -> _ToolData:
         - counted_archs: Set of (tool, platform, arch) tuples already counted
 
     """
-    manifest = config.manifest
-    platforms = config.platforms
     tools = sorted(config.tools.keys())
 
     total_tools = 0
@@ -91,12 +89,12 @@ def _gather_tool_data(config: Config) -> _ToolData:
             tool_data[tool_name] = {"repo": repo, "repo_url": repo_url, "platforms": {}}
 
         # Add data for each platform/architecture combination
-        for platform, architectures in platforms.items():
+        for platform, architectures in config.platforms.items():
             if platform not in tool_data[tool_name]["platforms"]:
                 tool_data[tool_name]["platforms"][platform] = {}
 
             for arch in architectures:
-                tool_info = manifest.get_tool_info(tool_name, platform, arch)
+                tool_info = config.manifest.get_tool_info(tool_name, platform, arch)
                 if tool_info:
                     tag = tool_info.get("tag", "Unknown")
                     updated_at = tool_info.get("updated_at", "Unknown")
