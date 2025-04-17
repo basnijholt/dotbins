@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, NamedTuple
 from rich.console import Console
 from rich.table import Table
 
-from .utils import humanize_time_ago, log
+from .utils import humanize_time_ago, log, tag_to_version
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -194,7 +194,7 @@ class Manifest:
         table.add_column("Last Updated", style="magenta")
 
         for tool_name, instances in sorted(tools.items()):
-            version_list = sorted({i["tag"] for i in instances})
+            version_list = sorted({tag_to_version(i["tag"]) for i in instances})
             platforms = sorted({f"{i['platform']}/{i['arch']}" for i in instances})
             latest_update = max(instances, key=lambda x: x["updated_at"])
             updated_str = humanize_time_ago(latest_update["updated_at"])

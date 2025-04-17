@@ -32,7 +32,7 @@ def mock_config() -> Config:
 
     config.tools = {"tool1": tool1, "tool2": tool2}
 
-    # Mock version store
+    # Mock Manifest
     manifest = MagicMock()
     manifest.get_tool_info.side_effect = lambda tool, _platform, _arch: (
         {
