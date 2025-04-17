@@ -1981,3 +1981,87 @@ def test_tool_with_custom_shell_code(
         assert shell_script_path.exists(), out
         content = shell_script_path.read_text()
         assert f'echo "{shell}"' in content
+
+
+def test_e2e_pin_to_manifest(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+    capsys: pytest.CaptureFixture[str],
+    requests_mock: Mocker,
+) -> None:
+    """Test that pin_to_manifest=True uses the tag from the manifest."""
+    tool_name = "pinned-tool"
+    pinned_tag = "v1.0.0"
+    latest_tag = "v2.0.0"
+    platform, arch = "linux", "amd64"
+
+    raw_config: RawConfigDict = {
+        "tools_dir": str(tmp_path),
+        "platforms": {platform: [arch]},
+        "tools": {
+            tool_name: {
+                "repo": f"fakeuser/{tool_name}",
+                "binary_name": tool_name,
+            },
+        },
+    }
+
+    config = Config.from_dict(raw_config)
+
+    # 1. Pre-populate manifest with the older pinned tag
+    config.manifest.update_tool_info(
+        tool=tool_name,
+        platform=platform,
+        arch=arch,
+        tag=pinned_tag,
+        sha256="dummy-sha",
+        url=f"https://example.com/{tool_name}-{pinned_tag}-{platform}_{arch}.tar.gz",
+    )
+
+    # 2. Set the "latest" release info to a newer tag
+    requests_mock.get(
+        f"https://api.github.com/repos/fakeuser/{tool_name}/releases/tags/{pinned_tag}",
+        json={
+            "tag_name": pinned_tag,
+            "assets": [
+                {
+                    "name": f"{tool_name}-{pinned_tag}-{platform}_{arch}.tar.gz",
+                    "browser_download_url": f"https://example.com/{tool_name}-{pinned_tag}-{platform}_{arch}.tar.gz",
+                },
+            ],
+        },
+    )
+
+    # 3. Mock download to capture the URL
+    downloaded_urls = []
+
+    def mock_download_file(
+        url: str,
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        downloaded_urls.append(url)
+        create_dummy_archive(Path(destination), binary_names=tool_name)
+        return destination
+
+    # 4. Run sync_tools with pin_to_manifest=True
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools(pin_to_manifest=True, verbose=True)
+
+    # 5. Assertions
+    out = capsys.readouterr().out
+    assert f"Using tag {pinned_tag} for tool {tool_name}" in out
+
+    # Check download URL corresponds to the pinned tag
+    assert len(downloaded_urls) == 1, "Download should have happened"
+    assert pinned_tag in downloaded_urls[0], f"URL should contain pinned tag {pinned_tag}"
+    assert latest_tag not in downloaded_urls[0], f"URL should NOT contain latest tag {latest_tag}"
+
+    # Verify binary exists
+    verify_binaries_installed(config, expected_tools=[tool_name], platform=platform, arch=arch)
+
+    # Verify manifest still shows the pinned tag
+    manifest_info = config.manifest.get_tool_info(tool_name, platform, arch)
+    assert manifest_info is not None
+    assert manifest_info["tag"] == pinned_tag, "Manifest tag should remain pinned"

@@ -389,3 +389,43 @@ def test_legacy_version_store_is_upgraded(
     assert not version_file.exists()
     out, _ = capsys.readouterr()
     assert "Converting manifest" in out
+
+
+def test_tool_to_tag_mapping_warning(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test warning when tool_to_tag_mapping finds conflicting tags."""
+    manifest = Manifest(tmp_path)
+
+    # Add two entries for the same tool with different tags
+    manifest.update_tool_info(
+        tool="my-tool",
+        platform="linux",
+        arch="amd64",
+        tag="v1.0.0",
+        sha256="sha1",
+        url="url1",
+    )
+    manifest.update_tool_info(
+        tool="my-tool",
+        platform="macos",
+        arch="arm64",
+        tag="v1.1.0",  # Different tag
+        sha256="sha2",
+        url="url2",
+    )
+
+    # Call the method that should trigger the warning
+    mapping = manifest.tool_to_tag_mapping()
+
+    # Capture the output
+    out, _ = capsys.readouterr()
+
+    # Assert the warning message is present
+    assert "Tool my-tool has multiple tags" in out
+    assert "v1.0.0" in out
+    assert "v1.1.0" in out
+
+    # The mapping should contain one of the tags (the first one encountered)
+    assert mapping == {"my-tool": "v1.1.0"}

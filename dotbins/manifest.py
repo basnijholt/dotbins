@@ -89,7 +89,8 @@ class Manifest:
             spec = _Spec.from_key(key)
             if spec.name in mapping and mapping[spec.name] != info["tag"]:
                 log(
-                    f"Tool {spec.name} has multiple tags: {mapping[spec.name]} and {info['tag']}",
+                    f"Tool [b]{spec.name}[/] has multiple tags:"
+                    f" [b]{mapping[spec.name]}[/] and [b]{info['tag']}[/]",
                     "warning",
                 )
             mapping[spec.name] = info["tag"]
