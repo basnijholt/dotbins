@@ -86,6 +86,9 @@ def test_manifest_update_tool_info(tmp_path: Path) -> None:
         tag="13.0.0",
         sha256="sha256",
         url="https://example.com/ripgrep-13.0.0-linux_amd64.tar.gz",
+        binary_name=["rg"],
+        extract_archive=True,
+        paths_in_archive=[Path("rg")],
     )
 
     # After update
@@ -120,6 +123,9 @@ def test_manifest_save_creates_parent_dirs(tmp_path: Path) -> None:
         tag="1.0.0",
         sha256="sha256",
         url="https://example.com/test-1.0.0-linux_amd64.tar.gz",
+        binary_name=["test"],
+        extract_archive=True,
+        paths_in_archive=[Path("test")],
     )
 
     # Verify directories and file were created
@@ -160,6 +166,9 @@ def test_manifest_update_existing(
         tag="0.30.0",
         sha256="sha256",
         url="https://example.com/fzf-0.30.0-linux_amd64.tar.gz",
+        binary_name=["fzf"],
+        extract_archive=True,
+        paths_in_archive=[Path("fzf")],
     )
 
     # Verify update
@@ -190,6 +199,9 @@ def test_manifest_print(
         tag="1.0.0",
         sha256="sha256",
         url="https://example.com/test-1.0.0-linux_amd64.tar.gz",
+        binary_name=["test"],
+        extract_archive=True,
+        paths_in_archive=[Path("test")],
     )
     manifest._print_full()
     out, _ = capsys.readouterr()
@@ -206,6 +218,9 @@ def test_manifest_print(
         tag="2.0.0",
         sha256="sha256",
         url="https://example.com/test2-2.0.0-macos_arm64.tar.gz",
+        binary_name=["test2"],
+        extract_archive=True,
+        paths_in_archive=[Path("test2")],
     )
     manifest._print_full(platform="linux")
     out, _ = capsys.readouterr()
@@ -239,6 +254,9 @@ def test_manifest_print_compact(
         tag="1.0.0",
         sha256="sha256",
         url="https://example.com/testtool-1.0.0-linux_amd64.tar.gz",
+        binary_name=["testtool"],
+        extract_archive=True,
+        paths_in_archive=[Path("testtool")],
     )
     manifest.update_tool_info(
         tool="testtool",
@@ -247,6 +265,9 @@ def test_manifest_print_compact(
         tag="1.0.0",
         sha256="sha256",
         url="https://example.com/testtool-1.0.0-macos_arm64.tar.gz",
+        binary_name=["testtool"],
+        extract_archive=True,
+        paths_in_archive=[Path("testtool")],
     )
     manifest.update_tool_info(
         tool="othertool",
@@ -255,6 +276,9 @@ def test_manifest_print_compact(
         tag="2.0.0",
         sha256="sha256",
         url="https://example.com/othertool-2.0.0-linux_amd64.tar.gz",
+        binary_name=["othertool"],
+        extract_archive=True,
+        paths_in_archive=[Path("othertool")],
     )
 
     manifest._print_compact()
@@ -302,6 +326,9 @@ def test_print_with_missing(
         tag="1.0.0",
         sha256="sha256",
         url="https://example.com/test-1.0.0-linux_amd64.tar.gz",
+        binary_name=["test"],
+        extract_archive=True,
+        paths_in_archive=[Path("test")],
     )
 
     # Call the method with explicit linux platform
