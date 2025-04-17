@@ -224,6 +224,11 @@ Here's what happens during `dotbins sync`:
    - Regenerates shell integration scripts with PATH and tool configurations
    - Creates a README in the tools directory with installation status
 
+5. **Pinning to Manifest**:
+
+   - Use the `dotbins sync --pin-to-manifest` CLI flag to force `sync` to use the tags already recorded in `manifest.json`.
+   - This ignores the latest release information from GitHub and ensures that the installed versions match exactly what's in your manifest, which is useful for reproducibility or if your manifest file is version-controlled.
+
 Example update workflow:
 
 ```bash
@@ -238,6 +243,9 @@ dotbins sync --current
 
 # Force reinstall everything, even if up to date
 dotbins sync --force
+
+# Update tools using only the versions recorded in manifest.json
+dotbins sync --pin-to-manifest
 
 # See what would be updated without making changes
 dotbins status
