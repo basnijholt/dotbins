@@ -14,7 +14,7 @@ from dotbins.manifest import MANIFEST_VERSION, Manifest
 @pytest.fixture
 def temp_version_file(tmp_path: Path) -> Path:
     """Create a temporary version file with sample data."""
-    version_file = tmp_path / "manifest.json"
+    manifest_file = tmp_path / "manifest.json"
 
     # Sample version data
     version_data = {
@@ -24,10 +24,10 @@ def temp_version_file(tmp_path: Path) -> Path:
     }
 
     # Write to file
-    with open(version_file, "w") as f:
+    with open(manifest_file, "w") as f:
         json.dump(version_data, f)
 
-    return version_file
+    return manifest_file
 
 
 def test_manifest_init(tmp_path: Path) -> None:
@@ -115,10 +115,10 @@ def test_manifest_save_creates_parent_dirs(tmp_path: Path) -> None:
 
 def test_manifest_load_invalid_json(tmp_path: Path) -> None:
     """Test loading from an invalid JSON file."""
-    version_file = tmp_path / "manifest.json"
+    manifest_file = tmp_path / "manifest.json"
 
     # Write invalid JSON
-    with open(version_file, "w") as f:
+    with open(manifest_file, "w") as f:
         f.write("{ this is not valid JSON")
 
     # Should handle gracefully and return empty dict
@@ -279,3 +279,50 @@ def test_print_with_missing(
     manifest.print(config, compact=True)
     out, _ = capsys.readouterr()
     assert "Run dotbins sync to install missing tools" in out
+
+
+def test_legacy_version_store_is_upgraded(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test that the legacy version_store is upgraded to the new manifest format."""
+    version_file = tmp_path / "versions.json"
+
+    # Sample version data
+    version_data = {
+        "fzf/linux/amd64": {
+            "version": "0.29.0",
+            "updated_at": "2023-01-01T12:00:00",
+            "sha256": "sha256",
+        },
+        "bat/macos/arm64": {
+            "version": "0.18.3",
+            "updated_at": "2023-01-02T14:30:00",
+            "sha256": "sha256",
+        },
+    }
+
+    # Write to file
+    with open(version_file, "w") as f:
+        json.dump(version_data, f)
+
+    # Load the manifest
+    manifest = Manifest(tmp_path)
+    assert manifest.data == {
+        "fzf/linux/amd64": {
+            "tag": "0.29.0",
+            "updated_at": "2023-01-01T12:00:00",
+            "sha256": "sha256",
+        },
+        "bat/macos/arm64": {
+            "tag": "0.18.3",
+            "updated_at": "2023-01-02T14:30:00",
+            "sha256": "sha256",
+        },
+        "version": 2,
+    }
+    assert manifest.manifest_file == tmp_path / "manifest.json"
+    assert manifest.manifest_file.exists()
+    assert not version_file.exists()
+    out, _ = capsys.readouterr()
+    assert "Converting manifest" in out
