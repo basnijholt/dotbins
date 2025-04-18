@@ -2065,3 +2065,60 @@ def test_e2e_pin_to_manifest(
     manifest_info = config.manifest.get_tool_info(tool_name, platform, arch)
     assert manifest_info is not None
     assert manifest_info["tag"] == pinned_tag, "Manifest tag should remain pinned"
+
+
+def test_current_but_platform_not_configured(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+    requests_mock: Mocker,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test that current=True works even if the platform is not configured."""
+    tool_name = "tool"
+    tag = "v1.0.0"
+    raw_config: RawConfigDict = {
+        "tools_dir": str(tmp_path),
+        "platforms": {"fake_platform": ["fake_arch"]},
+        "tools": {
+            tool_name: {
+                "repo": f"fakeuser/{tool_name}",
+                "binary_name": tool_name,
+            },
+        },
+    }
+
+    config = Config.from_dict(raw_config)
+    platform, arch = current_platform()
+
+    requests_mock.get(
+        "https://api.github.com/repos/fakeuser/tool/releases/latest",
+        json={
+            "tag_name": tag,
+            "assets": [
+                {
+                    "name": f"{tool_name}-{tag}-{platform}_{arch}.tar.gz",
+                    "browser_download_url": f"https://example.com/{tool_name}-{tag}-{platform}_{arch}.tar.gz",
+                },
+            ],
+        },
+    )
+
+    downloaded_urls = []
+
+    def mock_download_file(
+        url: str,
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        downloaded_urls.append(url)
+        create_dummy_archive(Path(destination), binary_names=tool_name)
+        return destination
+
+    # 4. Run sync_tools with pin_to_manifest=True
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools(current=True, verbose=True)
+
+    assert len(downloaded_urls) == 1, "Download should have happened"
+    out = capsys.readouterr().out
+    assert "even if not configured" in out
