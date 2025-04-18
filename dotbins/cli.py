@@ -211,7 +211,9 @@ def create_parser() -> argparse.ArgumentParser:
         "-c",
         "--current",
         action="store_true",
-        help="Only install or update for the current platform and architecture (convenient shorthand)",
+        help="Install/update only for the current platform and architecture."
+        " This allows syncing for the current system even if it's not explicitly"
+        " listed in the `platforms` configuration.",
     )
     sync_parser.add_argument(
         "--pin-to-manifest",
