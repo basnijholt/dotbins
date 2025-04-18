@@ -77,7 +77,10 @@ def _process_binaries(
     bin_spec: BinSpec,
 ) -> None:
     """Process each binary by finding it and copying to destination."""
-    for path_in_archive, binary_name in zip(paths_in_archive, bin_spec.tool_config.binary_name):
+    for path_in_archive, binary_name in zip(
+        paths_in_archive,
+        bin_spec.tool_config.binary_name,
+    ):
         source_path = _find_binary_in_extracted_files(
             temp_dir,
             str(path_in_archive),
@@ -103,7 +106,12 @@ def _find_binary_in_extracted_files(
     tool_platform: str,
 ) -> Path:
     """Find a specific binary in the extracted files."""
-    path_in_archive = _replace_variables_in_path(path_in_archive, tag, tool_arch, tool_platform)
+    path_in_archive = _replace_variables_in_path(
+        path_in_archive,
+        tag,
+        tool_arch,
+        tool_platform,
+    )
 
     if "*" in path_in_archive:
         matches = list(temp_dir.glob(path_in_archive))
@@ -253,6 +261,7 @@ def prepare_download_tasks(
     tools_to_sync: list[str] | None,
     platforms_to_sync: list[str] | None,
     architecture: str | None,
+    current: bool,
     force: bool,
     verbose: bool,
 ) -> list[_DownloadTask]:
@@ -265,7 +274,12 @@ def prepare_download_tasks(
 
     for tool_name in tools_to_sync:
         for platform in platforms_to_sync:
-            if platform not in config.platforms:
+            if current:
+                log(
+                    f"Including current platform [b]{platform}[/] even if not configured",
+                    "info",
+                )
+            elif platform not in config.platforms:
                 config._update_summary.add_skipped_tool(
                     tool_name,
                     platform,
@@ -276,7 +290,7 @@ def prepare_download_tasks(
                 log(f"Skipping unknown platform: {platform}", "warning")
                 continue
 
-            archs_to_update = _determine_architectures(platform, architecture, config)
+            archs_to_update = _determine_architectures(platform, architecture, config, current)
             if not archs_to_update:
                 config._update_summary.add_skipped_tool(
                     tool_name,
@@ -289,7 +303,14 @@ def prepare_download_tasks(
                 continue
 
             for arch in archs_to_update:
-                task = _prepare_download_task(tool_name, platform, arch, config, force, verbose)
+                task = _prepare_download_task(
+                    tool_name,
+                    platform,
+                    arch,
+                    config,
+                    force,
+                    verbose,
+                )
                 if task:
                     download_tasks.append(task)
 
@@ -311,7 +332,11 @@ def _download_task(
         download_file(task.asset_url, str(task.temp_path), github_token, verbose)
         return True
     except Exception as e:
-        log(f"Error downloading {task.asset_name}: {e!s}", "error", print_exception=verbose)
+        log(
+            f"Error downloading {task.asset_name}: {e!s}",
+            "error",
+            print_exception=verbose,
+        )
         return False
 
 
@@ -384,7 +409,11 @@ def _process_downloaded_task(
                 )
                 return False
             binary_name = binary_names[0]
-            _copy_binary_to_destination(task.temp_path, task.destination_dir, binary_name)
+            _copy_binary_to_destination(
+                task.temp_path,
+                task.destination_dir,
+                binary_name,
+            )
     except Exception as e:
         # Differentiate error types for better reporting
         error_prefix = "Error processing"
@@ -392,7 +421,11 @@ def _process_downloaded_task(
             error_prefix = "Auto-detect binary paths error"
         elif isinstance(e, FileNotFoundError):
             error_prefix = "Binary not found"
-        log(f"Error processing {task.tool_name}: {e!s}", "error", print_exception=verbose)
+        log(
+            f"Error processing {task.tool_name}: {e!s}",
+            "error",
+            print_exception=verbose,
+        )
         summary.add_failed_tool(
             task.tool_name,
             task.platform,
@@ -447,8 +480,16 @@ def _determine_architectures(
     platform: str,
     architecture: str | None,
     config: Config,
+    current: bool,
 ) -> list[str]:
     """Determine which architectures to update for a platform."""
+    if current:
+        assert architecture is not None
+        log(
+            f"Including current architecture [b]{architecture}[/] even if not configured",
+            "info",
+        )
+        return [architecture]
     if architecture is not None:
         # Filter to only include the specified architecture if it's supported
         if architecture in config.platforms[platform]:

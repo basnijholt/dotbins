@@ -237,6 +237,7 @@ class Config:
             tools_to_sync,
             platforms_to_sync,
             architecture,
+            current,
             force,
             verbose,
         )
