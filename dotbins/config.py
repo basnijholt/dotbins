@@ -729,6 +729,7 @@ def _maybe_asset_pattern(
     tool_arch: str,
 ) -> str | None:
     """Get the formatted asset pattern for the tool."""
+    # asset_pattern might not contain an entry if `--current` is used
     search_pattern = tool_config.asset_patterns.get(platform, {}).get(arch)
     if search_pattern is None:
         log(
