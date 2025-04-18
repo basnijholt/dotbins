@@ -2115,7 +2115,6 @@ def test_current_but_platform_not_configured(
         create_dummy_archive(Path(destination), binary_names=tool_name)
         return destination
 
-    # 4. Run sync_tools with pin_to_manifest=True
     with patch("dotbins.download.download_file", side_effect=mock_download_file):
         config.sync_tools(current=True, verbose=True)
 
