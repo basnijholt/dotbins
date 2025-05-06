@@ -2121,3 +2121,57 @@ def test_current_but_platform_not_configured(
     assert len(downloaded_urls) == 1, "Download should have happened"
     out = capsys.readouterr().out
     assert "even if not configured" in out
+
+
+def test_i686(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+    requests_mock: Mocker,
+) -> None:
+    """Test that i686 works."""
+    tool_name = "tool"
+    tag = "v1.0.0"
+    raw_config: RawConfigDict = {
+        "tools_dir": str(tmp_path),
+        "platforms": {"linux": ["i686"]},
+        "tools": {
+            tool_name: {
+                "repo": f"fakeuser/{tool_name}",
+                "binary_name": tool_name,
+            },
+        },
+    }
+
+    config = Config.from_dict(raw_config)
+    platform, dl_arch = "linux", "i386"
+
+    requests_mock.get(
+        "https://api.github.com/repos/fakeuser/tool/releases/latest",
+        json={
+            "tag_name": tag,
+            "assets": [
+                {
+                    "name": f"{tool_name}-{tag}-{platform}_{dl_arch}.tar.gz",
+                    "browser_download_url": f"https://example.com/{tool_name}-{tag}-{platform}_{dl_arch}.tar.gz",
+                },
+            ],
+        },
+    )
+
+    downloaded_urls = []
+
+    def mock_download_file(
+        url: str,
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        downloaded_urls.append(url)
+        create_dummy_archive(Path(destination), binary_names=tool_name)
+        return destination
+
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools(verbose=True)
+
+    assert len(downloaded_urls) == 1, "Download should have happened"
+    assert (tmp_path / "linux" / "i686" / "bin" / tool_name).exists()
