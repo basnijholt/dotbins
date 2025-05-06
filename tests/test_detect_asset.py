@@ -6,7 +6,7 @@ from dotbins.detect_asset import (
     ArchAMD64,
     ArchArm,
     ArchArm64,
-    ArchI386,
+    ArchI686,
     ArchRiscv64,
     OSDarwin,
     OSLinux,
@@ -60,10 +60,10 @@ def test_arch_match() -> None:
     )  # Not matching the pattern
     assert not _match_arch(ArchAMD64, "with64suffix.tar.gz")  # Not at word boundary
 
-    assert _match_arch(ArchI386, "linux-i386.tar.gz")
-    assert _match_arch(ArchI386, "linux-386.tar.gz")
-    assert _match_arch(ArchI386, "linux-x86_32.tar.gz")
-    assert not _match_arch(ArchI386, "linux-amd64.tar.gz")
+    assert _match_arch(ArchI686, "linux-i386.tar.gz")
+    assert _match_arch(ArchI686, "linux-386.tar.gz")
+    assert _match_arch(ArchI686, "linux-x86_32.tar.gz")
+    assert not _match_arch(ArchI686, "linux-amd64.tar.gz")
 
     assert _match_arch(ArchArm, "linux-arm.tar.gz")
     assert _match_arch(ArchArm, "linux-armv6.tar.gz")
@@ -248,7 +248,7 @@ def test_system_detector_single_asset_fallback() -> None:
 
 def test_sort_arch_order() -> None:
     """Test the sort_arch function."""
-    detector = _detect_system(OSLinux, ArchI386, "musl", "msvc", True)
+    detector = _detect_system(OSLinux, ArchI686, "musl", "msvc", True)
     assets = [
         "app-linux-i386.tar.gz",
         "app-linux-i486.tar.gz",
