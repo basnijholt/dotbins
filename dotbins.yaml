@@ -68,7 +68,6 @@ tools:
 
   keychain:
     repo: funtoo/keychain
-    tag: 2.9.0_beta4
     asset_patterns: keychain
 
   uv:
