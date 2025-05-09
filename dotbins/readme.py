@@ -128,6 +128,9 @@ def _gather_tool_data(config: Config) -> _ToolData:
                         # Add sizes for all binaries
                         for binary_name in tool_config.binary_name:
                             binary_path = bin_dir / binary_name
+                            # add .exe on Windows
+                            if current_platform_name == "windows":
+                                binary_path = binary_path.with_suffix(".exe")
                             if binary_path.exists():
                                 size = binary_path.stat().st_size
                                 total_size_bytes += size
