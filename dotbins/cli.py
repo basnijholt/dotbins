@@ -126,9 +126,8 @@ def _get_tool(
         )
     config._bin_dir = dest_dir_path
     config.sync_tools(current=True, force=True, generate_readme=False, copy_config_file=False)
-    exit_code = 0 if not config._update_summary.failed else 1
+    exit_code = 1 if config._update_summary.failed else 0
     return exit_code  # noqa: RET504
-
 
 
 def create_parser() -> argparse.ArgumentParser:
