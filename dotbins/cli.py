@@ -96,7 +96,7 @@ def _get_tool(
     dest_dir: str | Path,
     name: str | None = None,
     tag: str | None = None,
-) -> None:
+) -> int:
     """Get a specific tool and install it directly to a location.
 
     This command bypasses the standard configuration and tools directory,
@@ -126,6 +126,9 @@ def _get_tool(
         )
     config._bin_dir = dest_dir_path
     config.sync_tools(current=True, force=True, generate_readme=False, copy_config_file=False)
+    exit_code = 0 if not config._update_summary.failed else 1
+    return exit_code  # noqa: RET504
+
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -323,8 +326,8 @@ def main() -> None:  # pragma: no cover
 
     try:
         if args.command == "get":
-            _get_tool(args.source, args.dest, args.name, args.tag)
-            return
+            exit_code = _get_tool(args.source, args.dest, args.name, args.tag)
+            sys.exit(exit_code)
         if args.command is None:
             parser.print_help()
             return
