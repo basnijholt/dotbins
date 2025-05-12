@@ -354,6 +354,8 @@ def main() -> None:  # pragma: no cover
                 generate_shell_scripts=not args.no_shell_scripts,
                 pin_to_manifest=args.pin_to_manifest,
             )
+            if config._update_summary.failed:
+                sys.exit(1)
         elif args.command == "readme":
             config.generate_readme(not args.no_file, args.verbose)
         elif args.command == "status":
