@@ -90,6 +90,13 @@ def _initialize(config: Config) -> None:
     config.generate_shell_scripts()
     config.generate_readme()
 
+    # Generate LFS scripts if configured
+    if config.generate_lfs_scripts:
+        from .utils import write_gitattributes_for_lfs, write_lfs_skip_smudge_script
+
+        write_lfs_skip_smudge_script(config.tools_dir, config.platforms)
+        write_gitattributes_for_lfs(config.tools_dir)
+
 
 def _get_tool(source: str, dest_dir: str | Path, name: str | None = None) -> None:
     """Get a specific tool and install it directly to a location.

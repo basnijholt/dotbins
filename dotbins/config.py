@@ -27,6 +27,8 @@ from .utils import (
     humanize_time_ago,
     log,
     replace_home_in_path,
+    write_gitattributes_for_lfs,
+    write_lfs_skip_smudge_script,
     write_shell_scripts,
 )
 from .versions import VersionStore
@@ -61,6 +63,7 @@ class Config:
     - The tools directory where binaries will be stored
     - Supported platforms and architectures
     - Tool definitions and their settings
+    - Git LFS configuration options
 
     The configuration is typically loaded from a YAML file, with tools
     organized by platform and architecture.
@@ -70,6 +73,7 @@ class Config:
     platforms: dict[str, list[str]] = field(default_factory=_default_platforms)
     tools: dict[str, ToolConfig] = field(default_factory=dict)
     defaults: DefaultsDict = field(default_factory=lambda: DEFAULTS.copy())
+    generate_lfs_scripts: bool = field(default=False)
     config_path: Path | None = field(default=None, init=False)
     _bin_dir: Path | None = field(default=None, init=False)
     _update_summary: UpdateSummary = field(default_factory=UpdateSummary, init=False)
@@ -244,6 +248,12 @@ class Config:
             self.generate_readme(verbose=verbose)
         if generate_shell_scripts:
             self.generate_shell_scripts(print_shell_setup=False)
+
+        # Generate LFS scripts if configured
+        if self.generate_lfs_scripts:
+            write_lfs_skip_smudge_script(self.tools_dir, self.platforms)
+            write_gitattributes_for_lfs(self.tools_dir)
+
         _maybe_copy_config_file(copy_config_file, self.config_path, self.tools_dir)
 
     def generate_shell_scripts(self: Config, print_shell_setup: bool = True) -> None:
@@ -514,6 +524,7 @@ def _config_from_dict(data: RawConfigDict) -> Config:
     platforms = data.get("platforms", _default_platforms())
     raw_tools = data.get("tools", {})
     raw_defaults = data.get("defaults", {})
+    generate_lfs_scripts = bool(data.get("generate_lfs_scripts", False))
 
     defaults: DefaultsDict = DEFAULTS.copy()
     defaults.update(raw_defaults)  # type: ignore[typeddict-item]
@@ -536,6 +547,7 @@ def _config_from_dict(data: RawConfigDict) -> Config:
         platforms=platforms,
         tools=tool_configs,
         defaults=defaults,
+        generate_lfs_scripts=generate_lfs_scripts,
     )
     config.validate()
     return config
