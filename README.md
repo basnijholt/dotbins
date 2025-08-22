@@ -51,6 +51,7 @@ See this example `.dotbins` repository: [basnijholt/.dotbins](https://github.com
     - [Example: AppImage preference](#example-appimage-preference)
     - [Example: Windows ABI](#example-windows-abi)
   - [Multiple Binaries](#multiple-binaries)
+  - [Git LFS Integration](#git-lfs-integration)
   - [Configuration Examples](#configuration-examples)
     - [Minimal Tool Configuration](#minimal-tool-configuration)
     - [Standard Tool](#standard-tool)
