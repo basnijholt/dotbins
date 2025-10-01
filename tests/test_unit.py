@@ -6,7 +6,7 @@ import os
 import tarfile
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Any, Callable
 from unittest.mock import patch
 
 import pytest
@@ -126,6 +126,43 @@ def test_download_file(requests_mock: Mocker, tmp_path: Path) -> None:
     assert result == dest_path
     with open(dest_path, "rb") as f:
         assert f.read() == test_content
+
+
+def test_download_file_reports_progress(requests_mock: Mocker, tmp_path: Path) -> None:
+    """Ensure download_file publishes progress updates when provided."""
+    content = b"x" * 16384
+    url = "https://example.com/progress.tar.gz"
+    requests_mock.get(url, content=content, headers={"Content-Length": str(len(content))})
+
+    class DummyProgress:
+        def __init__(self) -> None:
+            self.totals: list[int] = []
+            self.advances: list[int] = []
+
+        def update(self, task_id: int, **kwargs: Any) -> None:  # noqa: ARG002
+            total = kwargs.get("total")
+            if total is not None:
+                self.totals.append(total)
+            advance = kwargs.get("advance")
+            if advance is not None:
+                self.advances.append(advance)
+
+    progress = DummyProgress()
+    destination = tmp_path / "progress.tar.gz"
+
+    result = dotbins.download.download_file(
+        url,
+        str(destination),
+        github_token=None,
+        verbose=False,
+        progress=progress,
+        progress_task_id=1,
+    )
+
+    assert result == str(destination)
+    assert sum(progress.advances) == len(content)
+    assert progress.totals and progress.totals[-1] == len(content)
+    assert destination.read_bytes() == content
 
 
 def test_extract_from_archive_tar(tmp_path: Path, create_dummy_archive: Callable) -> None:
