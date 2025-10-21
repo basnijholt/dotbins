@@ -336,6 +336,15 @@ def test_autodetect_asset(program: str, platform: str, arch: str, expected_asset
 
         # Handle {version} placeholders by replacing with actual version or regex pattern
         if "{version}" in expected_asset:
+            # Allow fallback to MSVC when GNU artifact is not available for 'bat' on Windows
+            if (
+                program == "bat"
+                and platform == "windows"
+                and "pc-windows-gnu" in expected_asset
+                and not any("pc-windows-gnu" in a["name"] for a in release_data.get("assets", []))
+            ):
+                expected_asset = expected_asset.replace("pc-windows-gnu", "pc-windows-msvc")
+
             pattern = re.escape(expected_asset).replace(r"\{version\}", r"[\d\.]+")
             assert re.match(pattern, matching_asset["name"])
         else:
