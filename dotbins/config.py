@@ -15,6 +15,7 @@ import requests
 import yaml
 
 from .detect_asset import create_system_detector
+from .detect_binary import auto_detect_paths_in_archive
 from .download import download_files_in_parallel, prepare_download_tasks, process_downloaded_files
 from .manifest import Manifest
 from .readme import write_readme_file
@@ -396,9 +397,9 @@ class BinSpec:
             self.arch,
         )
         destination_dir = config.bin_dir(self.platform, self.arch)
-        all_exist = all(
-            (destination_dir / binary_name).exists() for binary_name in self.tool_config.binary_name
-        )
+        all_exist = len(
+            auto_detect_paths_in_archive(destination_dir, self.tool_config.binary_name)
+        ) == len(self.tool_config.binary_name)
         if tool_info and tool_info["tag"] == self.tag and all_exist and not force:
             dt = humanize_time_ago(tool_info["updated_at"])
             log(
