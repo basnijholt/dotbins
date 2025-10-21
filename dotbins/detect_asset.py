@@ -218,6 +218,23 @@ def _prioritize_assets(
     archives = _sorted(archives, os_name, libc_preference, windows_abi)
     others = _sorted(others, os_name, libc_preference, windows_abi)
     package_formats = _sorted(package_formats, os_name, libc_preference, windows_abi)
+
+    # Some projects publish multiple nearly-identical artifacts where one is a
+    # reduced feature build (e.g., zellij "no-web"). Prefer the full-featured
+    # variants when both exist by pushing reduced variants later in the list.
+    def _deprioritize_substrings(items: Assets, substrings: list[str]) -> Assets:
+        lowered = [s.lower() for s in substrings]
+        return sorted(
+            items,
+            key=lambda a: any(s in os.path.basename(a).lower() for s in lowered),
+        )
+
+    substrings_to_deprioritize = ["no-web", "no_web", "noweb"]
+    appimages = _deprioritize_substrings(appimages, substrings_to_deprioritize)
+    no_extension = _deprioritize_substrings(no_extension, substrings_to_deprioritize)
+    archives = _deprioritize_substrings(archives, substrings_to_deprioritize)
+    others = _deprioritize_substrings(others, substrings_to_deprioritize)
+    package_formats = _deprioritize_substrings(package_formats, substrings_to_deprioritize)
     return (
         appimages + no_extension + archives + others + package_formats
         if prefer_appimage
