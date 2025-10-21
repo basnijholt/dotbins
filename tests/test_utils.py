@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 import pytest
 
-from dotbins.utils import extract_archive, github_url_to_raw_url, humanize_time_ago
+from dotbins.utils import extract_archive, github_url_to_raw_url, humanize_time_ago, tag_to_version
 
 
 def test_github_url_to_raw_url() -> None:
@@ -243,3 +243,14 @@ def test_humanize_time_ago() -> None:
 
         # Test zero difference
         assert humanize_time_ago("2023-05-15T12:30:00") == "0s"
+
+
+def test_tag_to_version() -> None:
+    """Test tag_to_version with various tag strings."""
+    assert tag_to_version("v0.1.0") == "0.1.0"
+    assert tag_to_version("v1.2.3-alpha.1+build.123") == "1.2.3-alpha.1+build.123"
+    assert tag_to_version("v22.10") == "22.10"
+    assert tag_to_version("vacation") == "vacation"
+    assert tag_to_version("latest") == "latest"
+    assert tag_to_version("1.0.0") == "1.0.0"
+    assert tag_to_version("v-invalid") == "v-invalid"

@@ -91,7 +91,12 @@ def _initialize(config: Config) -> None:
     config.generate_readme()
 
 
-def _get_tool(source: str, dest_dir: str | Path, name: str | None = None) -> None:
+def _get_tool(
+    source: str,
+    dest_dir: str | Path,
+    name: str | None = None,
+    tag: str | None = None,
+) -> int:
     """Get a specific tool and install it directly to a location.
 
     This command bypasses the standard configuration and tools directory,
@@ -102,6 +107,7 @@ def _get_tool(source: str, dest_dir: str | Path, name: str | None = None) -> Non
         source: GitHub repository in the format 'owner/repo' or URL/path to a YAML configuration file.
         dest_dir: Directory to install the binary to (e.g., ~/.local/bin)
         name: Optional name to use for the binary (defaults to repo name)
+        tag: Optional tag to use for the binary (if None, the latest release will be used)
 
     """
     platform, arch = current_platform()
@@ -116,10 +122,12 @@ def _get_tool(source: str, dest_dir: str | Path, name: str | None = None) -> Non
         config = Config(
             tools_dir=dest_dir_path,
             platforms={platform: [arch]},
-            tools={tool_name: build_tool_config(tool_name, {"repo": source})},
+            tools={tool_name: build_tool_config(tool_name, {"repo": source, "tag": tag})},
         )
     config._bin_dir = dest_dir_path
     config.sync_tools(current=True, force=True, generate_readme=False, copy_config_file=False)
+    exit_code = 1 if config._update_summary.failed else 0
+    return exit_code  # noqa: RET504
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -167,6 +175,10 @@ def create_parser() -> argparse.ArgumentParser:
         "--name",
         help="Name to use for the binary (defaults to repository name if not specified) and is ignored if source is a URL",
     )
+    get_parser.add_argument(
+        "--tag",
+        help="Tag to use for the binary (if None, the latest release will be used)",
+    )
 
     # sync command
     sync_parser = subparsers.add_parser(
@@ -201,7 +213,15 @@ def create_parser() -> argparse.ArgumentParser:
         "-c",
         "--current",
         action="store_true",
-        help="Only install or update for the current platform and architecture (convenient shorthand)",
+        help="Install/update only for the current platform and architecture."
+        " This allows syncing for the current system even if it's not explicitly"
+        " listed in the `platforms` configuration.",
+    )
+    sync_parser.add_argument(
+        "--pin-to-manifest",
+        action="store_true",
+        help="Use the tags from the `manifest.json` file instead of the latest release"
+        " or the tag specified in the config file",
     )
     sync_parser.add_argument(
         "--no-shell-scripts",
@@ -305,8 +325,8 @@ def main() -> None:  # pragma: no cover
 
     try:
         if args.command == "get":
-            _get_tool(args.source, args.dest, args.name)
-            return
+            exit_code = _get_tool(args.source, args.dest, args.name, args.tag)
+            sys.exit(exit_code)
         if args.command is None:
             parser.print_help()
             return
@@ -334,12 +354,12 @@ def main() -> None:  # pragma: no cover
                 github_token=args.github_token,
                 verbose=args.verbose,
                 generate_shell_scripts=not args.no_shell_scripts,
+                pin_to_manifest=args.pin_to_manifest,
             )
+            if config._update_summary.failed:
+                sys.exit(1)
         elif args.command == "readme":
-            config.generate_readme(
-                not args.no_file,
-                args.verbose,
-            )
+            config.generate_readme(not args.no_file, args.verbose)
         elif args.command == "status":
             platform = args.platform
             arch = args.architecture
@@ -348,7 +368,7 @@ def main() -> None:  # pragma: no cover
                 platform, arch = current_platform()
 
             # If both --compact and --full are specified, --compact takes precedence
-            config.version_store.print(
+            config.manifest.print(
                 config,
                 compact=not args.full,
                 platform=platform,

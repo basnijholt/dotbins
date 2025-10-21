@@ -333,7 +333,7 @@ def test_extract_from_archive_with_auto_detection(
         destination_dir,
         BinSpec(
             tool_config=tool_config,
-            version="1.0.0",
+            tag="v1.0.0",
             arch="amd64",
             platform="linux",
         ),
@@ -381,7 +381,7 @@ def test_extract_from_archive_auto_detection_failure(
             destination_dir,
             BinSpec(
                 tool_config=tool_config,
-                version="1.0.0",
+                tag="v1.0.0",
                 arch="amd64",
                 platform="linux",
             ),

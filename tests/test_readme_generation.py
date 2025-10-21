@@ -32,18 +32,18 @@ def mock_config() -> Config:
 
     config.tools = {"tool1": tool1, "tool2": tool2}
 
-    # Mock version store
-    version_store = MagicMock()
-    version_store.get_tool_info.side_effect = lambda tool, _platform, _arch: (
+    # Mock Manifest
+    manifest = MagicMock()
+    manifest.get_tool_info.side_effect = lambda tool, _platform, _arch: (
         {
-            "version": "1.0.0",
+            "tag": "1.0.0",
             "updated_at": "2023-01-01",
         }
         if tool in ["tool1", "tool2"]
         else None
     )
 
-    config.version_store = version_store
+    config.manifest = manifest
 
     # Mock bin_dir to return a non-existent directory
     config.bin_dir.return_value = MagicMock()
@@ -148,9 +148,9 @@ def test_readme_with_missing_tools(mock_current_platform: MagicMock, mock_config
     mock_current_platform.return_value = ("macos", "arm64")
 
     # Update mock to return None for tool2
-    mock_config.version_store.get_tool_info.side_effect = lambda tool, _platform, _arch: (  # type: ignore[attr-defined]
+    mock_config.manifest.get_tool_info.side_effect = lambda tool, _platform, _arch: (  # type: ignore[attr-defined]
         {
-            "version": "1.0.0",
+            "tag": "1.0.0",
             "updated_at": "2023-01-01",
         }
         if tool == "tool1"

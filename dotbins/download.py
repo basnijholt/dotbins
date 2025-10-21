@@ -17,12 +17,13 @@ from .utils import (
     extract_archive,
     log,
     replace_home_in_path,
+    tag_to_version,
 )
 
 if TYPE_CHECKING:
     from .config import BinSpec, Config, ToolConfig
+    from .manifest import Manifest
     from .summary import UpdateSummary
-    from .versions import VersionStore
 
 
 def _extract_binary_from_archive(
@@ -80,7 +81,7 @@ def _process_binaries(
         source_path = _find_binary_in_extracted_files(
             temp_dir,
             str(path_in_archive),
-            bin_spec.version,
+            bin_spec.tag,
             bin_spec.tool_arch,
             bin_spec.tool_platform,
         )
@@ -97,12 +98,12 @@ def _log_extracted_files(temp_dir: Path) -> None:
 def _find_binary_in_extracted_files(
     temp_dir: Path,
     path_in_archive: str,
-    version: str,
+    tag: str,
     tool_arch: str,
     tool_platform: str,
 ) -> Path:
     """Find a specific binary in the extracted files."""
-    path_in_archive = _replace_variables_in_path(path_in_archive, version, tool_arch, tool_platform)
+    path_in_archive = _replace_variables_in_path(path_in_archive, tag, tool_arch, tool_platform)
 
     if "*" in path_in_archive:
         matches = list(temp_dir.glob(path_in_archive))
@@ -139,10 +140,14 @@ def _copy_binary_to_destination(
     log(f"Copied binary to [b]{replace_home_in_path(dest_path, '~')}[/]", "success")
 
 
-def _replace_variables_in_path(path: str, version: str, arch: str, platform: str) -> str:
+def _replace_variables_in_path(path: str, tag: str, arch: str, platform: str) -> str:
     """Replace variables in a path with their values."""
+    version = tag_to_version(tag)
     if "{version}" in path and version:
         path = path.replace("{version}", version)
+
+    if "{tag}" in path and tag:
+        path = path.replace("{tag}", tag)
 
     if "{arch}" in path and arch:
         path = path.replace("{arch}", arch)
@@ -171,8 +176,8 @@ class _DownloadTask(NamedTuple):
         return self.bin_spec.tool_config
 
     @property
-    def version(self) -> str:
-        return self.bin_spec.version
+    def tag(self) -> str:
+        return self.bin_spec.tag
 
     @property
     def platform(self) -> str:
@@ -203,7 +208,7 @@ def _prepare_download_task(
                 tool_name,
                 platform,
                 arch,
-                version=bin_spec.version,
+                tag=bin_spec.tag,
                 reason="Already up-to-date",
             )
             return None
@@ -213,12 +218,13 @@ def _prepare_download_task(
                 tool_name,
                 platform,
                 arch,
-                version=bin_spec.version,
+                tag=bin_spec.tag,
                 reason="No matching asset found",
             )
             return None
         tmp_dir = Path(tempfile.gettempdir())
-        temp_path = tmp_dir / asset["browser_download_url"].split("/")[-1]
+        asset_filename = asset["browser_download_url"].split("/")[-1]
+        temp_path = tmp_dir / f"{platform}-{arch}-{asset_filename}"
         return _DownloadTask(
             bin_spec=bin_spec,
             asset_url=asset["browser_download_url"],
@@ -236,7 +242,7 @@ def _prepare_download_task(
             tool_name,
             platform,
             arch,
-            version="Unknown",
+            tag="Unknown",
             reason=f"Error preparing download: {e!s}",
         )
         return None
@@ -247,6 +253,7 @@ def prepare_download_tasks(
     tools_to_sync: list[str] | None,
     platforms_to_sync: list[str] | None,
     architecture: str | None,
+    current: bool,
     force: bool,
     verbose: bool,
 ) -> list[_DownloadTask]:
@@ -259,24 +266,26 @@ def prepare_download_tasks(
 
     for tool_name in tools_to_sync:
         for platform in platforms_to_sync:
-            if platform not in config.platforms:
+            if current:
+                log(f"Including current platform [b]{platform}[/] even if not configured", "info")
+            elif platform not in config.platforms:
                 config._update_summary.add_skipped_tool(
                     tool_name,
                     platform,
                     architecture if architecture else "Unknown",
-                    version="Unknown",
+                    tag="Unknown",
                     reason="Platform not configured",
                 )
                 log(f"Skipping unknown platform: {platform}", "warning")
                 continue
 
-            archs_to_update = _determine_architectures(platform, architecture, config)
+            archs_to_update = _determine_architectures(platform, architecture, config, current)
             if not archs_to_update:
                 config._update_summary.add_skipped_tool(
                     tool_name,
                     platform,
                     architecture if architecture else "Unknown",
-                    version="Unknown",
+                    tag="Unknown",
                     reason="No architectures configured",
                 )
                 log(f"Skipping unknown architecture: {architecture}", "warning")
@@ -325,7 +334,7 @@ def download_files_in_parallel(
 def _process_downloaded_task(
     task: _DownloadTask,
     success: bool,
-    version_store: VersionStore,
+    manifest: Manifest,
     summary: UpdateSummary,
     verbose: bool,
 ) -> bool:
@@ -335,7 +344,7 @@ def _process_downloaded_task(
             task.tool_name,
             task.platform,
             task.arch,
-            task.version,
+            task.tag,
             reason="Download failed",
         )
         return False
@@ -373,7 +382,7 @@ def _process_downloaded_task(
                     task.tool_name,
                     task.platform,
                     task.arch,
-                    task.version,
+                    task.tag,
                     reason="Expected exactly one binary name",
                 )
                 return False
@@ -391,7 +400,7 @@ def _process_downloaded_task(
             task.tool_name,
             task.platform,
             task.arch,
-            task.version,
+            task.tag,
             reason=f"{error_prefix}: {e!s}",
         )
         return False
@@ -400,20 +409,20 @@ def _process_downloaded_task(
             task.tool_name,
             task.platform,
             task.arch,
-            task.version,
-            old_version=version_store.get_tool_version(task.tool_name, task.platform, task.arch)
-            or "—",
+            task.tag,
+            old_tag=manifest.get_tool_tag(task.tool_name, task.platform, task.arch) or "—",
         )
-        version_store.update_tool_info(
-            task.tool_name,
-            task.platform,
-            task.arch,
-            task.version,
+        manifest.update_tool_info(
+            tool=task.tool_name,
+            platform=task.platform,
+            arch=task.arch,
+            tag=task.tag,
             sha256=sha256_hash,
+            url=task.asset_url,
         )
 
         log(
-            f"Successfully installed [b]{task.tool_name} v{task.version}[/] for [b]{task.platform}/{task.arch}[/]",
+            f"Successfully installed [b]{task.tool_name} {task.tag}[/] for [b]{task.platform}/{task.arch}[/]",
             "success",
         )
         return True
@@ -425,7 +434,7 @@ def _process_downloaded_task(
 def process_downloaded_files(
     download_tasks: list[_DownloadTask],
     download_successes: list[bool],
-    version_store: VersionStore,
+    manifest: Manifest,
     summary: UpdateSummary,
     verbose: bool,
 ) -> None:
@@ -434,15 +443,20 @@ def process_downloaded_files(
         return
     log(f"Processing {len(download_successes)} downloaded tools...", "info", "🔄")
     for task, download_success in zip(download_tasks, download_successes):
-        _process_downloaded_task(task, download_success, version_store, summary, verbose)
+        _process_downloaded_task(task, download_success, manifest, summary, verbose)
 
 
 def _determine_architectures(
     platform: str,
     architecture: str | None,
     config: Config,
+    current: bool,
 ) -> list[str]:
     """Determine which architectures to update for a platform."""
+    if current:
+        assert architecture is not None
+        log(f"Including current architecture [b]{architecture}[/] even if not configured", "info")
+        return [architecture]
     if architecture is not None:
         # Filter to only include the specified architecture if it's supported
         if architecture in config.platforms[platform]:

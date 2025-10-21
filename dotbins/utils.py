@@ -9,6 +9,7 @@ import hashlib
 import lzma
 import os
 import platform as platform_module
+import re
 import shutil
 import sys
 import tarfile
@@ -112,8 +113,6 @@ def current_platform() -> tuple[str, str]:
     arch = {
         "aarch64": "arm64",
         "x86_64": "amd64",
-        "i686": "386",
-        "i386": "386",
     }.get(machine, machine)
 
     return platform, arch
@@ -182,15 +181,16 @@ def _format_shell_instructions(
         return base_script
 
     if shell == "nushell":
+        tools_dir_str_nu = tools_dir_str.replace("$HOME", "($nu.home-path)")
         script_lines = [
             "# dotbins - Add platform-specific binaries to PATH",
-            "let _os = (sys).host.name | str downcase",
+            "let _os = $nu.os-info | get name",
             'let _os = if $_os == "darwin" { "macos" } else { $_os }',
             "",
-            "let _arch = (sys).host.arch",
+            "let _arch = $nu.os-info | get arch",
             'let _arch = if $_arch == "x86_64" { "amd64" } else if $_arch in ["aarch64", "arm64"] { "arm64" } else { $_arch }',
             "",
-            f'$env.PATH = ($env.PATH | prepend $"{tools_dir_str}/$_os/$_arch/bin")',
+            f'$env.PATH = ($env.PATH | prepend $"{tools_dir_str_nu}/($_os)/($_arch)/bin")',
         ]
         base_script = "\n".join(script_lines)
         if_start = "if (which {name}) != null {{"
@@ -288,11 +288,12 @@ def write_shell_scripts(
     log(f"Generated shell scripts in {tools_dir1}/shell/", "success", "📝")
     if print_shell_setup:
         tools_dir2 = replace_home_in_path(tools_dir, "$HOME")
+        tools_dir2_nu = tools_dir2.replace("$HOME", "~")
         log("Add this to your shell config:", "info")
         log(f"  [b]Bash:[/]       [yellow]source {tools_dir2}/shell/bash.sh[/]", "info", "👉")
         log(f"  [b]Zsh:[/]        [yellow]source {tools_dir2}/shell/zsh.sh[/]", "info", "👉")
         log(f"  [b]Fish:[/]       [yellow]source {tools_dir2}/shell/fish.fish[/]", "info", "👉")
-        log(f"  [b]Nushell:[/]    [yellow]source {tools_dir2}/shell/nushell.nu[/]", "info", "👉")
+        log(f"  [b]Nushell:[/]    [yellow]source {tools_dir2_nu}/shell/nushell.nu[/]", "info", "👉")
         log(f"  [b]PowerShell:[/] [yellow]. {tools_dir2}/shell/powershell.ps1[/]", "info", "👉")
 
 
@@ -488,3 +489,49 @@ def humanize_time_ago(date_str: str) -> str:
     if seconds > 0:
         return f"{seconds}s"
     return "0s"
+
+
+def tag_to_version(tag: str) -> str:
+    """Convert a Git tag string to a version string.
+
+    Specifically targeting tags that start with 'v' followed immediately by
+    a digit (like typical semantic version tags).
+
+    Args:
+        tag: The input tag string.
+
+    Returns:
+        The version string (tag without the leading 'v') if the tag matches
+        the pattern 'v' + digit + anything. Otherwise, returns the original
+        tag unchanged.
+
+    Examples:
+        >>> tag_to_version("v0.1.0")
+        '0.1.0'
+        >>> tag_to_version("v1.2.3-alpha.1+build.123")
+        '1.2.3-alpha.1+build.123'
+        >>> tag_to_version("v22.10")
+        '22.10'
+        >>> tag_to_version("vacation") # Does not start with 'v' + digit
+        'vacation'
+        >>> tag_to_version("latest") # Does not start with 'v'
+        'latest'
+        >>> tag_to_version("1.0.0") # Does not start with 'v'
+        '1.0.0'
+        >>> tag_to_version("v-invalid") # Does not start with 'v' + digit
+        'v-invalid'
+
+    """
+    # Regex explanation:
+    # ^       - Anchor to the start of the string
+    # v       - Match the literal character 'v'
+    # (\d.*) - Capture group 1:
+    #   \d    - Match exactly one digit (ensures it's not like "vacation")
+    #   .*    - Match any character (except newline) zero or more times
+    # $       - Anchor to the end of the string
+    match = re.match(r"^v(\d.*)$", tag)
+    if match:
+        # If the pattern matches, return the captured group (the part after 'v')
+        return match.group(1)
+    # If the pattern does not match, return the original tag
+    return tag

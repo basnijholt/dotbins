@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from .utils import tag_to_version
+
 
 def _get_current_timestamp() -> str:
     """Get the current timestamp in ISO format.
@@ -21,14 +23,14 @@ class ToolSummaryBase:
     tool: str
     platform: str
     arch: str
-    version: str
+    tag: str
 
 
 @dataclass
 class UpdatedToolSummary(ToolSummaryBase):
     """Summary information for an updated tool."""
 
-    old_version: str = "none"
+    old_tag: str = "none"
     timestamp: str = field(default_factory=_get_current_timestamp)
 
 
@@ -43,7 +45,7 @@ class SkippedToolSummary(ToolSummaryBase):
 class FailedToolSummary(ToolSummaryBase):
     """Summary information for a failed tool."""
 
-    version: str = "Unknown"
+    tag: str = "Unknown"
     reason: str = "Unknown error"
 
 
@@ -60,8 +62,8 @@ class UpdateSummary:
         tool: str,
         platform: str,
         arch: str,
-        version: str,
-        old_version: str = "none",
+        tag: str,
+        old_tag: str = "none",
     ) -> None:
         """Add an updated tool to the summary."""
         self.updated.append(
@@ -69,8 +71,8 @@ class UpdateSummary:
                 tool=tool,
                 platform=platform,
                 arch=arch,
-                version=version,
-                old_version=old_version,
+                tag=tag,
+                old_tag=old_tag,
             ),
         )
 
@@ -79,7 +81,7 @@ class UpdateSummary:
         tool: str,
         platform: str,
         arch: str,
-        version: str,
+        tag: str,
         reason: str = "Already up-to-date",
     ) -> None:
         """Add a skipped tool to the summary."""
@@ -88,7 +90,7 @@ class UpdateSummary:
                 tool=tool,
                 platform=platform,
                 arch=arch,
-                version=version,
+                tag=tag,
                 reason=reason,
             ),
         )
@@ -98,7 +100,7 @@ class UpdateSummary:
         tool: str,
         platform: str,
         arch: str,
-        version: str = "Unknown",
+        tag: str = "Unknown",
         reason: str = "Unknown error",
     ) -> None:
         """Add a failed tool to the summary."""
@@ -107,7 +109,7 @@ class UpdateSummary:
                 tool=tool,
                 platform=platform,
                 arch=arch,
-                version=version,
+                tag=tag,
                 reason=reason,
             ),
         )
@@ -145,7 +147,7 @@ def display_update_summary(summary: UpdateSummary) -> None:
                 skipped_item.tool,
                 skipped_item.platform,
                 skipped_item.arch,
-                skipped_item.version,
+                tag_to_version(skipped_item.tag),
                 skipped_item.reason,
             )
 
@@ -166,8 +168,8 @@ def display_update_summary(summary: UpdateSummary) -> None:
                 updated_item.tool,
                 updated_item.platform,
                 updated_item.arch,
-                updated_item.old_version,
-                updated_item.version,
+                tag_to_version(updated_item.old_tag),
+                tag_to_version(updated_item.tag),
             )
 
         console.print(table)
@@ -187,7 +189,7 @@ def display_update_summary(summary: UpdateSummary) -> None:
                 failed_item.tool,
                 failed_item.platform,
                 failed_item.arch,
-                failed_item.version,
+                tag_to_version(failed_item.tag),
                 failed_item.reason,
             )
 

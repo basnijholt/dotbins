@@ -16,6 +16,7 @@ import yaml
 
 from .detect_asset import create_system_detector
 from .download import download_files_in_parallel, prepare_download_tasks, process_downloaded_files
+from .manifest import Manifest
 from .readme import write_readme_file
 from .summary import UpdateSummary, display_update_summary
 from .utils import (
@@ -27,9 +28,9 @@ from .utils import (
     humanize_time_ago,
     log,
     replace_home_in_path,
+    tag_to_version,
     write_shell_scripts,
 )
-from .versions import VersionStore
 
 if sys.version_info >= (3, 11):
     from typing import Required
@@ -73,7 +74,6 @@ class Config:
     config_path: Path | None = field(default=None, init=False)
     _bin_dir: Path | None = field(default=None, init=False)
     _update_summary: UpdateSummary = field(default_factory=UpdateSummary, init=False)
-    _latest_releases: dict | None = field(default=None, init=False)
 
     def bin_dir(self, platform: str, arch: str, *, create: bool = False) -> Path:
         """Return the bin directory path for a specific platform and architecture.
@@ -116,9 +116,9 @@ class Config:
         execute_in_parallel(tool_configs, fetch, max_workers=16)
 
     @cached_property
-    def version_store(self) -> VersionStore:
-        """Return the VersionStore object."""
-        return VersionStore(self.tools_dir)
+    def manifest(self) -> Manifest:
+        """Return the Manifest object."""
+        return Manifest(self.tools_dir)
 
     def validate(self) -> None:
         """Check for missing repos, unknown platforms, etc."""
@@ -176,6 +176,7 @@ class Config:
         github_token: str | None = None,
         verbose: bool = False,
         generate_shell_scripts: bool = True,
+        pin_to_manifest: bool = False,
     ) -> None:
         """Install and update tools to their latest versions.
 
@@ -202,6 +203,7 @@ class Config:
             github_token: GitHub API token for authentication (helps with rate limits)
             verbose: If True, show detailed logs during the process
             generate_shell_scripts: If True, generate shell scripts for the tools
+            pin_to_manifest: If True, use the tag from the `manifest.json` file
 
         """
         if not self.tools:
@@ -211,6 +213,17 @@ class Config:
         if github_token is None and "GITHUB_TOKEN" in os.environ:  # pragma: no cover
             log("Using GitHub token for authentication", "info", "🔑")
             github_token = os.environ["GITHUB_TOKEN"]
+
+        if pin_to_manifest:
+            tool_to_tag_mapping = self.manifest.tool_to_tag_mapping()
+            for tool, tool_config in self.tools.items():
+                tag = tool_to_tag_mapping.get(tool)
+                log(
+                    f"Using tag [b]{tag}[/] for tool [b]{tool}[/] from [b]manifest.json[/]",
+                    "info",
+                    "🔒",
+                )
+                tool_config.tag = tag
 
         tools_to_sync = _tools_to_sync(self, tools)
         self.set_latest_releases(tools_to_sync, github_token, verbose)
@@ -224,6 +237,7 @@ class Config:
             tools_to_sync,
             platforms_to_sync,
             architecture,
+            current,
             force,
             verbose,
         )
@@ -231,7 +245,7 @@ class Config:
         process_downloaded_files(
             download_tasks,
             download_successes,
-            self.version_store,
+            self.manifest,
             self._update_summary,
             verbose,
         )
@@ -320,13 +334,13 @@ class ToolConfig:
 
     def bin_spec(self, arch: str, platform: str) -> BinSpec:
         """Get a BinSpec object for the tool."""
-        return BinSpec(tool_config=self, version=self.latest_version, arch=arch, platform=platform)
+        return BinSpec(tool_config=self, tag=self.latest_tag, arch=arch, platform=platform)
 
     @property
-    def latest_version(self) -> str:
+    def latest_tag(self) -> str:
         """Get the latest version for the tool."""
         assert self._release_info is not None
-        return self._release_info["tag_name"].lstrip("v")
+        return self._release_info["tag_name"]
 
 
 @dataclass(frozen=True)
@@ -334,7 +348,7 @@ class BinSpec:
     """Specific arch and platform for a tool."""
 
     tool_config: ToolConfig
-    version: str
+    tag: str
     arch: str
     platform: str
 
@@ -354,7 +368,7 @@ class BinSpec:
             self.tool_config,
             self.platform,
             self.arch,
-            self.version,
+            self.tag,
             self.tool_platform,
             self.tool_arch,
         )
@@ -365,12 +379,18 @@ class BinSpec:
         assert self.tool_config._release_info is not None
         assets = self.tool_config._release_info["assets"]
         if asset_pattern is None:
-            return _auto_detect_asset(self.platform, self.arch, assets, self.tool_config.defaults)
+            return _auto_detect_asset(
+                self.platform,
+                self.arch,
+                assets,
+                self.tool_config.defaults,
+                self.tool_config.tool_name,
+            )
         return _find_matching_asset(asset_pattern, assets)
 
     def skip_download(self, config: Config, force: bool) -> bool:
         """Check if download should be skipped (binary already exists)."""
-        tool_info = config.version_store.get_tool_info(
+        tool_info = config.manifest.get_tool_info(
             self.tool_config.tool_name,
             self.platform,
             self.arch,
@@ -379,10 +399,10 @@ class BinSpec:
         all_exist = all(
             (destination_dir / binary_name).exists() for binary_name in self.tool_config.binary_name
         )
-        if tool_info and tool_info["version"] == self.version and all_exist and not force:
+        if tool_info and tool_info["tag"] == self.tag and all_exist and not force:
             dt = humanize_time_ago(tool_info["updated_at"])
             log(
-                f"[b]{self.tool_config.tool_name} v{self.version}[/] for"
+                f"[b]{self.tool_config.tool_name} {self.tag}[/] for"
                 f" [b]{self.platform}/{self.arch}[/] is already up to date"
                 f" (installed [b]{dt}[/] ago) use --force to re-download.",
                 "success",
@@ -418,6 +438,7 @@ class RawToolConfigDict(TypedDict, total=False):
     path_in_archive: str | list[str]  # Path(s) to binary within archive
     asset_patterns: str | dict[str, str] | dict[str, dict[str, str | None]]
     shell_code: str | dict[str, str] | None  # Shell code to configure the tool
+    tag: str | None  # Tag to use for the binary (if None, the latest release will be used)
 
 
 class _AssetDict(TypedDict):
@@ -703,12 +724,13 @@ def _maybe_asset_pattern(
     tool_config: ToolConfig,
     platform: str,
     arch: str,
-    version: str,
+    tag: str,
     tool_platform: str,
     tool_arch: str,
 ) -> str | None:
     """Get the formatted asset pattern for the tool."""
-    search_pattern = tool_config.asset_patterns[platform][arch]
+    # asset_pattern might not contain an entry if `--current` is used
+    search_pattern = tool_config.asset_patterns.get(platform, {}).get(arch)
     if search_pattern is None:
         log(
             f"No [b]asset_pattern[/] provided for [b]{platform}/{arch}[/]",
@@ -716,13 +738,16 @@ def _maybe_asset_pattern(
             "ℹ️",  # noqa: RUF001
         )
         return None
+    version = tag_to_version(tag)
     return (
         search_pattern.format(
             version=version,
+            tag=tag,
             platform=tool_platform,
             arch=tool_arch,
         )
         .replace("{version}", ".*")
+        .replace("{tag}", ".*")
         .replace("{arch}", ".*")
         .replace("{platform}", ".*")
     )
@@ -733,6 +758,7 @@ def _auto_detect_asset(
     arch: str,
     assets: list[_AssetDict],
     defaults: DefaultsDict,
+    tool_name: str,
 ) -> _AssetDict | None:
     """Auto-detect an asset for the tool."""
     log(f"Auto-detecting asset for [b]{platform}/{arch}[/]", "info")
@@ -750,6 +776,13 @@ def _auto_detect_asset(
             assert candidates is not None
             log(f"Found multiple candidates: {candidates}, selecting first", "info")
             asset_name = candidates[0]
+        elif candidates and tool_name in candidates:
+            log(
+                f"Found multiple candidates: {candidates}, selecting `{tool_name}`"
+                " because it perfectly matches the tool name",
+                "info",
+            )
+            asset_name = tool_name
         else:
             if candidates:
                 log(f"Found multiple candidates: {candidates}, manually select one", "info", "⁉️")
@@ -791,7 +824,7 @@ def _fetch_release(
             tool_config.tool_name,
             "Any",
             "Any",
-            version="Unknown",
+            tag="Unknown",
             reason=msg,
         )
         log(msg, "error", print_exception=verbose)

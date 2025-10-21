@@ -67,11 +67,11 @@ CASES = [
     ("dog", "linux", "amd64", "dog-v{version}-x86_64-unknown-linux-gnu.zip"),
     ("duf", "linux", "amd64", "duf_{version}_linux_x86_64.tar.gz"),
     ("duf", "linux", "arm64", "duf_{version}_linux_arm64.tar.gz"),
-    ("duf", "linux", "386", "duf_{version}_linux_i386.tar.gz"),
+    ("duf", "linux", "i686", "duf_{version}_linux_i386.tar.gz"),
     # duf switched to lowercase OS names in asset filenames
     ("duf", "macos", "arm64", "duf_{version}_darwin_arm64.tar.gz"),
     ("duf", "windows", "amd64", "duf_{version}_windows_x86_64.zip"),
-    ("duf", "windows", "386", "duf_{version}_windows_i386.zip"),
+    ("duf", "windows", "i686", "duf_{version}_windows_i386.zip"),
     ("dust", "linux", "amd64", "dust-v{version}-x86_64-unknown-linux-musl.tar.gz"),
     ("dust", "linux", "arm64", "dust-v{version}-aarch64-unknown-linux-musl.tar.gz"),
     ("dust", "linux:gnu", "i686", "dust-v{version}-i686-unknown-linux-gnu.tar.gz"),
@@ -108,8 +108,8 @@ CASES = [
     ("glow", "linux", "arm64", "glow_{version}_Linux_arm64.tar.gz"),
     ("glow", "macos", "arm64", "glow_{version}_Darwin_arm64.tar.gz"),
     ("glow", "windows", "amd64", "glow_{version}_Windows_x86_64.zip"),
-    ("glow", "linux", "386", "glow_{version}_Linux_i386.tar.gz"),
-    ("glow", "windows", "386", "glow_{version}_Windows_i386.zip"),
+    ("glow", "linux", "i686", "glow_{version}_Linux_i386.tar.gz"),
+    ("glow", "windows", "i686", "glow_{version}_Windows_i386.zip"),
     ("gping", "linux", "amd64", "gping-Linux-musl-x86_64.tar.gz"),
     ("gping", "linux", "arm64", "gping-Linux-musl-arm64.tar.gz"),
     ("gping", "macos", "arm64", "gping-macOS-arm64.tar.gz"),
@@ -150,8 +150,8 @@ CASES = [
     ("jq", "linux", "arm64", "jq-linux-arm64"),
     ("jq", "macos", "arm64", "jq-macos-arm64"),
     ("jq", "windows", "amd64", "jq-windows-amd64.exe"),
-    ("jq", "linux", "386", "jq-linux-i386"),
-    ("jq", "windows", "386", "jq-windows-i386.exe"),
+    ("jq", "linux", "i686", "jq-linux-i386"),
+    ("jq", "windows", "i686", "jq-windows-i386.exe"),
     ("just", "linux", "amd64", "just-{version}-x86_64-unknown-linux-musl.tar.gz"),
     ("just", "linux", "arm64", "just-{version}-aarch64-unknown-linux-musl.tar.gz"),
     ("just", "macos", "arm64", "just-{version}-aarch64-apple-darwin.tar.gz"),
@@ -159,6 +159,10 @@ CASES = [
     ("k9s", "linux", "arm64", "k9s_Linux_arm64.tar.gz"),
     ("k9s", "macos", "arm64", "k9s_Darwin_arm64.tar.gz"),
     ("k9s", "windows", "amd64", "k9s_Windows_amd64.zip"),
+    ("keychain@2.9.2", "linux", "amd64", "keychain"),
+    ("keychain@2.9.2", "linux", "arm64", "keychain"),
+    ("keychain@2.9.2", "macos", "arm64", "keychain"),
+    ("keychain@2.9.2", "windows", "amd64", "keychain"),
     # lazygit asset filenames are now lowercase for OS names
     ("lazygit", "linux", "amd64", "lazygit_{version}_linux_x86_64.tar.gz"),
     ("lazygit", "linux", "arm64", "lazygit_{version}_linux_arm64.tar.gz"),
@@ -286,6 +290,10 @@ def test_autodetect_asset(program: str, platform: str, arch: str, expected_asset
     3. Verifies that we can find a matching asset for each platform/arch combination
     """
     # Load the release JSON
+    tag = None
+    if "@" in program:
+        program, tag = program.split("@")
+
     json_file = Path(__file__).parent / "release_jsons" / f"{program}.json"
     with open(json_file) as f:
         release_data = json.load(f)
@@ -305,7 +313,7 @@ def test_autodetect_asset(program: str, platform: str, arch: str, expected_asset
     # Create tool config
     tool_config = build_tool_config(
         tool_name=program,
-        raw_data={"repo": f"example/{program}"},
+        raw_data={"tag": tag, "repo": f"example/{program}"},
         platforms={platform: [arch]},
         defaults=defaults,  # type: ignore[arg-type]
     )
@@ -346,7 +354,7 @@ def test_if_complete_tests() -> None:
     json_tool_names = {file.stem for file in test_files}
 
     # Extract tool names directly from CASES
-    tested_tool_names = {program for program, _, _, _ in CASES}
+    tested_tool_names = {program.split("@")[0] for program, _, _, _ in CASES}
 
     # Find any missing tools
     missing_tools = json_tool_names - tested_tool_names
