@@ -799,7 +799,7 @@ tools:
         eval "$(atuin init __DOTBINS_SHELL__ --disable-up-arrow)"
 
   keychain:
-    repo: funtoo/keychain
+    repo: danielrobbins/keychain
     asset_patterns: keychain
 
   uv:
