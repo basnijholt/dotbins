@@ -1390,6 +1390,50 @@ def test_auto_detect_asset_multiple_perfect_matches(
     assert (bin_dir / "mytool").exists()
 
 
+def test_auto_detect_asset_prefers_primary_tool_binary(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Ensure auto-detect favors the main tool over similarly named helpers."""
+    raw_config: RawConfigDict = {
+        "tools_dir": str(tmp_path),
+        "platforms": {"linux": ["amd64"]},
+        "tools": {"codex": {"repo": "openai/codex"}},
+    }
+    config = Config.from_dict(raw_config)
+
+    config.tools["codex"]._release_info = {
+        "tag_name": "v0.57.0",
+        "assets": [
+            {
+                "name": "codex-responses-api-proxy-x86_64-unknown-linux-musl.tar.gz",
+                "browser_download_url": "https://example.com/codex-responses-api-proxy-x86_64-unknown-linux-musl.tar.gz",
+            },
+            {
+                "name": "codex-x86_64-unknown-linux-musl.tar.gz",
+                "browser_download_url": "https://example.com/codex-x86_64-unknown-linux-musl.tar.gz",
+            },
+        ],
+    }
+
+    def mock_download_file(
+        url: str,  # noqa: ARG001
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        create_dummy_archive(Path(destination), binary_names="codex")
+        return destination
+
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools()
+
+    out = capsys.readouterr().out
+    assert "Found multiple candidates" in out
+    assert "Found asset: codex-x86_64-unknown-linux-musl.tar.gz" in out
+
+
 def test_auto_detect_asset_no_matches(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],

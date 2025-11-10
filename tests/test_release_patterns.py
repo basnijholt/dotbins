@@ -41,6 +41,7 @@ CASES = [
     ("choose", "linux", "amd64", "choose-x86_64-unknown-linux-musl"),
     ("choose", "linux", "arm64", "choose-aarch64-unknown-linux-gnu"),
     ("choose", "macos", "arm64", "choose-aarch64-apple-darwin"),
+    ("codex", "linux", "amd64", "codex-x86_64-unknown-linux-musl.tar.gz"),
     ("croc", "linux", "amd64", "croc_v{version}_Linux-64bit.tar.gz"),
     ("croc", "linux", "arm64", "croc_v{version}_Linux-ARM64.tar.gz"),
     ("croc", "macos", "arm64", "croc_v{version}_macOS-ARM64.tar.gz"),
