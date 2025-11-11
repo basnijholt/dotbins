@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any, Callable, Literal, TypeVar
 
 import requests
 from rich.console import Console
+from rich.progress import Progress
 
 if TYPE_CHECKING:
     from .config import ToolConfig
@@ -75,7 +76,15 @@ def fetch_release_info(
         raise RuntimeError(msg) from e
 
 
-def download_file(url: str, destination: str, github_token: str | None, verbose: bool) -> str:
+def download_file(
+    url: str,
+    destination: str,
+    github_token: str | None,
+    verbose: bool,
+    *,
+    progress: Progress | None = None,
+    progress_task_id: int | None = None,
+) -> str:
     """Download a file from a URL to a destination path."""
     log(f"Downloading from [b]{url}[/]", "info", "📥")
     # Already verbose when fetching release info
@@ -83,14 +92,43 @@ def download_file(url: str, destination: str, github_token: str | None, verbose:
     try:
         response = requests.get(url, stream=True, timeout=30, headers=headers)
         response.raise_for_status()
+        total_size = _extract_content_length(response.headers.get("Content-Length"))
+        if progress is not None and progress_task_id is not None and total_size is not None:
+            progress.update(progress_task_id, total=total_size)
+
+        bytes_downloaded = 0
         with open(destination, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
+                if not chunk:
+                    continue
                 f.write(chunk)
+                bytes_downloaded += len(chunk)
+                if progress is not None and progress_task_id is not None:
+                    progress.update(progress_task_id, advance=len(chunk))
+
+        if (
+            progress is not None
+            and progress_task_id is not None
+            and total_size is not None
+            and bytes_downloaded < total_size
+        ):
+            # Ensure the progress completes even if streaming under-reported bytes
+            progress.update(progress_task_id, completed=total_size)
         return destination
     except requests.RequestException as e:
         log(f"Download failed: {e}", "error", print_exception=verbose)
         msg = f"Failed to download {url}: {e}"
         raise RuntimeError(msg) from e
+
+
+def _extract_content_length(value: str | None) -> int | None:
+    """Convert a Content-Length header to an integer if possible."""
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def current_platform() -> tuple[str, str]:
