@@ -822,6 +822,8 @@ tools:
     repo: astral-sh/uv
     binary_name: [uv, uvx]
     path_in_archive: [uv-*/uv, uv-*/uvx]
+
+generate_lfs_scripts: true
 ```
 
 <!-- OUTPUT:END -->
