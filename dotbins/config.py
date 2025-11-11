@@ -398,9 +398,8 @@ class BinSpec:
             self.arch,
         )
         destination_dir = config.bin_dir(self.platform, self.arch)
-        all_exist = len(
-            auto_detect_paths_in_archive(destination_dir, self.tool_config.binary_name)
-        ) == len(self.tool_config.binary_name)
+        arch_paths = auto_detect_paths_in_archive(destination_dir, self.tool_config.binary_name)
+        all_exist = len(arch_paths) == len(self.tool_config.binary_name)
         if tool_info and tool_info["tag"] == self.tag and all_exist and not force:
             dt = humanize_time_ago(tool_info["updated_at"])
             log(
