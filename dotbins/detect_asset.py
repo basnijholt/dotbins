@@ -218,6 +218,17 @@ def _prioritize_assets(
     archives = _sorted(archives, os_name, libc_preference, windows_abi)
     others = _sorted(others, os_name, libc_preference, windows_abi)
     package_formats = _sorted(package_formats, os_name, libc_preference, windows_abi)
+
+    # General tie-breaker: prefer shorter, simpler names when there are
+    # multiple OS/arch equivalents (e.g., avoid feature-suffixed variants).
+    def _prefer_shorter(items: Assets) -> Assets:
+        return sorted(items, key=lambda a: len(os.path.basename(a)))
+
+    appimages = _prefer_shorter(appimages)
+    no_extension = _prefer_shorter(no_extension)
+    archives = _prefer_shorter(archives)
+    others = _prefer_shorter(others)
+    package_formats = _prefer_shorter(package_formats)
     return (
         appimages + no_extension + archives + others + package_formats
         if prefer_appimage

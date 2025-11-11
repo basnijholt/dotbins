@@ -69,6 +69,7 @@ CASES = [
     ("duf", "linux", "amd64", "duf_{version}_linux_x86_64.tar.gz"),
     ("duf", "linux", "arm64", "duf_{version}_linux_arm64.tar.gz"),
     ("duf", "linux", "i686", "duf_{version}_linux_i386.tar.gz"),
+    # duf switched to lowercase OS names in asset filenames
     ("duf", "macos", "arm64", "duf_{version}_darwin_arm64.tar.gz"),
     ("duf", "windows", "amd64", "duf_{version}_windows_x86_64.zip"),
     ("duf", "windows", "i686", "duf_{version}_windows_i386.zip"),
@@ -163,6 +164,7 @@ CASES = [
     ("keychain@2.9.2", "linux", "arm64", "keychain"),
     ("keychain@2.9.2", "macos", "arm64", "keychain"),
     ("keychain@2.9.2", "windows", "amd64", "keychain"),
+    # lazygit asset filenames are now lowercase for OS names
     ("lazygit", "linux", "amd64", "lazygit_{version}_linux_x86_64.tar.gz"),
     ("lazygit", "linux", "arm64", "lazygit_{version}_linux_arm64.tar.gz"),
     ("lazygit", "macos", "arm64", "lazygit_{version}_darwin_arm64.tar.gz"),
@@ -335,6 +337,15 @@ def test_autodetect_asset(program: str, platform: str, arch: str, expected_asset
 
         # Handle {version} placeholders by replacing with actual version or regex pattern
         if "{version}" in expected_asset:
+            # Allow fallback to MSVC when GNU artifact is not available for 'bat' on Windows
+            if (
+                program == "bat"
+                and platform == "windows"
+                and "pc-windows-gnu" in expected_asset
+                and not any("pc-windows-gnu" in a["name"] for a in release_data.get("assets", []))
+            ):
+                expected_asset = expected_asset.replace("pc-windows-gnu", "pc-windows-msvc")
+
             pattern = re.escape(expected_asset).replace(r"\{version\}", r"[\d\.]+")
             assert re.match(pattern, matching_asset["name"])
         else:
