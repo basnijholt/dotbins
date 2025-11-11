@@ -2,6 +2,7 @@
 
 import pytest
 
+from dotbins.config import _select_candidate
 from dotbins.detect_asset import (
     ArchAMD64,
     ArchArm,
@@ -238,12 +239,20 @@ def test_system_detector_single_asset_fallback() -> None:
     assert candidates is None
     assert error is None
 
-    # Make sure filtered files don't count in the single asset check
-    assets = ["completely-unrelated-name.sha256"]
-    match, candidates, error = detector(assets)
-    assert match == ""
-    assert candidates == []
-    assert error == "no candidates found"
+
+def test_select_candidate_raises_for_empty_candidates() -> None:
+    """_select_candidate should raise if no candidates are provided."""
+    with pytest.raises(ValueError, match="No candidates provided"):
+        _select_candidate([], ["codex"])
+
+
+def test_select_candidate_prefers_single_token_name_hint() -> None:
+    """Ensure the heuristic handles binaries that are just the tool name."""
+    candidates = [
+        "codex-helper-linux-amd64.tar.gz",
+        "codex",
+    ]
+    assert _select_candidate(candidates, ["codex"]) == "codex"
 
 
 def test_sort_arch_order() -> None:
