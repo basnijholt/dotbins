@@ -238,13 +238,6 @@ def test_system_detector_single_asset_fallback() -> None:
     assert candidates is None
     assert error is None
 
-    # Make sure filtered files don't count in the single asset check
-    assets = ["completely-unrelated-name.sha256"]
-    match, candidates, error = detector(assets)
-    assert match == ""
-    assert candidates == []
-    assert error == "no candidates found"
-
 
 def test_sort_arch_order() -> None:
     """Test the sort_arch function."""

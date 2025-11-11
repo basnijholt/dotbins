@@ -12,17 +12,17 @@ jobs:
   setup-cache:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@v7
       - name: Cache release downloads
         id: cache-release-downloads
         uses: actions/cache@v4
         with:
           path: tests/release_jsons
-          key: release-downloads-v1-${{ hashFiles('examples/examples.yaml') }}
+          key: release-downloads-v2-${{ hashFiles('examples/examples.yaml', 'tests/download_release_jsons.py') }}
           restore-keys: |
-            release-downloads-v1-
+            release-downloads-v2-
       - name: Download release JSONs
         if: steps.cache-release-downloads.outputs.cache-hit != 'true'
         run: uv run ./tests/download_release_jsons.py
@@ -39,13 +39,13 @@ jobs:
         python-version: ["3.9", "3.13"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
       - name: Install dependencies
         run: |
           uv sync --all-extras
@@ -53,9 +53,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: tests/release_jsons
-          key: release-downloads-v1-${{ hashFiles('examples/examples.yaml') }}
+          key: release-downloads-v2-${{ hashFiles('examples/examples.yaml', 'tests/download_release_jsons.py') }}
           restore-keys: |
-            release-downloads-v1-
+            release-downloads-v2-
       - name: Run pytest
         run: uv run pytest -vvv
       - name: Upload coverage reports to Codecov
