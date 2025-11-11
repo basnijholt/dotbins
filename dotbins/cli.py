@@ -133,6 +133,7 @@ def _get_tool(
 def create_parser() -> argparse.ArgumentParser:
     """Create command-line argument parser."""
     parser = argparse.ArgumentParser(
+        prog="dotbins",
         description="dotbins - Download, manage, and update CLI tool binaries in your dotfiles repository",
         formatter_class=RichHelpFormatter,
     )
