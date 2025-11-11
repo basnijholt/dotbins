@@ -8,6 +8,8 @@ import gzip
 import hashlib
 import lzma
 import os
+import platform as platform_module
+import re
 import shutil
 import sys
 import tarfile
@@ -21,10 +23,29 @@ from typing import TYPE_CHECKING, Any, Callable, Literal, TypeVar
 import requests
 from rich.console import Console
 
-console = Console()
-
 if TYPE_CHECKING:
     from .config import ToolConfig
+
+console = Console()
+
+SUPPORTED_ARCHIVE_EXTENSIONS = [
+    ".zip",
+    ".tar",
+    ".tar.gz",
+    ".tgz",
+    ".tar.bz2",
+    ".tbz2",
+    ".tar.xz",
+    ".txz",
+    ".gz",
+    ".bz2",
+    ".xz",
+    ".lzma",
+]
+
+SUPPORTED_SHELLS = ["bash", "zsh", "fish", "nushell", "powershell"]
+
+Shells = Literal["bash", "zsh", "fish", "nushell", "powershell"]
 
 
 def _maybe_github_token_header(github_token: str | None) -> dict[str, str]:  # pragma: no cover
@@ -32,17 +53,25 @@ def _maybe_github_token_header(github_token: str | None) -> dict[str, str]:  # p
 
 
 @functools.cache
-def latest_release_info(repo: str, github_token: str | None) -> dict | None:
+def fetch_release_info(
+    repo: str,
+    tag: str | None = None,
+    github_token: str | None = None,
+) -> dict | None:
     """Fetch release information from GitHub for a single repository."""
-    url = f"https://api.github.com/repos/{repo}/releases/latest"
-    log(f"Fetching latest release from {url}", "info", "🔍")
+    if tag is None:
+        url = f"https://api.github.com/repos/{repo}/releases/latest"
+    else:
+        url = f"https://api.github.com/repos/{repo}/releases/tags/{tag}"
+
+    log(f"Fetching release from {url}", "info")
     headers = _maybe_github_token_header(github_token)
     try:
         response = requests.get(url, headers=headers, timeout=30)
         response.raise_for_status()
         return response.json()
     except requests.RequestException as e:
-        msg = f"Failed to fetch latest release for {repo}: {e}"
+        msg = f"Failed to fetch release for {repo}: {e}"
         raise RuntimeError(msg) from e
 
 
@@ -69,18 +98,18 @@ def current_platform() -> tuple[str, str]:
 
     Returns:
         Tuple containing (platform, architecture)
-        platform: 'linux' or 'macos'
+        platform: 'linux' or 'macos' or 'windows'
         architecture: 'amd64' or 'arm64'
 
     """
-    # Detect platform
-    platform = sys.platform
+    sys_platform = sys.platform
     platform = {
         "darwin": "macos",
-    }.get(platform, platform)
+        "win32": "windows",  # Returns "win32" on Windows on 32-bit and 64-bit
+    }.get(sys_platform, sys_platform)
 
-    # Detect architecture
-    machine = os.uname().machine.lower()
+    machine = platform_module.machine().lower()
+
     arch = {
         "aarch64": "arm64",
         "x86_64": "amd64",
@@ -91,12 +120,20 @@ def current_platform() -> tuple[str, str]:
 
 def replace_home_in_path(path: Path, home: str = "$HOME") -> str:
     """Replace ~ with $HOME in a path."""
-    return str(path.absolute()).replace(os.path.expanduser("~"), home)
+    abs_path = str(path.absolute())
+    home_path = os.path.expanduser("~")
+
+    # Convert Windows backslashes to forward slashes for consistent display
+    if os.name == "nt":
+        abs_path = abs_path.replace("\\", "/")
+        home_path = home_path.replace("\\", "/")
+
+    return abs_path.replace(home_path, home)
 
 
 def _format_shell_instructions(
     tools_dir: Path,
-    shell: Literal["bash", "zsh", "fish", "nushell"],
+    shell: Shells,
     tools: dict[str, ToolConfig],
 ) -> str:
     """Format shell instructions for a given shell."""
@@ -144,36 +181,52 @@ def _format_shell_instructions(
         return base_script
 
     if shell == "nushell":
+        tools_dir_str_nu = tools_dir_str.replace("$HOME", "($nu.home-path)")
         script_lines = [
             "# dotbins - Add platform-specific binaries to PATH",
-            "let _os = (sys).host.name | str downcase",
+            "let _os = $nu.os-info | get name",
             'let _os = if $_os == "darwin" { "macos" } else { $_os }',
             "",
-            "let _arch = (sys).host.arch",
+            "let _arch = $nu.os-info | get arch",
             'let _arch = if $_arch == "x86_64" { "amd64" } else if $_arch in ["aarch64", "arm64"] { "arm64" } else { $_arch }',
             "",
-            f'$env.PATH = ($env.PATH | prepend $"{tools_dir}/$_os/$_arch/bin")',
+            f'$env.PATH = ($env.PATH | prepend $"{tools_dir_str_nu}/($_os)/($_arch)/bin")',
         ]
         base_script = "\n".join(script_lines)
         if_start = "if (which {name}) != null {{"
         if_end = "}"
         base_script += _add_shell_code_to_script(tools, shell, if_start, if_end)
         return base_script
+
+    if shell == "powershell":
+        base_script = textwrap.dedent(
+            f"""\
+            # dotbins - Add platform-specific binaries to PATH
+            $os = "windows"
+
+            $arch = (Get-CimInstance -Class Win32_Processor).AddressWidth -eq 64 ? "amd64" : "386"
+
+            $env:PATH = "{tools_dir_str}\\$os\\$arch\\bin" + [System.IO.Path]::PathSeparator + $env:PATH
+            """,
+        )
+        if_start = "if (Get-Command {name} -ErrorAction SilentlyContinue) {{"
+        if_end = "}"
+        base_script += _add_shell_code_to_script(tools, shell, if_start, if_end)
+        return base_script
+
     msg = f"Unsupported shell: {shell}"  # pragma: no cover
     raise ValueError(msg)  # pragma: no cover
 
 
 def _add_shell_code_to_script(
     tools: dict[str, ToolConfig],
-    shell: Literal["bash", "zsh", "fish", "nushell"],
+    shell: Shells,
     if_start: str,
     if_end: str,
 ) -> str:
     lines = []
     for name, config in tools.items():
-        shell_code = config.shell_code
-        if isinstance(shell_code, dict):
-            shell_code = shell_code.get(shell)
+        shell_code = config.shell_code.get(shell)
         if shell_code:
             config_lines = [
                 f"# Configuration for {name}",
@@ -215,6 +268,7 @@ def write_shell_scripts(
         "zsh": "zsh.sh",
         "fish": "fish.fish",
         "nushell": "nushell.nu",
+        "powershell": "powershell.ps1",
     }
 
     for shell, filename in shell_files.items():
@@ -224,20 +278,23 @@ def write_shell_scripts(
             script_content = f"#!/usr/bin/env {shell}\n{script_content}"
 
         script_path = shell_dir / filename
-        with open(script_path, "w") as f:
+        with open(script_path, "w", encoding="utf-8") as f:
             f.write(script_content + "\n")
 
-        script_path.chmod(script_path.stat().st_mode | 0o755)
+        if os.name != "nt":  # Skip on Windows
+            script_path.chmod(script_path.stat().st_mode | 0o755)
 
     tools_dir1 = replace_home_in_path(tools_dir, "~")
     log(f"Generated shell scripts in {tools_dir1}/shell/", "success", "📝")
     if print_shell_setup:
         tools_dir2 = replace_home_in_path(tools_dir, "$HOME")
+        tools_dir2_nu = tools_dir2.replace("$HOME", "~")
         log("Add this to your shell config:", "info")
-        log(f"  Bash:    source {tools_dir2}/shell/bash.sh", "info", "👉")
-        log(f"  Zsh:     source {tools_dir2}/shell/zsh.sh", "info", "👉")
-        log(f"  Fish:    source {tools_dir2}/shell/fish.fish", "info", "👉")
-        log(f"  Nushell: source {tools_dir2}/shell/nushell.nu", "info", "👉")
+        log(f"  [b]Bash:[/]       [yellow]source {tools_dir2}/shell/bash.sh[/]", "info", "👉")
+        log(f"  [b]Zsh:[/]        [yellow]source {tools_dir2}/shell/zsh.sh[/]", "info", "👉")
+        log(f"  [b]Fish:[/]       [yellow]source {tools_dir2}/shell/fish.fish[/]", "info", "👉")
+        log(f"  [b]Nushell:[/]    [yellow]source {tools_dir2_nu}/shell/nushell.nu[/]", "info", "👉")
+        log(f"  [b]PowerShell:[/] [yellow]. {tools_dir2}/shell/powershell.ps1[/]", "info", "👉")
 
 
 STYLE_EMOJI_MAP = {
@@ -328,7 +385,7 @@ def extract_archive(archive_path: str | Path, dest_dir: str | Path) -> None:
         # Handle tar archives
         for ext, mode in tar_formats.items():
             if filename.endswith(ext):
-                with tarfile.open(archive_path, mode=mode) as tar:
+                with tarfile.open(archive_path, mode=mode) as tar:  # type: ignore[call-overload]
                     tar.extractall(path=dest_dir)
                 return
 
@@ -344,7 +401,8 @@ def extract_archive(archive_path: str | Path, dest_dir: str | Path) -> None:
                 open(output_path, "wb") as f_out,
             ):
                 shutil.copyfileobj(f_in, f_out)
-            output_path.chmod(output_path.stat().st_mode | 0o755)
+            if os.name != "nt":  # Skip on Windows
+                output_path.chmod(output_path.stat().st_mode | 0o755)
 
         # Try each compression format based on extension or file header
         if filename.endswith(".gz") or header.startswith(b"\x1f\x8b"):
@@ -431,3 +489,49 @@ def humanize_time_ago(date_str: str) -> str:
     if seconds > 0:
         return f"{seconds}s"
     return "0s"
+
+
+def tag_to_version(tag: str) -> str:
+    """Convert a Git tag string to a version string.
+
+    Specifically targeting tags that start with 'v' followed immediately by
+    a digit (like typical semantic version tags).
+
+    Args:
+        tag: The input tag string.
+
+    Returns:
+        The version string (tag without the leading 'v') if the tag matches
+        the pattern 'v' + digit + anything. Otherwise, returns the original
+        tag unchanged.
+
+    Examples:
+        >>> tag_to_version("v0.1.0")
+        '0.1.0'
+        >>> tag_to_version("v1.2.3-alpha.1+build.123")
+        '1.2.3-alpha.1+build.123'
+        >>> tag_to_version("v22.10")
+        '22.10'
+        >>> tag_to_version("vacation") # Does not start with 'v' + digit
+        'vacation'
+        >>> tag_to_version("latest") # Does not start with 'v'
+        'latest'
+        >>> tag_to_version("1.0.0") # Does not start with 'v'
+        '1.0.0'
+        >>> tag_to_version("v-invalid") # Does not start with 'v' + digit
+        'v-invalid'
+
+    """
+    # Regex explanation:
+    # ^       - Anchor to the start of the string
+    # v       - Match the literal character 'v'
+    # (\d.*) - Capture group 1:
+    #   \d    - Match exactly one digit (ensures it's not like "vacation")
+    #   .*    - Match any character (except newline) zero or more times
+    # $       - Anchor to the end of the string
+    match = re.match(r"^v(\d.*)$", tag)
+    if match:
+        # If the pattern matches, return the captured group (the part after 'v')
+        return match.group(1)
+    # If the pattern does not match, return the original tag
+    return tag

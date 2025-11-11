@@ -1,4 +1,4 @@
-"""Tests for the auto_detect_binary_paths function."""
+"""Tests for the auto_detect_paths_in_archive function."""
 
 import os
 import tarfile
@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from dotbins.config import BinSpec, build_tool_config
-from dotbins.detect_binary import auto_detect_binary_paths
+from dotbins.detect_binary import auto_detect_paths_in_archive
 from dotbins.download import AutoDetectBinaryPathsError, _extract_binary_from_archive
 
 
@@ -224,7 +224,7 @@ def mock_archive_bin_dir_fallback(tmp_path: Path) -> Path:
     return archive_path
 
 
-def test_auto_detect_binary_paths_simple(
+def test_auto_detect_paths_in_archive_simple(
     tmp_path: Path,
     mock_archive_simple: Path,
 ) -> None:
@@ -239,13 +239,13 @@ def test_auto_detect_binary_paths_simple(
 
     # Test auto-detection
     binary_names = ["fzf"]
-    detected_paths = auto_detect_binary_paths(extract_dir, binary_names)
+    detected_paths = auto_detect_paths_in_archive(extract_dir, binary_names)
 
     assert len(detected_paths) == 1
-    assert detected_paths[0] == "fzf"
+    assert detected_paths[0] == Path("fzf")
 
 
-def test_auto_detect_binary_paths_nested(
+def test_auto_detect_paths_in_archive_nested(
     tmp_path: Path,
     mock_archive_nested: Path,
 ) -> None:
@@ -260,13 +260,13 @@ def test_auto_detect_binary_paths_nested(
 
     # Test auto-detection
     binary_names = ["delta"]
-    detected_paths = auto_detect_binary_paths(extract_dir, binary_names)
+    detected_paths = auto_detect_paths_in_archive(extract_dir, binary_names)
 
     assert len(detected_paths) == 1
-    assert detected_paths[0] == "bin/delta"  # Should prefer the one in bin/
+    assert detected_paths[0] == Path("bin/delta")  # Should prefer the one in bin/
 
 
-def test_auto_detect_binary_paths_multiple(
+def test_auto_detect_paths_in_archive_multiple(
     tmp_path: Path,
     mock_archive_multiple: Path,
 ) -> None:
@@ -281,14 +281,14 @@ def test_auto_detect_binary_paths_multiple(
 
     # Test auto-detection
     binary_names = ["uv", "uvx"]
-    detected_paths = auto_detect_binary_paths(extract_dir, binary_names)
+    detected_paths = auto_detect_paths_in_archive(extract_dir, binary_names)
 
     assert len(detected_paths) == 2
-    assert detected_paths[0] == "uv"
-    assert detected_paths[1] == "uvx"
+    assert detected_paths[0] == Path("uv")
+    assert detected_paths[1] == Path("uvx")
 
 
-def test_auto_detect_binary_paths_no_match(
+def test_auto_detect_paths_in_archive_no_match(
     tmp_path: Path,
     mock_archive_no_match: Path,
 ) -> None:
@@ -303,7 +303,7 @@ def test_auto_detect_binary_paths_no_match(
 
     # Test auto-detection
     binary_names = ["git-lfs"]
-    detected_paths = auto_detect_binary_paths(extract_dir, binary_names)
+    detected_paths = auto_detect_paths_in_archive(extract_dir, binary_names)
 
     assert len(detected_paths) == 0  # Should not find any matches
 
@@ -311,49 +311,44 @@ def test_auto_detect_binary_paths_no_match(
 def test_extract_from_archive_with_auto_detection(
     tmp_path: Path,
     mock_archive_simple: Path,
+    capsys: pytest.CaptureFixture,
 ) -> None:
     """Test the extract_from_archive function with auto-detection."""
     destination_dir = tmp_path / "bin"
     destination_dir.mkdir()
 
-    # Mock config without binary_path
+    # Mock config without path_in_archive
     tool_config = build_tool_config(
         tool_name="fzf",
         raw_data={
             "binary_name": "fzf",
             "repo": "junegunn/fzf",
-            "extract_binary": True,
+            "extract_archive": True,
         },
     )
 
-    # Mock console to capture output
-    mock_console = MagicMock()
-
-    with patch("dotbins.utils.console", mock_console):
-        # Call the function
-        _extract_binary_from_archive(
-            mock_archive_simple,
-            destination_dir,
-            BinSpec(
-                tool_config=tool_config,
-                version="1.0.0",
-                arch="amd64",
-                platform="linux",
-            ),
-            verbose=True,
-        )
+    # Call the function
+    _extract_binary_from_archive(
+        mock_archive_simple,
+        destination_dir,
+        BinSpec(
+            tool_config=tool_config,
+            tag="v1.0.0",
+            arch="amd64",
+            platform="linux",
+        ),
+        verbose=True,
+    )
 
     # Check that the binary was copied correctly
     assert (destination_dir / "fzf").exists()
     assert os.access(destination_dir / "fzf", os.X_OK)
 
     # Check that auto-detection message was logged
-    mock_console.print.assert_any_call(
-        "🔍 [cyan]Binary path not specified, attempting auto-detection...[/cyan]",
-    )
-    mock_console.print.assert_any_call(
-        "✅ [green]Auto-detected binary paths: ['fzf'][/green]",
-    )
+    captured = capsys.readouterr()
+    out = captured.out
+    assert "Binary path not specified, attempting auto-detection..." in out
+    assert "Auto-detected binary paths: fzf" in out, out
 
 
 def test_extract_from_archive_auto_detection_failure(
@@ -364,13 +359,13 @@ def test_extract_from_archive_auto_detection_failure(
     destination_dir = tmp_path / "bin"
     destination_dir.mkdir()
 
-    # Mock config without binary_path
+    # Mock config without path_in_archive
     tool_config = build_tool_config(
         tool_name="git-lfs",
         raw_data={
             "binary_name": "git-lfs",
             "repo": "git-lfs/git-lfs",
-            "extract_binary": True,
+            "extract_archive": True,
         },
     )
 
@@ -386,7 +381,7 @@ def test_extract_from_archive_auto_detection_failure(
             destination_dir,
             BinSpec(
                 tool_config=tool_config,
-                version="1.0.0",
+                tag="v1.0.0",
                 arch="amd64",
                 platform="linux",
             ),
@@ -407,7 +402,7 @@ def test_non_executable_files_ignored(
 
     # Try to detect various non-executable files
     for name in ["script", "doc", "binary"]:
-        detected_paths = auto_detect_binary_paths(extract_dir, [name])
+        detected_paths = auto_detect_paths_in_archive(extract_dir, [name])
         assert len(detected_paths) == 0, f"Should not detect {name} as binary"
 
 
@@ -424,8 +419,8 @@ def test_directories_ignored(
 
     # The directories named 'fzf' or 'delta' won't even be considered
     # because os.walk only passes files to our detection logic
-    detected_paths = auto_detect_binary_paths(extract_dir, ["delta"])
-    assert detected_paths == ["actual-delta"]
+    detected_paths = auto_detect_paths_in_archive(extract_dir, ["delta"])
+    assert detected_paths == [Path("actual-delta")]
 
     # Verify the directories exist but weren't considered
     assert (extract_dir / "fzf").is_dir()
@@ -444,9 +439,9 @@ def test_substring_matches_fallback(
         zipf.extractall(path=extract_dir)
 
     # Should find substring match
-    detected_paths = auto_detect_binary_paths(extract_dir, ["mytool"])
+    detected_paths = auto_detect_paths_in_archive(extract_dir, ["mytool"])
     assert len(detected_paths) == 1
-    assert detected_paths[0] in ["mytool-v1", "other-mytool-bin", "mytool.backup"]
+    assert detected_paths[0] in [Path("mytool-v1"), Path("other-mytool-bin"), Path("mytool.backup")]
 
 
 def test_non_executable_exact_match(
@@ -460,8 +455,8 @@ def test_non_executable_exact_match(
     with zipfile.ZipFile(mock_archive_non_executable_match, "r") as zipf:
         zipf.extractall(path=extract_dir)
 
-    detected_paths = auto_detect_binary_paths(extract_dir, ["mytool"])
-    assert detected_paths == ["mytool"]
+    detected_paths = auto_detect_paths_in_archive(extract_dir, ["mytool"])
+    assert detected_paths == [Path("mytool")]
 
 
 def test_bin_directory_fallback(
@@ -476,8 +471,16 @@ def test_bin_directory_fallback(
         zipf.extractall(path=extract_dir)
 
     # When no name matches in bin/, should take first bin/ match
-    detected_paths = auto_detect_binary_paths(extract_dir, ["mytool"])
-    assert detected_paths == ["bin/completely-different"]
+    detected_paths = auto_detect_paths_in_archive(extract_dir, ["mytool"])
+
+    # On Windows, the specific binary choice can be different since
+    # executable bits don't exist in the same way
+    if os.name == "nt":
+        assert len(detected_paths) == 1
+        # We care that it found something, but the exact match may vary
+        assert detected_paths[0] in [Path("bin/completely-different"), Path("other/not-mytool")]
+    else:
+        assert detected_paths == [Path("bin/completely-different")]
 
     # Verify that other executables exist but weren't chosen
     assert (extract_dir / "bin2" / "unrelated").exists()
@@ -495,14 +498,14 @@ def test_bin_directory_preference(
     with zipfile.ZipFile(mock_archive_bin_matches, "r") as zipf:
         zipf.extractall(path=extract_dir)
 
-    detected_paths = auto_detect_binary_paths(extract_dir, ["tool"])
-    assert detected_paths == ["bin/tool"]
+    detected_paths = auto_detect_paths_in_archive(extract_dir, ["tool"])
+    assert detected_paths == [Path("bin/tool")]
 
-    detected_paths = auto_detect_binary_paths(extract_dir, ["other-tool"])
-    assert detected_paths == ["bin2/other-tool"]
+    detected_paths = auto_detect_paths_in_archive(extract_dir, ["other-tool"])
+    assert detected_paths == [Path("bin2/other-tool")]
 
-    detected_paths = auto_detect_binary_paths(extract_dir, ["extra"])
-    assert detected_paths == ["bin/tool-extra"]
+    detected_paths = auto_detect_paths_in_archive(extract_dir, ["extra"])
+    assert detected_paths == [Path("bin/tool-extra")]
 
     # Verify all test files exist
     assert (extract_dir / "bin" / "tool").exists()

@@ -7,7 +7,7 @@ import tarfile
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, NoReturn
+from typing import TYPE_CHECKING, Any, Callable, NoReturn, cast
 from unittest.mock import patch
 
 import pytest
@@ -23,27 +23,33 @@ if TYPE_CHECKING:
 
 def _create_mock_release_info(
     tool_name: str,
-    version: str,
+    tag: str,
     platforms: dict[str, list[str]],
+    extension: str = ".tar.gz",
 ) -> dict[str, Any]:
     assets = [
         {
-            "name": f"{tool_name}-{version}-{platform}_{arch}.tar.gz",
-            "browser_download_url": f"https://example.com/{tool_name}-{version}-{platform}_{arch}.tar.gz",
+            "name": f"{tool_name}-{tag[1:]}-{platform}_{arch}{extension}",
+            "browser_download_url": f"https://example.com/{tool_name}-{tag[1:]}-{platform}_{arch}{extension}",
         }
         for platform in platforms
         for arch in platforms[platform]
     ]
-    return {"tag_name": f"v{version}", "assets": assets}
+    return {"tag_name": tag, "assets": assets}
 
 
-def _set_mock_release_info(config: Config, version: str = "1.2.3") -> None:
+def _set_mock_release_info(
+    config: Config,
+    tag: str = "v1.2.3",
+    extension: str = ".tar.gz",
+) -> None:
     """Set the mock release info for the given config."""
     for tool_name, tool_config in config.tools.items():
-        tool_config._latest_release = _create_mock_release_info(
+        tool_config._release_info = _create_mock_release_info(
             tool_name,
-            version,
+            tag,
             config.platforms,
+            extension,
         )
 
 
@@ -151,9 +157,9 @@ def test_simple_tool_update(
     tool_configs: dict[str, RawToolConfigDict] = {
         "mytool": {
             "repo": "fakeuser/mytool",
-            "extract_binary": True,
+            "extract_archive": True,
             "binary_name": "mytool",
-            "binary_path": "mytool",
+            "path_in_archive": "mytool",
             "asset_patterns": "mytool-{version}-{platform}_{arch}.tar.gz",
         },
     }
@@ -173,16 +179,16 @@ def test_multiple_tools_with_filtering(
     tool_configs: dict[str, RawToolConfigDict] = {
         "tool1": {
             "repo": "fakeuser/tool1",
-            "extract_binary": True,
+            "extract_archive": True,
             "binary_name": "tool1",
-            "binary_path": "tool1",
+            "path_in_archive": "tool1",
             "asset_patterns": "tool1-{version}-{platform}_{arch}.tar.gz",
         },
         "tool2": {
             "repo": "fakeuser/tool2",
-            "extract_binary": True,
+            "extract_archive": True,
             "binary_name": "tool2",
-            "binary_path": "tool2",
+            "path_in_archive": "tool2",
             "asset_patterns": "tool2-{version}-{platform}_{arch}.tar.gz",
         },
     }
@@ -249,9 +255,9 @@ def test_auto_detect_binary_and_asset_patterns(
             "tools": {
                 "mytool": {
                     "repo": "fakeuser/mytool",
-                    "extract_binary": True,
+                    "extract_archive": True,
                     "binary_name": "mybinary",
-                    "binary_path": "mybinary",
+                    "path_in_archive": "mybinary",
                     "asset_patterns": "mytool-{version}-linux_{arch}.tar.gz",
                 },
             },
@@ -263,9 +269,9 @@ def test_auto_detect_binary_and_asset_patterns(
             "tools": {
                 "mytool": {
                     "repo": "fakeuser/mytool",
-                    "extract_binary": True,
+                    "extract_archive": True,
                     "binary_name": "mybinary",
-                    "binary_path": "mybinary",
+                    "path_in_archive": "mybinary",
                     "asset_patterns": {
                         "linux": {
                             "amd64": "mytool-{version}-linux_{arch}.tar.gz",
@@ -275,9 +281,9 @@ def test_auto_detect_binary_and_asset_patterns(
                 },
                 "othertool": {
                     "repo": "fakeuser/othertool",
-                    "extract_binary": True,
+                    "extract_archive": True,
                     "binary_name": "otherbin",
-                    "binary_path": "otherbin",
+                    "path_in_archive": "otherbin",
                     "asset_patterns": "othertool-{version}-{platform}_{arch}.tar.gz",
                 },
             },
@@ -292,7 +298,7 @@ def test_e2e_sync_tools(
     """Test the end-to-end tool sync workflow with different configurations."""
     config = Config.from_dict(raw_config)
     config.tools_dir = tmp_path
-    _set_mock_release_info(config, version="1.2.3")
+    _set_mock_release_info(config, tag="v1.2.3")
 
     def mock_download_file(
         url: str,
@@ -324,9 +330,9 @@ def test_e2e_sync_tools_skip_up_to_date(
         "tools": {
             "mytool": {
                 "repo": "fakeuser/mytool",
-                "extract_binary": True,
+                "extract_archive": True,
                 "binary_name": "mybinary",
-                "binary_path": "mybinary",
+                "path_in_archive": "mybinary",
                 "asset_patterns": "mytool-{version}-linux_{arch}.tar.gz",
             },
         },
@@ -334,15 +340,16 @@ def test_e2e_sync_tools_skip_up_to_date(
 
     config = Config.from_dict(raw_config)
     config.tools_dir = tmp_path  # Ensures we respect the fixture path
-    _set_mock_release_info(config, version="1.2.3")
+    _set_mock_release_info(config, tag="v1.2.3")
 
-    # Pre-populate version_store with version='1.2.3' so it should SKIP
-    config.version_store.update_tool_info(
+    # Pre-populate manifest with tag='v1.2.3' so it should SKIP
+    config.manifest.update_tool_info(
         tool="mytool",
         platform="linux",
         arch="amd64",
-        version="1.2.3",
+        tag="v1.2.3",
         sha256="sha256",
+        url="https://example.com/mytool-1.2.3-linux_amd64.tar.gz",
     )
     bin_dir = config.bin_dir("linux", "amd64")
     bin_dir.mkdir(parents=True, exist_ok=True)
@@ -356,10 +363,10 @@ def test_e2e_sync_tools_skip_up_to_date(
         config.sync_tools()
 
     # If everything is skipped, no new binary is downloaded,
-    # and the existing version_store is unchanged.
-    stored_info = config.version_store.get_tool_info("mytool", "linux", "amd64")
+    # and the existing manifest is unchanged.
+    stored_info = config.manifest.get_tool_info("mytool", "linux", "amd64")
     assert stored_info is not None
-    assert stored_info["version"] == "1.2.3"
+    assert stored_info["tag"] == "v1.2.3"
 
     # Check that no download was attempted
     out = capsys.readouterr().out
@@ -377,40 +384,42 @@ def test_e2e_sync_tools_partial_skip_and_update(
         "tools": {
             "mytool": {
                 "repo": "fakeuser/mytool",
-                "extract_binary": True,
+                "extract_archive": True,
                 "binary_name": "mybinary",
-                "binary_path": "mybinary",
+                "path_in_archive": "mybinary",
                 "asset_patterns": "mytool-{version}-linux_{arch}.tar.gz",
             },
             "othertool": {
                 "repo": "fakeuser/othertool",
-                "extract_binary": True,
+                "extract_archive": True,
                 "binary_name": "otherbin",
-                "binary_path": "otherbin",
+                "path_in_archive": "otherbin",
                 "asset_patterns": "othertool-{version}-linux_{arch}.tar.gz",
             },
         },
     }
 
     config = Config.from_dict(raw_config)
-    _set_mock_release_info(config, version="2.0.0")
+    _set_mock_release_info(config, tag="v2.0.0")
 
     # Mark 'mytool' as already up-to-date
-    config.version_store.update_tool_info(
+    config.manifest.update_tool_info(
         tool="mytool",
         platform="linux",
         arch="amd64",
-        version="2.0.0",
+        tag="v2.0.0",
         sha256="sha256",
+        url="https://example.com/mytool-2.0.0-linux_amd64.tar.gz",
     )
 
     # Mark 'othertool' as older so it gets updated
-    config.version_store.update_tool_info(
+    config.manifest.update_tool_info(
         tool="othertool",
         platform="linux",
         arch="amd64",
-        version="1.0.0",
+        tag="v1.0.0",
         sha256="sha256",
+        url="https://example.com/othertool-1.0.0-linux_amd64.tar.gz",
     )
 
     def mock_download_file(
@@ -430,22 +439,17 @@ def test_e2e_sync_tools_partial_skip_and_update(
         config.sync_tools()
 
     # 'mytool' should remain at version 2.0.0, unchanged
-    mytool_info = config.version_store.get_tool_info("mytool", "linux", "amd64")
+    mytool_info = config.manifest.get_tool_info("mytool", "linux", "amd64")
     assert mytool_info is not None
-    assert mytool_info["version"] == "2.0.0"  # no change
-
-    # 'othertool' should have been updated to 2.0.0
-    other_info = config.version_store.get_tool_info("othertool", "linux", "amd64")
-    assert other_info is not None
-    assert other_info["version"] == "2.0.0"
+    assert mytool_info["tag"] == "v2.0.0"
     # And the binary should now exist:
     other_bin = config.bin_dir("linux", "amd64") / "otherbin"
     assert other_bin.exists()
     assert os.access(other_bin, os.X_OK)
 
     # Check old version is recorded
-    assert config._update_summary.updated[0].old_version == "1.0.0"
-    assert config._update_summary.updated[0].version == "2.0.0"
+    assert config._update_summary.updated[0].old_tag == "v1.0.0"
+    assert config._update_summary.updated[0].tag == "v2.0.0"
 
 
 def test_e2e_sync_tools_force_re_download(tmp_path: Path, create_dummy_archive: Callable) -> None:
@@ -456,18 +460,25 @@ def test_e2e_sync_tools_force_re_download(tmp_path: Path, create_dummy_archive: 
         "tools": {
             "mytool": {
                 "repo": "fakeuser/mytool",
-                "extract_binary": True,
+                "extract_archive": True,
                 "binary_name": "mybinary",
-                "binary_path": "mybinary",
+                "path_in_archive": "mybinary",
                 "asset_patterns": "mytool-{version}-linux_{arch}.tar.gz",
             },
         },
     }
     config = Config.from_dict(raw_config)
-    _set_mock_release_info(config, version="1.2.3")
+    _set_mock_release_info(config, tag="v1.2.3")
     # Mark 'mytool' as installed at 1.2.3
-    config.version_store.update_tool_info("mytool", "linux", "amd64", "1.2.3", "sha256")
-    tool_info = config.version_store.get_tool_info("mytool", "linux", "amd64")
+    config.manifest.update_tool_info(
+        tool="mytool",
+        platform="linux",
+        arch="amd64",
+        tag="1.2.3",
+        sha256="sha256",
+        url="https://example.com/mytool-1.2.3-linux_amd64.tar.gz",
+    )
+    tool_info = config.manifest.get_tool_info("mytool", "linux", "amd64")
     assert tool_info is not None
     original_updated_at = tool_info["updated_at"]
 
@@ -496,10 +507,10 @@ def test_e2e_sync_tools_force_re_download(tmp_path: Path, create_dummy_archive: 
     assert len(downloaded_urls) == 1
     assert "mytool-1.2.3-linux_amd64.tar.gz" in downloaded_urls[0]
 
-    # The version store should remain '1.2.3', but `updated_at` changes
-    tool_info = config.version_store.get_tool_info("mytool", "linux", "amd64")
+    # The manifest should remain '1.2.3', but `updated_at` changes
+    tool_info = config.manifest.get_tool_info("mytool", "linux", "amd64")
     assert tool_info is not None
-    assert tool_info["version"] == "1.2.3"
+    assert tool_info["tag"] == "v1.2.3"
     # Check that updated_at changed from the original
     assert tool_info["updated_at"] != original_updated_at
 
@@ -515,9 +526,9 @@ def test_e2e_sync_tools_specific_platform(tmp_path: Path, create_dummy_archive: 
         "tools": {
             "mytool": {
                 "repo": "fakeuser/mytool",
-                "extract_binary": True,
+                "extract_archive": True,
                 "binary_name": "mybinary",
-                "binary_path": "mybinary",
+                "path_in_archive": "mybinary",
                 "asset_patterns": {  # type: ignore[typeddict-item]
                     "linux": {
                         "amd64": "mytool-{version}-linux_amd64.tar.gz",
@@ -531,7 +542,7 @@ def test_e2e_sync_tools_specific_platform(tmp_path: Path, create_dummy_archive: 
         },
     }
     config = Config.from_dict(raw_config)
-    _set_mock_release_info(config, version="1.0.0")
+    _set_mock_release_info(config, tag="v1.0.0")
 
     downloaded_files = []
 
@@ -571,9 +582,10 @@ def test_get_tool_command(tmp_path: Path, create_dummy_archive: Callable) -> Non
     dest_dir.mkdir(parents=True, exist_ok=True)
     platform, arch = current_platform()
 
-    def mock_latest_release_info(
+    def mock_fetch_release_info(
         repo: str,  # noqa: ARG001
-        github_token: str | None,  # noqa: ARG001
+        tag: str | None = None,  # noqa: ARG001
+        github_token: str | None = None,  # noqa: ARG001
     ) -> dict:
         return {
             "tag_name": "v1.0.0",
@@ -596,9 +608,48 @@ def test_get_tool_command(tmp_path: Path, create_dummy_archive: Callable) -> Non
 
     with (
         patch("dotbins.download.download_file", side_effect=mock_download_file),
-        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
+        patch("dotbins.config.fetch_release_info", side_effect=mock_fetch_release_info),
     ):
         _get_tool(source="basnijholt/mytool", dest_dir=dest_dir)
+
+    assert (dest_dir / "mytool").exists()
+
+
+def test_get_tool_command_with_tag(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+    requests_mock: Mocker,
+) -> None:
+    """Test the 'get' command with a custom tag."""
+    dest_dir = tmp_path / "bin"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    platform, arch = current_platform()
+
+    json = {
+        "tag_name": "custom-tag",
+        "assets": [
+            {
+                "name": f"mytool-custom-tag-{platform}_{arch}.tar.gz",
+                "browser_download_url": f"https://example.com/mytool-custom-tag-{platform}_{arch}.tar.gz",
+            },
+        ],
+    }
+    requests_mock.get(
+        "https://api.github.com/repos/owner/mytool/releases/tags/custom-tag",
+        json=json,
+    )
+
+    def mock_download_file(
+        url: str,  # noqa: ARG001
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        create_dummy_archive(Path(destination), binary_names="mytool")
+        return destination
+
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        _get_tool(source="owner/mytool", dest_dir=dest_dir, tag="custom-tag")
 
     assert (dest_dir / "mytool").exists()
 
@@ -647,9 +698,10 @@ def test_get_tool_command_with_remote_config(
         log(f"Mock HTTP GET for URL: {url}", "info")
         return MockResponse(yaml_content.encode("utf-8"))
 
-    def mock_latest_release_info(
+    def mock_fetch_release_info(
         repo: str,
-        github_token: str | None,  # noqa: ARG001
+        tag: str | None = None,  # noqa: ARG001
+        github_token: str | None = None,  # noqa: ARG001
     ) -> dict:
         log(f"Getting release info for repo: {repo}", "info")
         tool_name = repo.split("/")[-1]
@@ -678,9 +730,77 @@ def test_get_tool_command_with_remote_config(
     with (
         patch("dotbins.utils.requests.get", side_effect=mock_requests_get),
         patch("dotbins.download.download_file", side_effect=mock_download_file),
-        patch("dotbins.config.latest_release_info", side_effect=mock_latest_release_info),
+        patch("dotbins.config.fetch_release_info", side_effect=mock_fetch_release_info),
     ):
         _get_tool(source="https://example.com/config.yaml", dest_dir=dest_dir)
+
+    # Verify that both tools from the config were installed
+    assert (dest_dir / "tool1").exists()
+    assert (dest_dir / "tool2").exists()
+
+
+def test_get_tool_command_with_local_config(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+) -> None:
+    """Test the 'get' command with a local config file.
+
+    This tests the functionality to install the tools defined in a local YAML configuration file.
+    """
+    dest_dir = tmp_path / "bin"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    platform, arch = current_platform()
+
+    # Sample YAML configuration that would be fetched from a URL
+    yaml_content = textwrap.dedent(
+        f"""\
+        tools_dir: {dest_dir!s}
+        platforms:
+            {platform}: [{arch}]
+        tools:
+            tool1:
+                repo: fakeuser/tool1
+            tool2:
+                repo: fakeuser/tool2
+        """,
+    )
+    cfg_path = tmp_path / "dotbins.yaml"
+    cfg_path.write_text(yaml_content)
+
+    def mock_fetch_release_info(
+        repo: str,
+        tag: str | None = None,  # noqa: ARG001
+        github_token: str | None = None,  # noqa: ARG001
+    ) -> dict:
+        log(f"Getting release info for repo: {repo}", "info")
+        tool_name = repo.split("/")[-1]
+        return {
+            "tag_name": "v1.0.0",
+            "assets": [
+                {
+                    "name": f"{tool_name}-1.0.0-{platform}_{arch}.tar.gz",
+                    "browser_download_url": f"https://example.com/{tool_name}-1.0.0-{platform}_{arch}.tar.gz",
+                },
+            ],
+        }
+
+    def mock_download_file(
+        url: str,
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        log(f"Downloading from {url} to {destination}", "info")
+        tool_name = url.split("/")[-1].split("-")[0]
+        log(f"Creating archive for {tool_name}", "info")
+        create_dummy_archive(Path(destination), binary_names=tool_name)
+        return destination
+
+    with (
+        patch("dotbins.download.download_file", side_effect=mock_download_file),
+        patch("dotbins.config.fetch_release_info", side_effect=mock_fetch_release_info),
+    ):
+        _get_tool(source=str(cfg_path), dest_dir=dest_dir)
 
     # Verify that both tools from the config were installed
     assert (dest_dir / "tool1").exists()
@@ -723,7 +843,7 @@ def test_copy_config_file(
             (dest_dir / "dotbins.yaml").touch()
 
     config = Config.from_file(cfg_path)
-    _set_mock_release_info(config, version="1.0.0")
+    _set_mock_release_info(config, tag="v1.0.0")
     assert config.tools_dir == dest_dir
     assert config.platforms == {platform: [arch]}
 
@@ -767,7 +887,7 @@ def test_update_nonexistent_platform(tmp_path: Path, capsys: pytest.CaptureFixtu
         ),
     )
     config = Config.from_file(config_path)
-    _set_mock_release_info(config, version="1.0.0")
+    _set_mock_release_info(config, tag="v1.0.0")
 
     config.sync_tools(platform="windows")
     captured = capsys.readouterr()
@@ -785,11 +905,11 @@ def test_non_extract_with_multiple_binary_names(
     """Test error handling when a non-extractable binary has multiple binary names specified.
 
     This tests the error path where:
-    - extract_binary is set to False (use download directly)
+    - extract_archive is set to False (use download directly)
     - More than one binary name is specified
     - The update should fail with a specific error in the summary
     """
-    # Setup config with a tool that has extract_binary=False but multiple binary names
+    # Setup config with a tool that has extract_archive=False but multiple binary names
     config_path = tmp_path / "dotbins.yaml"
     config_path.write_text(
         textwrap.dedent(
@@ -800,7 +920,7 @@ def test_non_extract_with_multiple_binary_names(
             tools:
                 multi-bin-tool:
                     repo: owner/multi-bin-tool
-                    extract_binary: false
+                    extract_archive: false
                     binary_name:
                       - tool-bin1
                       - tool-bin2
@@ -808,7 +928,7 @@ def test_non_extract_with_multiple_binary_names(
         ),
     )
     config = Config.from_file(config_path)
-    _set_mock_release_info(config, version="1.0.0")
+    _set_mock_release_info(config, tag="v1.0.0")
 
     def mock_download_file(
         url: str,  # noqa: ARG001
@@ -850,11 +970,11 @@ def test_non_extract_single_binary_copy(
     """Test successful handling of a non-extractable binary with a single binary name.
 
     This tests the success path where:
-    - extract_binary is set to False (direct copy of downloaded file)
+    - extract_archive is set to False (direct copy of downloaded file)
     - Exactly one binary name is specified
     - The binary should be copied directly to the destination
     """
-    # Setup config with a tool that has extract_binary=False and a single binary name
+    # Setup config with a tool that has extract_archive=False and a single binary name
     config_path = tmp_path / "dotbins.yaml"
     config_path.write_text(
         textwrap.dedent(
@@ -865,13 +985,14 @@ def test_non_extract_single_binary_copy(
             tools:
                 single-bin-tool:
                     repo: owner/single-bin-tool
-                    extract_binary: false
+                    extract_archive: false
                     binary_name: tool-binary
             """,
         ),
     )
     config = Config.from_file(config_path)
-    _set_mock_release_info(config, version="1.0.0")
+    extension = ".exe" if os.name == "nt" else ".tar.gz"
+    _set_mock_release_info(config, tag="v1.0.0", extension=extension)
 
     def mock_download_file(
         url: str,  # noqa: ARG001
@@ -895,7 +1016,8 @@ def test_non_extract_single_binary_copy(
 
     # Verify that the binary file was created with the correct name
     bin_dir = config.bin_dir("linux", "amd64")
-    binary_path = bin_dir / "tool-binary"
+    name = "tool-binary.exe" if os.name == "nt" else "tool-binary"
+    binary_path = bin_dir / name
     assert binary_path.exists()
 
     # Verify that the binary is executable
@@ -904,10 +1026,10 @@ def test_non_extract_single_binary_copy(
     # Verify the content was copied correctly
     assert "Hello from tool-binary" in binary_path.read_text()
 
-    # Verify the version store was updated
-    tool_info = config.version_store.get_tool_info("single-bin-tool", "linux", "amd64")
+    # Verify the manifest was updated
+    tool_info = config.manifest.get_tool_info("single-bin-tool", "linux", "amd64")
     assert tool_info is not None
-    assert tool_info["version"] == "1.0.0"
+    assert tool_info["tag"] == "v1.0.0"
 
 
 def test_error_preparing_download(
@@ -931,7 +1053,7 @@ def test_error_preparing_download(
             },
         },
     )
-    config.tools["error-tool"]._latest_release = {"tag_name": "v1.0.0", "assets": []}
+    config.tools["error-tool"]._release_info = {"tag_name": "v1.0.0", "assets": []}
 
     # Create a BinSpec.matching_asset method that raises an exception
     def mock_matching_asset(self) -> NoReturn:  # noqa: ANN001, ARG001
@@ -967,8 +1089,8 @@ def test_error_preparing_download(
     bin_dir = config.bin_dir("linux", "amd64")
     assert not bin_dir.exists() or not any(bin_dir.iterdir())
 
-    # Verify version store doesn't have an entry for this tool
-    tool_info = config.version_store.get_tool_info("error-tool", "linux", "amd64")
+    # Verify manifest doesn't have an entry for this tool
+    tool_info = config.manifest.get_tool_info("error-tool", "linux", "amd64")
     assert tool_info is None
 
 
@@ -994,13 +1116,13 @@ def test_binary_not_found_error_handling(
                 "extraction-error-tool": {
                     "repo": "owner/extraction-error-tool",
                     "binary_name": "tool-binary",
-                    "binary_path": "nonexistent/path/tool-binary",
-                    "extract_binary": True,
+                    "path_in_archive": "nonexistent/path/tool-binary",
+                    "extract_archive": True,
                 },
             },
         },
     )
-    _set_mock_release_info(config, version="1.0.0")
+    _set_mock_release_info(config, tag="v1.0.0")
 
     def mock_download_file(
         url: str,  # noqa: ARG001
@@ -1043,7 +1165,7 @@ def test_binary_not_found_error_handling(
     assert not (bin_dir / "tool-binary").exists()
 
 
-def test_auto_detect_binary_paths_error(
+def test_auto_detect_paths_in_archive_error(
     tmp_path: Path,
     create_dummy_archive: Callable,
     capsys: pytest.CaptureFixture[str],
@@ -1053,11 +1175,11 @@ def test_auto_detect_binary_paths_error(
     This tests the error path where:
     - The download succeeds
     - The extraction succeeds
-    - The tool has no binary_path specified, so auto-detection is used
+    - The tool has no path_in_archive specified, so auto-detection is used
     - Auto-detection fails because no binary matches the expected name
     - The error should be properly categorized as 'Auto-detect binary paths error'
     """
-    # Setup config without binary_path - will trigger auto-detection
+    # Setup config without path_in_archive - will trigger auto-detection
     config = Config.from_dict(
         {
             "tools_dir": str(tmp_path),
@@ -1066,13 +1188,13 @@ def test_auto_detect_binary_paths_error(
                 "auto-detect-error-tool": {
                     "repo": "owner/auto-detect-error-tool",
                     "binary_name": "expected-binary",  # This name won't match anything in the archive
-                    "extract_binary": True,
-                    # No binary_path specified - will use auto-detection
+                    "extract_archive": True,
+                    # No path_in_archive specified - will use auto-detection
                 },
             },
         },
     )
-    _set_mock_release_info(config, version="1.0.0")
+    _set_mock_release_info(config, tag="v1.0.0")
 
     def mock_download_file(
         url: str,  # noqa: ARG001
@@ -1138,14 +1260,16 @@ def test_download_file_request_exception(
             },
         },
     )
-    _set_mock_release_info(config, version="1.0.0")
+    _set_mock_release_info(config, tag="v1.0.0")
 
     def mock_requests_get(*args, **kwargs) -> NoReturn:  # noqa: ANN002, ANN003, ARG001
         # Simulate a network error during the request
         err_msg = "Connection refused"
         raise requests.RequestException(err_msg)
 
-    with (patch("dotbins.utils.requests.get", side_effect=mock_requests_get),):
+    with (
+        patch("dotbins.utils.requests.get", side_effect=mock_requests_get),
+    ):
         config.sync_tools(verbose=False)  # Turn off verbose to reduce processing
 
     # Capture the output
@@ -1174,8 +1298,8 @@ def test_download_file_request_exception(
     bin_dir = config.bin_dir("linux", "amd64")
     assert not bin_dir.exists() or not any(bin_dir.iterdir())
 
-    # Verify version store doesn't have an entry for this tool
-    tool_info = config.version_store.get_tool_info("download-error-tool", "linux", "amd64")
+    # Verify manifest doesn't have an entry for this tool
+    tool_info = config.manifest.get_tool_info("download-error-tool", "linux", "amd64")
     assert tool_info is None
 
 
@@ -1196,7 +1320,7 @@ def test_no_matching_asset(
             },
         },
     )
-    config.tools["mytool"]._latest_release = {"tag_name": "v1.0.0", "assets": []}
+    config.tools["mytool"]._release_info = {"tag_name": "v1.0.0", "assets": []}
 
     config.sync_tools()
 
@@ -1229,7 +1353,7 @@ def test_auto_detect_asset_multiple_perfect_matches(
     }
     config = Config.from_dict(raw_config)
 
-    config.tools["mytool"]._latest_release = {
+    config.tools["mytool"]._release_info = {
         "tag_name": "v1.2.3",
         "assets": [
             {
@@ -1266,6 +1390,112 @@ def test_auto_detect_asset_multiple_perfect_matches(
     assert (bin_dir / "mytool").exists()
 
 
+def test_auto_detect_asset_prefers_primary_tool_binary(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Ensure auto-detect favors the main tool over similarly named helpers."""
+    raw_config: RawConfigDict = {
+        "tools_dir": str(tmp_path),
+        "platforms": {"linux": ["amd64"]},
+        "tools": {"codex": {"repo": "openai/codex"}},
+    }
+    config = Config.from_dict(raw_config)
+
+    config.tools["codex"]._release_info = {
+        "tag_name": "v0.57.0",
+        "assets": [
+            {
+                "name": "codex-responses-api-proxy-x86_64-unknown-linux-musl.tar.gz",
+                "browser_download_url": "https://example.com/codex-responses-api-proxy-x86_64-unknown-linux-musl.tar.gz",
+            },
+            {
+                "name": "codex-x86_64-unknown-linux-musl.tar.gz",
+                "browser_download_url": "https://example.com/codex-x86_64-unknown-linux-musl.tar.gz",
+            },
+        ],
+    }
+
+    def mock_download_file(
+        url: str,  # noqa: ARG001
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        create_dummy_archive(Path(destination), binary_names="codex")
+        return destination
+
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools()
+
+    out = capsys.readouterr().out
+    assert "Found multiple candidates" in out
+    assert "Found asset: codex-x86_64-unknown-linux-musl.tar.gz" in out
+
+
+def test_matching_asset_raises_on_empty_candidates() -> None:
+    """Ensure the guard in the auto-detect logic is exercised via the public API."""
+    raw_config: RawConfigDict = {
+        "tools_dir": "~/.dotbins",
+        "platforms": {"linux": ["amd64"]},
+        "tools": {"codex": {"repo": "openai/codex"}},
+    }
+    config = Config.from_dict(raw_config)
+    config.tools["codex"]._release_info = {
+        "tag_name": "v0.57.0",
+        "assets": [
+            {
+                "name": "codex-x86_64-unknown-linux-musl.tar.gz",
+                "browser_download_url": "https://example.com/codex-x86_64-unknown-linux-musl.tar.gz",
+            },
+        ],
+    }
+
+    def fake_detector(_assets: list[str]) -> tuple[str, list[str], str]:
+        return "", [], "2 arch matches found"
+
+    with patch("dotbins.config.create_system_detector", return_value=fake_detector):
+        bin_spec = config.tools["codex"].bin_spec("amd64", "linux")
+        with pytest.raises(ValueError, match="No candidates provided"):
+            bin_spec.matching_asset()
+
+
+def test_matching_asset_prefers_single_token_binary_name() -> None:
+    """Exercise the heuristic that prefers binaries named exactly after the tool."""
+    raw_config: RawConfigDict = {
+        "tools_dir": "~/.dotbins",
+        "platforms": {"linux": ["amd64"]},
+        "tools": {"codex": {"repo": "openai/codex"}},
+    }
+    config = Config.from_dict(raw_config)
+    # Simulate a missing repo basename to ensure the name-hint normalization skips it.
+    config.tools["codex"].repo = ""
+    config.tools["codex"]._release_info = {
+        "tag_name": "v0.57.0",
+        "assets": [
+            {
+                "name": "codex-helper-linux-amd64.tar.gz",
+                "browser_download_url": "https://example.com/codex-helper-linux-amd64.tar.gz",
+            },
+            {
+                "name": "codex",
+                "browser_download_url": "https://example.com/codex",
+            },
+        ],
+    }
+
+    def fake_detector(asset_names: list[str]) -> tuple[str, list[str], str]:
+        # Return the candidates in reverse order to prove the heuristic kicks in.
+        return "", list(reversed(asset_names)), "2 arch matches found"
+
+    with patch("dotbins.config.create_system_detector", return_value=fake_detector):
+        bin_spec = config.tools["codex"].bin_spec("amd64", "linux")
+        asset = bin_spec.matching_asset()
+        assert asset is not None
+        assert asset["name"] == "codex"
+
+
 def test_auto_detect_asset_no_matches(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -1278,7 +1508,7 @@ def test_auto_detect_asset_no_matches(
     }
     config = Config.from_dict(raw_config)
 
-    config.tools["mytool"]._latest_release = _create_mock_release_info(
+    config.tools["mytool"]._release_info = _create_mock_release_info(
         "mytool",
         "1.2.3",
         {"linux": ["amd64", "i386"]},  # Different arch
@@ -1291,6 +1521,58 @@ def test_auto_detect_asset_no_matches(
     assert "manually select one" in out
 
 
+def test_e2e_auto_detect_no_candidates(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test E2E scenario where auto-detect finds no candidates."""
+    raw_config: RawConfigDict = {
+        "tools_dir": str(tmp_path),
+        "platforms": {"linux": ["amd64"]},
+        "tools": {
+            "no-candidate-tool": {
+                "repo": "fakeuser/no-candidate-tool",
+                # No asset_patterns to trigger auto-detect
+            },
+        },
+    }
+    config = Config.from_dict(raw_config)
+
+    # Set release info with an EMPTY assets list
+    config.tools["no-candidate-tool"]._release_info = {
+        "tag_name": "v1.0.0",
+        "assets": [],  # Empty list (key to trigger the error)
+    }
+
+    # Mock download_file - it shouldn't be called if no asset is found
+    def mock_download_file(
+        *args: Any,  # noqa: ARG001
+        **kwargs: Any,  # noqa: ARG001
+    ) -> NoReturn:  # pragma: no cover
+        msg = "Download should not be attempted if no candidate asset is found"
+        raise AssertionError(msg)
+
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools()
+
+    # Check log output for the specific error
+    out = capsys.readouterr().out
+    assert "Auto-detecting asset for linux/amd64" in out, out
+    assert "Error detecting asset: no candidates found" in out
+
+    # Check failure summary
+    assert len(config._update_summary.failed) == 1
+    failed_entry = config._update_summary.failed[0]
+    assert failed_entry.tool == "no-candidate-tool"
+    assert failed_entry.platform == "linux"
+    assert failed_entry.arch == "amd64"
+    assert "No matching asset found" in failed_entry.reason
+
+    # Verify no binary was installed
+    bin_dir = config.bin_dir("linux", "amd64")
+    assert not bin_dir.exists() or not list(bin_dir.iterdir())
+
+
 def test_sync_tools_with_empty_archive(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -1300,11 +1582,11 @@ def test_sync_tools_with_empty_archive(
         "tools_dir": str(tmp_path),
         "platforms": {"linux": ["amd64"]},
         "tools": {
-            "mytool": {"repo": "fakeuser/mytool", "binary_path": "*", "extract_binary": True},
+            "mytool": {"repo": "fakeuser/mytool", "path_in_archive": "*", "extract_archive": True},
         },
     }
     config = Config.from_dict(raw_config)
-    _set_mock_release_info(config, version="1.2.3")
+    _set_mock_release_info(config, tag="v1.2.3")
 
     def mock_download_file(
         url: str,  # noqa: ARG001
@@ -1411,7 +1693,7 @@ def test_cli_unknown_tool(tmp_path: Path) -> None:
         )
 
 
-def test_sync_tool_match_binary_path_with_glob(
+def test_sync_tool_match_path_in_archive_with_glob(
     tmp_path: Path,
     create_dummy_archive: Callable,
 ) -> None:
@@ -1424,9 +1706,9 @@ def test_sync_tool_match_binary_path_with_glob(
             "tools": {
                 "test-tool": {
                     "repo": "test/tool",
-                    "extract_binary": True,
+                    "extract_archive": True,
                     "binary_name": "test-tool",
-                    "binary_path": "*",
+                    "path_in_archive": "*",
                     "asset_patterns": "test-tool-{version}-{platform}_{arch}.tar.gz",
                     "platform_map": {"macos": "darwin"},
                 },
@@ -1434,7 +1716,7 @@ def test_sync_tool_match_binary_path_with_glob(
         },
     )
     tool_config = config.tools["test-tool"]
-    tool_config._latest_release = {
+    tool_config._release_info = {
         "tag_name": "v1.0.0",
         "assets": [
             {
@@ -1532,7 +1814,7 @@ def test_tool_shell_code_in_shell_scripts(
             "tools": tool_configs,  # type: ignore[typeddict-item]
         },
     )
-    _set_mock_release_info(config, version="1.2.3")
+    _set_mock_release_info(config, tag="v1.2.3")
 
     # Mock the download_file function
     def mock_download_file(
@@ -1555,6 +1837,7 @@ def test_tool_shell_code_in_shell_scripts(
         "zsh": "zsh.sh",
         "fish": "fish.fish",
         "nushell": "nushell.nu",
+        "powershell": "powershell.ps1",
     }
 
     for shell, filename in shell_files.items():
@@ -1624,38 +1907,38 @@ def test_cleanup_unused_binaries(
     create_dummy_archive: Callable,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Test that the cleanup parameter removes binaries that are not in the configuration."""
-    # Create a config with two tools
-    raw_config: RawConfigDict = {
-        "tools_dir": str(tmp_path),
-        "platforms": {"linux": ["amd64"]},
-        "tools": {
-            "tool1": {
-                "repo": "fakeuser/tool1",
-                "extract_binary": True,
-                "binary_name": "tool1-bin",
-                "binary_path": "tool1-bin",
-                "asset_patterns": "tool1-{version}-linux_{arch}.tar.gz",
-            },
-            "tool2": {
-                "repo": "fakeuser/tool2",
-                "extract_binary": True,
-                "binary_name": "tool2-bin",
-                "binary_path": "tool2-bin",
-                "asset_patterns": "tool2-{version}-linux_{arch}.tar.gz",
+    """Ensure cleanup removes binaries not defined in the config."""
+    raw_config = cast(
+        "RawConfigDict",
+        {
+            "tools_dir": str(tmp_path),
+            "platforms": {"linux": ["amd64"]},
+            "tools": {
+                "tool1": {
+                    "repo": "fakeuser/tool1",
+                    "extract_binary": True,
+                    "binary_name": "tool1-bin",
+                    "binary_path": "tool1-bin",
+                    "asset_patterns": "tool1-{version}-linux_{arch}.tar.gz",
+                },
+                "tool2": {
+                    "repo": "fakeuser/tool2",
+                    "extract_binary": True,
+                    "binary_name": "tool2-bin",
+                    "binary_path": "tool2-bin",
+                    "asset_patterns": "tool2-{version}-linux_{arch}.tar.gz",
+                },
             },
         },
-    }
+    )
 
     config = Config.from_dict(raw_config)
-    _set_mock_release_info(config, version="1.0.0")
+    _set_mock_release_info(config, tag="v1.0.0")
 
-    # Create bin directory and add a binary that is not in the config
     bin_dir = config.bin_dir("linux", "amd64", create=True)
     unused_binary = bin_dir / "unused-bin"
     unused_binary.touch()
 
-    # Also add the expected binaries to simulate they were already installed
     (bin_dir / "tool1-bin").touch()
     (bin_dir / "tool2-bin").touch()
 
@@ -1665,25 +1948,389 @@ def test_cleanup_unused_binaries(
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
     ) -> str:
-        # Extract tool name from URL
-        parts = url.split("/")[-1].split("-")
-        tool_name = parts[0]
-
-        # Create a dummy archive with the right name
+        tool_name = url.split("/")[-1].split("-")[0]
         create_dummy_archive(Path(destination), binary_names=f"{tool_name}-bin")
         return destination
 
     with patch("dotbins.download.download_file", side_effect=mock_download_file):
-        # Run sync_tools with cleanup=True
         config.sync_tools(cleanup=True, force=True)
 
-    # The unused binary should be removed
     assert not unused_binary.exists()
-
-    # The expected binaries should still exist
     assert (bin_dir / "tool1-bin").exists()
     assert (bin_dir / "tool2-bin").exists()
 
     out = capsys.readouterr().out
     assert "Removed unused binary" in out
     assert "unused-bin" in out
+
+
+def test_eza_arch_detection(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+) -> None:
+    """Test that eza is detected correctly for different architectures."""
+    config = Config.from_dict(
+        {
+            "tools_dir": str(tmp_path),
+            "platforms": {"linux": ["amd64", "arm64"]},
+            "tools": {
+                "eza": {
+                    "repo": "eza-community/eza",
+                    "arch_map": {"amd64": "x86_64", "arm64": "aarch64"},
+                    "asset_patterns": {
+                        "linux": "eza_{arch}-unknown-linux-gnu.tar.gz",
+                        "macos": None,
+                    },  # type: ignore[typeddict-item]
+                },
+            },
+        },
+    )
+
+    config.tools["eza"]._release_info = {
+        "tag_name": "0.12.1",
+        "assets": [
+            {
+                "name": "eza_x86_64-unknown-linux-gnu.tar.gz",
+                "browser_download_url": "https://example.com/eza_x86_64-unknown-linux-gnu.tar.gz",
+            },
+            {
+                "name": "eza_aarch64-unknown-linux-gnu.tar.gz",
+                "browser_download_url": "https://example.com/eza_aarch64-unknown-linux-gnu.tar.gz",
+            },
+        ],
+    }
+
+    def mock_download_file(
+        url: str,  # noqa: ARG001
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        create_dummy_archive(Path(destination), "eza")
+        return destination
+
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools()
+
+
+@pytest.mark.parametrize("tag", ["latest", "v1.0.0", ""])
+def test_tool_with_custom_tag(
+    tmp_path: Path,
+    requests_mock: Mocker,
+    create_dummy_archive: Callable,
+    capsys: pytest.CaptureFixture[str],
+    tag: str,
+) -> None:
+    """Test that a tool with a custom tag is synced correctly."""
+    config_path = tmp_path / "dotbins.yaml"
+    config_path.write_text(
+        textwrap.dedent(
+            f"""\
+            tools_dir: {tmp_path!s}
+            platforms:
+                linux: ["amd64"]
+            tools:
+                tool:
+                    repo: owner/tool
+                    tag: {tag}
+            """,
+        ),
+    )
+    config = Config.from_file(config_path)
+    json = {
+        "tag_name": "v1.0.0",
+        "assets": [
+            {
+                "name": "tool-v1.0.0-linux-amd64.tar.gz",
+                "browser_download_url": "https://example.com/tool-v1.0.0-linux-amd64.tar.gz",
+            },
+        ],
+    }
+    requests_mock.get("https://api.github.com/repos/owner/tool/releases/tags/v1.0.0", json=json)
+    requests_mock.get("https://api.github.com/repos/owner/tool/releases/latest", json=json)
+
+    def mock_download_file(
+        url: str,  # noqa: ARG001
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        # Create a dummy binary file with executable content
+        create_dummy_archive(Path(destination), binary_names="tool")
+        return destination
+
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        # Run the update which should succeed for the single binary tool
+        config.sync_tools()
+
+    # Capture the output
+    out = capsys.readouterr().out
+
+    # Verify successful messages in the output
+    assert "Successfully installed tool" in out
+
+    # Verify that the binary file was created with the correct name
+    bin_dir = config.bin_dir("linux", "amd64")
+    binary_path = bin_dir / "tool"
+    assert binary_path.exists(), out
+    # Verify the manifest was updated
+    tool_info = config.manifest.get_tool_info("tool", "linux", "amd64")
+    assert tool_info is not None
+    assert tool_info["tag"] == "v1.0.0"
+
+
+def test_tool_with_custom_shell_code(
+    tmp_path: Path,
+    requests_mock: Mocker,
+    create_dummy_archive: Callable,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test that a tool with a custom tag is synced correctly."""
+    config_path = tmp_path / "dotbins.yaml"
+    config_path.write_text(
+        textwrap.dedent(
+            f"""\
+            tools_dir: {tmp_path!s}
+            platforms:
+                linux: ["amd64"]
+            tools:
+                tool:
+                    repo: owner/tool
+                    shell_code:
+                        bash,zsh: |
+                            echo "__DOTBINS_SHELL__"
+                        unsupported: |
+                            echo "unsupported"
+                        fish: 1.0 # incorrect type
+            """,
+        ),
+    )
+    config = Config.from_file(config_path)
+    json = {
+        "tag_name": "v1.0.0",
+        "assets": [
+            {
+                "name": "tool-v1.0.0-linux-amd64.tar.gz",
+                "browser_download_url": "https://example.com/tool-v1.0.0-linux-amd64.tar.gz",
+            },
+        ],
+    }
+    requests_mock.get("https://api.github.com/repos/owner/tool/releases/latest", json=json)
+
+    def mock_download_file(
+        url: str,  # noqa: ARG001
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        # Create a dummy binary file with executable content
+        create_dummy_archive(Path(destination), binary_names="tool")
+        return destination
+
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        # Run the update which should succeed for the single binary tool
+        config.sync_tools()
+
+    # Capture the output
+    out = capsys.readouterr().out
+
+    # Verify successful messages in the output
+    assert "Successfully installed tool" in out
+    assert "unknown shell" in out
+
+    # Verify that the shell scripts were generated correctly
+    shell_scripts = {
+        "bash": "bash.sh",
+        "zsh": "zsh.sh",
+    }
+    for shell, filename in shell_scripts.items():
+        shell_script_path = tmp_path / "shell" / filename
+        assert shell_script_path.exists(), out
+        content = shell_script_path.read_text()
+        assert f'echo "{shell}"' in content
+
+
+def test_e2e_pin_to_manifest(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+    capsys: pytest.CaptureFixture[str],
+    requests_mock: Mocker,
+) -> None:
+    """Test that pin_to_manifest=True uses the tag from the manifest."""
+    tool_name = "pinned-tool"
+    pinned_tag = "v1.0.0"
+    latest_tag = "v2.0.0"
+    platform, arch = "linux", "amd64"
+
+    raw_config: RawConfigDict = {
+        "tools_dir": str(tmp_path),
+        "platforms": {platform: [arch]},
+        "tools": {
+            tool_name: {
+                "repo": f"fakeuser/{tool_name}",
+                "binary_name": tool_name,
+            },
+        },
+    }
+
+    config = Config.from_dict(raw_config)
+
+    config.manifest.update_tool_info(
+        tool=tool_name,
+        platform=platform,
+        arch=arch,
+        tag=pinned_tag,
+        sha256="dummy-sha",
+        url=f"https://example.com/{tool_name}-{pinned_tag}-{platform}_{arch}.tar.gz",
+    )
+
+    requests_mock.get(
+        f"https://api.github.com/repos/fakeuser/{tool_name}/releases/tags/{pinned_tag}",
+        json={
+            "tag_name": pinned_tag,
+            "assets": [
+                {
+                    "name": f"{tool_name}-{pinned_tag}-{platform}_{arch}.tar.gz",
+                    "browser_download_url": f"https://example.com/{tool_name}-{pinned_tag}-{platform}_{arch}.tar.gz",
+                },
+            ],
+        },
+    )
+
+    downloaded_urls = []
+
+    def mock_download_file(
+        url: str,
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        downloaded_urls.append(url)
+        create_dummy_archive(Path(destination), binary_names=tool_name)
+        return destination
+
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools(pin_to_manifest=True, verbose=True)
+
+    out = capsys.readouterr().out
+    assert f"Using tag {pinned_tag} for tool {tool_name}" in out
+
+    assert len(downloaded_urls) == 1, "Download should have happened"
+    assert pinned_tag in downloaded_urls[0], f"URL should contain pinned tag {pinned_tag}"
+    assert latest_tag not in downloaded_urls[0], f"URL should NOT contain latest tag {latest_tag}"
+
+    verify_binaries_installed(config, expected_tools=[tool_name], platform=platform, arch=arch)
+
+    manifest_info = config.manifest.get_tool_info(tool_name, platform, arch)
+    assert manifest_info is not None
+    assert manifest_info["tag"] == pinned_tag, "Manifest tag should remain pinned"
+
+
+def test_current_but_platform_not_configured(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+    requests_mock: Mocker,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test that current=True works even if the platform is not configured."""
+    tool_name = "tool"
+    tag = "v1.0.0"
+    raw_config: RawConfigDict = {
+        "tools_dir": str(tmp_path),
+        "platforms": {"fake_platform": ["fake_arch"]},
+        "tools": {
+            tool_name: {
+                "repo": f"fakeuser/{tool_name}",
+                "binary_name": tool_name,
+            },
+        },
+    }
+
+    config = Config.from_dict(raw_config)
+    platform, arch = current_platform()
+
+    requests_mock.get(
+        "https://api.github.com/repos/fakeuser/tool/releases/latest",
+        json={
+            "tag_name": tag,
+            "assets": [
+                {
+                    "name": f"{tool_name}-{tag}-{platform}_{arch}.tar.gz",
+                    "browser_download_url": f"https://example.com/{tool_name}-{tag}-{platform}_{arch}.tar.gz",
+                },
+            ],
+        },
+    )
+
+    downloaded_urls = []
+
+    def mock_download_file(
+        url: str,
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        downloaded_urls.append(url)
+        create_dummy_archive(Path(destination), binary_names=tool_name)
+        return destination
+
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools(current=True, verbose=True)
+
+    assert len(downloaded_urls) == 1, "Download should have happened"
+    out = capsys.readouterr().out
+    assert "even if not configured" in out
+
+
+def test_i686(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+    requests_mock: Mocker,
+) -> None:
+    """Test that i686 works."""
+    tool_name = "tool"
+    tag = "v1.0.0"
+    raw_config: RawConfigDict = {
+        "tools_dir": str(tmp_path),
+        "platforms": {"linux": ["i686"]},
+        "tools": {
+            tool_name: {
+                "repo": f"fakeuser/{tool_name}",
+                "binary_name": tool_name,
+            },
+        },
+    }
+
+    config = Config.from_dict(raw_config)
+    platform, dl_arch = "linux", "i386"
+
+    requests_mock.get(
+        "https://api.github.com/repos/fakeuser/tool/releases/latest",
+        json={
+            "tag_name": tag,
+            "assets": [
+                {
+                    "name": f"{tool_name}-{tag}-{platform}_{dl_arch}.tar.gz",
+                    "browser_download_url": f"https://example.com/{tool_name}-{tag}-{platform}_{dl_arch}.tar.gz",
+                },
+            ],
+        },
+    )
+
+    downloaded_urls = []
+
+    def mock_download_file(
+        url: str,
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        downloaded_urls.append(url)
+        create_dummy_archive(Path(destination), binary_names=tool_name)
+        return destination
+
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools(verbose=True)
+
+    assert len(downloaded_urls) == 1, "Download should have happened"
+    assert (tmp_path / "linux" / "i686" / "bin" / tool_name).exists()

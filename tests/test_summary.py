@@ -16,12 +16,12 @@ def test_tool_summary_base() -> None:
         tool="test-tool",
         platform="linux",
         arch="amd64",
-        version="1.0.0",
+        tag="v1.0.0",
     )
     assert summary.tool == "test-tool"
     assert summary.platform == "linux"
     assert summary.arch == "amd64"
-    assert summary.version == "1.0.0"
+    assert summary.tag == "v1.0.0"
 
 
 def test_updated_tool_summary() -> None:
@@ -32,15 +32,15 @@ def test_updated_tool_summary() -> None:
         tool="test-tool",
         platform="linux",
         arch="amd64",
-        version="1.0.0",
-        old_version="0.9.0",
+        tag="v1.0.0",
+        old_tag="v0.9.0",
         timestamp=fixed_timestamp,
     )
     assert summary.tool == "test-tool"
     assert summary.platform == "linux"
     assert summary.arch == "amd64"
-    assert summary.version == "1.0.0"
-    assert summary.old_version == "0.9.0"
+    assert summary.tag == "v1.0.0"
+    assert summary.old_tag == "v0.9.0"
     assert summary.timestamp == fixed_timestamp
     # Test default values
     # Note: We can't easily test the auto-generated timestamp as it depends on current time
@@ -52,13 +52,13 @@ def test_skipped_tool_summary() -> None:
         tool="test-tool",
         platform="linux",
         arch="amd64",
-        version="1.0.0",
+        tag="v1.0.0",
         reason="Custom reason",
     )
     assert summary.tool == "test-tool"
     assert summary.platform == "linux"
     assert summary.arch == "amd64"
-    assert summary.version == "1.0.0"
+    assert summary.tag == "v1.0.0"
     assert summary.reason == "Custom reason"
 
     # Test default values
@@ -66,7 +66,7 @@ def test_skipped_tool_summary() -> None:
         tool="test-tool",
         platform="linux",
         arch="amd64",
-        version="1.0.0",
+        tag="v1.0.0",
     )
     assert summary.reason == "Already up-to-date"
 
@@ -77,13 +77,13 @@ def test_failed_tool_summary() -> None:
         tool="test-tool",
         platform="linux",
         arch="amd64",
-        version="1.0.0",
+        tag="v1.0.0",
         reason="Custom error",
     )
     assert summary.tool == "test-tool"
     assert summary.platform == "linux"
     assert summary.arch == "amd64"
-    assert summary.version == "1.0.0"
+    assert summary.tag == "v1.0.0"
     assert summary.reason == "Custom error"
 
     # Test default values
@@ -92,7 +92,7 @@ def test_failed_tool_summary() -> None:
         platform="linux",
         arch="amd64",
     )
-    assert summary.version == "Unknown"
+    assert summary.tag == "Unknown"
     assert summary.reason == "Unknown error"
 
 
@@ -114,19 +114,19 @@ def test_update_summary_add_methods() -> None:
         tool="tool1",
         platform="linux",
         arch="amd64",
-        version="1.0.0",
-        old_version="0.9.0",
+        tag="v1.0.0",
+        old_tag="v0.9.0",
     )
     assert len(summary.updated) == 1
     assert summary.updated[0].tool == "tool1"
-    assert summary.updated[0].old_version == "0.9.0"
+    assert summary.updated[0].old_tag == "v0.9.0"
 
     # Add a skipped tool
     summary.add_skipped_tool(
         tool="tool2",
         platform="macos",
         arch="arm64",
-        version="1.0.0",
+        tag="v1.0.0",
         reason="Already installed",
     )
     assert len(summary.skipped) == 1
@@ -138,7 +138,7 @@ def test_update_summary_add_methods() -> None:
         tool="tool3",
         platform="linux",
         arch="arm64",
-        version="0.9.0",
+        tag="0.9.0",
         reason="Download failed",
     )
     assert len(summary.failed) == 1

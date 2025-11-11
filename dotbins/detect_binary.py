@@ -9,6 +9,8 @@ import os
 import re
 from pathlib import Path
 
+from .utils import SUPPORTED_ARCHIVE_EXTENSIONS
+
 
 def _is_definitely_not_exec(filename: str) -> bool:
     return bool(
@@ -31,6 +33,9 @@ def is_exec(filename: str, mode: int) -> bool:
     """Check if a file is executable."""
     if _is_definitely_not_exec(filename):
         return False
+
+    if os.name == "nt":  # Windows doesn't use executable bit
+        return _is_likely_exec(filename)
 
     if mode & 0o111:
         return True
@@ -107,7 +112,7 @@ def _find_best_binary_match(
     return None
 
 
-def auto_detect_binary_paths(extracted_dir: Path, binary_names: list[str]) -> list[str]:
+def auto_detect_paths_in_archive(extracted_dir: Path, binary_names: list[str]) -> list[Path]:
     """Automatically detect binary paths for multiple binaries.
 
     Args:
@@ -121,29 +126,13 @@ def auto_detect_binary_paths(extracted_dir: Path, binary_names: list[str]) -> li
     detected_paths = []
 
     for binary_name in binary_names:
-        binary_path = _find_best_binary_match(extracted_dir, binary_name)
-        if binary_path:
-            detected_paths.append(str(binary_path))
+        path_in_archive = _find_best_binary_match(extracted_dir, binary_name)
+        if path_in_archive:
+            detected_paths.append(path_in_archive)
 
     return detected_paths
 
 
-def auto_detect_extract_binary(name: str) -> bool:
+def auto_detect_extract_archive(name: str) -> bool:
     """Automatically detect if a binary should be extracted from an archive."""
-    # These are all the archive extensions that are supported by
-    # the `utils.extract_archive` function
-    archive_extensions = [
-        ".zip",
-        ".tar",
-        ".tar.gz",
-        ".tgz",
-        ".tar.bz2",
-        ".tbz2",
-        ".tar.xz",
-        ".txz",
-        ".gz",
-        ".bz2",
-        ".xz",
-        ".lzma",
-    ]
-    return any(name.lower().endswith(ext) for ext in archive_extensions)
+    return any(name.lower().endswith(ext) for ext in SUPPORTED_ARCHIVE_EXTENSIONS)

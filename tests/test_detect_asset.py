@@ -6,7 +6,7 @@ from dotbins.detect_asset import (
     ArchAMD64,
     ArchArm,
     ArchArm64,
-    ArchI386,
+    ArchI686,
     ArchRiscv64,
     OSDarwin,
     OSLinux,
@@ -21,19 +21,19 @@ from dotbins.detect_asset import (
 def test_os_match() -> None:
     """Test the match_os function."""
     # Test basic OS matching
-    assert _match_os(OSDarwin, "darwin-amd64.tar.gz") == (True, False)
-    assert _match_os(OSDarwin, "macos-amd64.tar.gz") == (True, False)
-    assert _match_os(OSDarwin, "osx-amd64.tar.gz") == (True, False)
-    assert _match_os(OSDarwin, "linux-amd64.tar.gz") == (False, False)
+    assert _match_os(OSDarwin, "darwin-amd64.tar.gz") is True
+    assert _match_os(OSDarwin, "macos-amd64.tar.gz") is True
+    assert _match_os(OSDarwin, "osx-amd64.tar.gz") is True
+    assert _match_os(OSDarwin, "linux-amd64.tar.gz") is False
 
     # Test with anti-pattern
-    assert _match_os(OSLinux, "linux-amd64.tar.gz") == (True, False)
-    assert _match_os(OSLinux, "ubuntu-amd64.tar.gz") == (True, False)
-    assert _match_os(OSLinux, "android-amd64.tar.gz") == (False, False)
+    assert _match_os(OSLinux, "linux-amd64.tar.gz") is True
+    assert _match_os(OSLinux, "ubuntu-amd64.tar.gz") is True
+    assert _match_os(OSLinux, "android-amd64.tar.gz") is False
 
-    # Test with priority pattern
-    assert _match_os(OSLinux, "app.appimage") == (False, False)  # No Linux in name
-    assert _match_os(OSLinux, "linux-app.appimage") == (True, True)
+    # Test with AppImage files
+    assert _match_os(OSLinux, "app.appimage") is True  # AppImage files are always for Linux
+    assert _match_os(OSLinux, "linux-app.appimage") is True
 
 
 def test_arch_match() -> None:
@@ -44,10 +44,26 @@ def test_arch_match() -> None:
     assert _match_arch(ArchAMD64, "linux-x64.tar.gz")
     assert not _match_arch(ArchAMD64, "linux-386.tar.gz")
 
-    assert _match_arch(ArchI386, "linux-i386.tar.gz")
-    assert _match_arch(ArchI386, "linux-386.tar.gz")
-    assert _match_arch(ArchI386, "linux-x86_32.tar.gz")
-    assert not _match_arch(ArchI386, "linux-amd64.tar.gz")
+    # Test the `-64` and `_64` pattern additions
+    assert _match_arch(ArchAMD64, "linux-64.tar.gz")
+    assert _match_arch(ArchAMD64, "linux_64.tar.gz")
+    assert _match_arch(ArchAMD64, "micromamba-linux-64")
+    assert _match_arch(ArchAMD64, "app_linux_64")
+    assert _match_arch(ArchAMD64, "linux-64bit.tar.gz")  # Not at word boundary
+
+    # Verify we don't get false positives
+    assert not _match_arch(ArchAMD64, "linux-arm64.tar.gz")  # Should match ARM64, not AMD64
+    assert not _match_arch(ArchAMD64, "linux-riscv64.tar.gz")  # Should match RISCV64, not AMD64
+    assert not _match_arch(
+        ArchAMD64,
+        "something-with-64-in-name.tar.gz",
+    )  # Not matching the pattern
+    assert not _match_arch(ArchAMD64, "with64suffix.tar.gz")  # Not at word boundary
+
+    assert _match_arch(ArchI686, "linux-i386.tar.gz")
+    assert _match_arch(ArchI686, "linux-386.tar.gz")
+    assert _match_arch(ArchI686, "linux-x86_32.tar.gz")
+    assert not _match_arch(ArchI686, "linux-amd64.tar.gz")
 
     assert _match_arch(ArchArm, "linux-arm.tar.gz")
     assert _match_arch(ArchArm, "linux-armv6.tar.gz")
@@ -133,7 +149,7 @@ def test_create_system_detector() -> None:
 
 def test_system_detector_detect() -> None:
     """Test the detect_system function."""
-    detector = _detect_system(OSLinux, ArchAMD64)
+    detector = _detect_system(OSLinux, ArchAMD64, "musl", "msvc", True)
 
     # Perfect match
     assets = [
@@ -155,7 +171,7 @@ def test_system_detector_detect() -> None:
     match, candidates, error = detector(assets)
     assert match == ""
     assert candidates == ["app-linux-amd64.tar.gz", "app-linux-x86_64.tar.gz"]
-    assert error == "2 matches found"
+    assert error == "2 arch matches found"
 
     # OS match but no arch match
     assets = ["app-linux-arm64.tar.gz", "app-darwin-amd64.tar.gz"]
@@ -182,24 +198,24 @@ def test_system_detector_detect() -> None:
     assert candidates == ["app-darwin-arm64.tar.gz", "app-windows-386.exe"]
     assert error == "no candidates found"
 
-    # Priority match
-    assets = ["app-linux-amd64.tar.gz", "app-linux.appimage"]
+    # AppImage priority match (AppImages should be prioritized)
+    assets = ["app-linux-amd64.tar.gz", "app-linux-amd64.appimage"]
     match, candidates, error = detector(assets)
-    assert match == "app-linux.appimage"
-    assert candidates is None
-    assert error is None
+    # Since we're checking multiple assets with the same OS/ARCH,
+    # the result should be a prioritized list, not a single match
+    assert match == ""
+    assert candidates == ["app-linux-amd64.appimage", "app-linux-amd64.tar.gz"]
+    assert error == "2 arch matches found"
 
-    # Multiple priority matches
-    assets = [
-        "app1-linux.appimage",
-        "app2-linux.appimage",
-    ]
+    # Package vs archive priority
+    # Test that archive formats (.tar.gz) are prioritized over package formats (.deb)
+    assets = ["app-linux-amd64.deb", "app-linux-amd64.tar.gz"]
     match, candidates, error = detector(assets)
     assert match == ""
-    assert candidates == ["app1-linux.appimage", "app2-linux.appimage"]
-    assert error == "2 priority matches found"
+    assert candidates == ["app-linux-amd64.tar.gz", "app-linux-amd64.deb"]
+    assert error == "2 arch matches found"
 
-    # Skip checksum files
+    # Skip signature files
     assets = [
         "app-linux-amd64.tar.gz",
         "app-linux-amd64.tar.gz.sha256",
@@ -213,7 +229,7 @@ def test_system_detector_detect() -> None:
 
 def test_system_detector_single_asset_fallback() -> None:
     """Test that when there's only one asset, it's returned even if it doesn't match criteria."""
-    detector = _detect_system(OSLinux, ArchAMD64)
+    detector = _detect_system(OSLinux, ArchAMD64, "musl", "msvc", True)
 
     # Single asset with a name that doesn't match any OS or arch patterns
     assets = ["completely-unrelated-name.zip"]
@@ -222,9 +238,23 @@ def test_system_detector_single_asset_fallback() -> None:
     assert candidates is None
     assert error is None
 
-    # Make sure filtered files don't count in the single asset check
-    assets = ["completely-unrelated-name.sha256"]
+
+def test_sort_arch_order() -> None:
+    """Test the sort_arch function."""
+    detector = _detect_system(OSLinux, ArchI686, "musl", "msvc", True)
+    assets = [
+        "app-linux-i386.tar.gz",
+        "app-linux-i486.tar.gz",
+        "app-linux-i586.tar.gz",
+        "app-linux-i686.tar.gz",
+        "app-linux-arm.tar.gz",
+    ]
     match, candidates, error = detector(assets)
-    assert match == ""
-    assert candidates == []
-    assert error == "no candidates found"
+    assert not match
+    assert candidates == [
+        "app-linux-i686.tar.gz",
+        "app-linux-i586.tar.gz",
+        "app-linux-i486.tar.gz",
+        "app-linux-i386.tar.gz",
+    ]
+    assert error == "4 arch matches found"

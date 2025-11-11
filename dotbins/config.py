@@ -9,7 +9,7 @@ import sys
 from dataclasses import dataclass, field
 from functools import cached_property, partial
 from pathlib import Path
-from typing import TypedDict
+from typing import Literal, TypedDict
 
 import requests
 import yaml
@@ -17,19 +17,21 @@ import yaml
 from .detect_asset import create_system_detector
 from .detect_binary import is_exec
 from .download import download_files_in_parallel, prepare_download_tasks, process_downloaded_files
+from .manifest import Manifest
 from .readme import write_readme_file
 from .summary import UpdateSummary, display_update_summary
 from .utils import (
+    SUPPORTED_SHELLS,
     current_platform,
     execute_in_parallel,
+    fetch_release_info,
     github_url_to_raw_url,
     humanize_time_ago,
-    latest_release_info,
     log,
     replace_home_in_path,
+    tag_to_version,
     write_shell_scripts,
 )
-from .versions import VersionStore
 
 if sys.version_info >= (3, 11):
     from typing import Required
@@ -37,6 +39,17 @@ else:  # pragma: no cover
     from typing_extensions import Required
 
 DEFAULT_TOOLS_DIR = "~/.dotbins"
+DEFAULT_PREFER_APPIMAGE = True
+DEFAULT_LIBC: Literal["musl"] = "musl"
+DEFAULT_WINDOWS_ABI: Literal["msvc", "gnu"] = "msvc"
+
+WINDOWS_BINARY_SUFFIXES = (".exe", ".cmd", ".bat", ".ps1")
+
+DEFAULTS: DefaultsDict = {
+    "prefer_appimage": DEFAULT_PREFER_APPIMAGE,
+    "libc": DEFAULT_LIBC,
+    "windows_abi": DEFAULT_WINDOWS_ABI,
+}
 
 
 def _default_platforms() -> dict[str, list[str]]:
@@ -60,10 +73,10 @@ class Config:
     tools_dir: Path = field(default=Path(os.path.expanduser(DEFAULT_TOOLS_DIR)))
     platforms: dict[str, list[str]] = field(default_factory=_default_platforms)
     tools: dict[str, ToolConfig] = field(default_factory=dict)
+    defaults: DefaultsDict = field(default_factory=lambda: DEFAULTS.copy())
     config_path: Path | None = field(default=None, init=False)
     _bin_dir: Path | None = field(default=None, init=False)
     _update_summary: UpdateSummary = field(default_factory=UpdateSummary, init=False)
-    _latest_releases: dict | None = field(default=None, init=False)
 
     def bin_dir(self, platform: str, arch: str, *, create: bool = False) -> Path:
         """Return the bin directory path for a specific platform and architecture.
@@ -106,9 +119,9 @@ class Config:
         execute_in_parallel(tool_configs, fetch, max_workers=16)
 
     @cached_property
-    def version_store(self) -> VersionStore:
-        """Return the VersionStore object."""
-        return VersionStore(self.tools_dir)
+    def manifest(self) -> Manifest:
+        """Return the Manifest object."""
+        return Manifest(self.tools_dir)
 
     def validate(self) -> None:
         """Check for missing repos, unknown platforms, etc."""
@@ -135,6 +148,8 @@ class Config:
         for platform, architectures in self.platforms.items():
             for arch in architectures:
                 bin_dir = self.bin_dir(platform, arch)
+                if os.name == "nt":
+                    continue
                 if bin_dir.exists():
                     for binary in bin_dir.iterdir():
                         if binary.is_file():
@@ -163,6 +178,7 @@ class Config:
         copy_config_file: bool = False,
         github_token: str | None = None,
         generate_shell_scripts: bool = True,
+        pin_to_manifest: bool = False,
         cleanup: bool = False,
         verbose: bool = False,
     ) -> None:
@@ -178,6 +194,7 @@ class Config:
             copy_config_file: If True, copy config file to tools directory
             github_token: GitHub API token for authentication (helps with rate limits)
             generate_shell_scripts: If True, generate shell scripts for the tools
+            pin_to_manifest: If True, use the tag from the `manifest.json` file
             cleanup: If True, remove unused binaries and clean version store
             verbose: If True, show detailed logs during the process
 
@@ -189,6 +206,17 @@ class Config:
         if github_token is None and "GITHUB_TOKEN" in os.environ:  # pragma: no cover
             log("Using GitHub token for authentication", "info", "🔑")
             github_token = os.environ["GITHUB_TOKEN"]
+
+        if pin_to_manifest:
+            tool_to_tag_mapping = self.manifest.tool_to_tag_mapping()
+            for tool, tool_config in self.tools.items():
+                tag = tool_to_tag_mapping.get(tool)
+                log(
+                    f"Using tag [b]{tag}[/] for tool [b]{tool}[/] from [b]manifest.json[/]",
+                    "info",
+                    "🔒",
+                )
+                tool_config.tag = tag
 
         tools_to_sync = _tools_to_sync(self, tools)
         self.set_latest_releases(tools_to_sync, github_token, verbose)
@@ -202,6 +230,7 @@ class Config:
             tools_to_sync,
             platforms_to_sync,
             architecture,
+            current,
             force,
             verbose,
         )
@@ -209,7 +238,7 @@ class Config:
         process_downloaded_files(
             download_tasks,
             download_successes,
-            self.version_store,
+            self.manifest,
             self._update_summary,
             verbose,
         )
@@ -292,24 +321,37 @@ class ToolConfig:
 
     tool_name: str
     repo: str
+    tag: str | None = None
     binary_name: list[str] = field(default_factory=list)
-    binary_path: list[str] = field(default_factory=list)
-    extract_binary: bool | None = None
+    path_in_archive: list[Path] = field(default_factory=list)
+    extract_archive: bool | None = None
     asset_patterns: dict[str, dict[str, str | None]] = field(default_factory=dict)
     platform_map: dict[str, str] = field(default_factory=dict)
     arch_map: dict[str, str] = field(default_factory=dict)
-    shell_code: str | dict[str, str] | None = None
-    _latest_release: dict | None = field(default=None, init=False)
+    shell_code: dict[str, str] = field(default_factory=dict)
+    defaults: DefaultsDict = field(default_factory=lambda: DEFAULTS.copy())
+    _release_info: dict | None = field(default=None, init=False)
 
     def bin_spec(self, arch: str, platform: str) -> BinSpec:
         """Get a BinSpec object for the tool."""
-        return BinSpec(tool_config=self, version=self.latest_version, arch=arch, platform=platform)
+        return BinSpec(tool_config=self, tag=self.latest_tag, arch=arch, platform=platform)
 
     @property
-    def latest_version(self) -> str:
+    def latest_tag(self) -> str:
         """Get the latest version for the tool."""
-        assert self._latest_release is not None
-        return self._latest_release["tag_name"].lstrip("v")
+        assert self._release_info is not None
+        return self._release_info["tag_name"]
+
+
+def _installed_binary_exists(destination_dir: Path, platform: str, binary_name: str) -> bool:
+    """Return True if the binary (or Windows variant) already exists."""
+    candidate_paths = [destination_dir / binary_name]
+    platform_is_windows = platform.lower().startswith("win")
+    if platform_is_windows and Path(binary_name).suffix == "":
+        candidate_paths.extend(
+            destination_dir / f"{binary_name}{suffix}" for suffix in WINDOWS_BINARY_SUFFIXES
+        )
+    return any(candidate.exists() for candidate in candidate_paths)
 
 
 @dataclass(frozen=True)
@@ -317,7 +359,7 @@ class BinSpec:
     """Specific arch and platform for a tool."""
 
     tool_config: ToolConfig
-    version: str
+    tag: str
     arch: str
     platform: str
 
@@ -337,7 +379,7 @@ class BinSpec:
             self.tool_config,
             self.platform,
             self.arch,
-            self.version,
+            self.tag,
             self.tool_platform,
             self.tool_arch,
         )
@@ -345,27 +387,35 @@ class BinSpec:
     def matching_asset(self) -> _AssetDict | None:
         """Find a matching asset for the tool."""
         asset_pattern = self.asset_pattern()
-        assert self.tool_config._latest_release is not None
-        assets = self.tool_config._latest_release["assets"]
+        assert self.tool_config._release_info is not None
+        assets = self.tool_config._release_info["assets"]
         if asset_pattern is None:
-            return _auto_detect_asset(self.platform, self.arch, assets)
+            return _auto_detect_asset(
+                self.platform,
+                self.arch,
+                assets,
+                self.tool_config.defaults,
+                self.tool_config.tool_name,
+                self.tool_config.repo.rsplit("/", 1)[-1],
+            )
         return _find_matching_asset(asset_pattern, assets)
 
     def skip_download(self, config: Config, force: bool) -> bool:
         """Check if download should be skipped (binary already exists)."""
-        tool_info = config.version_store.get_tool_info(
+        tool_info = config.manifest.get_tool_info(
             self.tool_config.tool_name,
             self.platform,
             self.arch,
         )
         destination_dir = config.bin_dir(self.platform, self.arch)
         all_exist = all(
-            (destination_dir / binary_name).exists() for binary_name in self.tool_config.binary_name
+            _installed_binary_exists(destination_dir, self.platform, binary_name)
+            for binary_name in self.tool_config.binary_name
         )
-        if tool_info and tool_info["version"] == self.version and all_exist and not force:
+        if tool_info and tool_info["tag"] == self.tag and all_exist and not force:
             dt = humanize_time_ago(tool_info["updated_at"])
             log(
-                f"[b]{self.tool_config.tool_name} v{self.version}[/] for"
+                f"[b]{self.tool_config.tool_name} {self.tag}[/] for"
                 f" [b]{self.platform}/{self.arch}[/] is already up to date"
                 f" (installed [b]{dt}[/] ago) use --force to re-download.",
                 "success",
@@ -382,17 +432,26 @@ class RawConfigDict(TypedDict, total=False):
     tools: dict[str, str | RawToolConfigDict]
 
 
+class DefaultsDict(TypedDict, total=False):
+    """TypedDict for defaults."""
+
+    prefer_appimage: bool
+    libc: Literal["glibc", "musl"]
+    windows_abi: Literal["msvc", "gnu"]
+
+
 class RawToolConfigDict(TypedDict, total=False):
     """TypedDict for raw data passed to build_tool_config."""
 
     repo: Required[str]  # Repository in format "owner/repo"
-    extract_binary: bool | None  # Whether to extract binary from archive
+    extract_archive: bool | None  # Whether to extract binary from archive
     platform_map: dict[str, str]  # Map from system platform to tool's platform name
     arch_map: dict[str, str]  # Map from system architecture to tool's architecture name
     binary_name: str | list[str]  # Name(s) of the binary file(s)
-    binary_path: str | list[str]  # Path(s) to binary within archive
+    path_in_archive: str | list[str]  # Path(s) to binary within archive
     asset_patterns: str | dict[str, str] | dict[str, dict[str, str | None]]
     shell_code: str | dict[str, str] | None  # Shell code to configure the tool
+    tag: str | None  # Tag to use for the binary (if None, the latest release will be used)
 
 
 class _AssetDict(TypedDict):
@@ -406,6 +465,7 @@ def build_tool_config(
     tool_name: str,
     raw_data: RawToolConfigDict,
     platforms: dict[str, list[str]] | None = None,
+    defaults: DefaultsDict | None = None,
 ) -> ToolConfig:
     """Create a ToolConfig object from raw YAML data.
 
@@ -415,34 +475,47 @@ def build_tool_config(
     if not platforms:
         platforms = _default_platforms()
 
+    if not defaults:
+        defaults = DEFAULTS.copy()
+
     # Safely grab data from raw_data (or set default if missing).
     repo = raw_data.get("repo") or ""
-    extract_binary = raw_data.get("extract_binary")
+    extract_archive = raw_data.get("extract_archive")
     platform_map = raw_data.get("platform_map", {})
     arch_map = raw_data.get("arch_map", {})
     # Might be str or list
     raw_binary_name = raw_data.get("binary_name", tool_name)
-    raw_binary_path = raw_data.get("binary_path", [])
+    raw_path_in_archive = raw_data.get("path_in_archive", [])
+
+    tag: str | None = raw_data.get("tag")  # type: ignore[assignment]
+    if tag == "latest":
+        tag = None
 
     # Convert to lists
     binary_name: list[str] = _ensure_list(raw_binary_name)
-    binary_path: list[str] = _ensure_list(raw_binary_path)
+    path_in_archive: list[Path] = [Path(p) for p in _ensure_list(raw_path_in_archive)]
 
     # Normalize asset patterns to dict[platform][arch].
     raw_patterns = raw_data.get("asset_patterns")
     asset_patterns = _normalize_asset_patterns(tool_name, raw_patterns, platforms)
 
+    # Normalize shell code to dict[shell][code].
+    raw_shell_code = raw_data.get("shell_code")
+    shell_code = _normalize_shell_code(tool_name, raw_shell_code)
+
     # Build our final data-class object
     return ToolConfig(
         tool_name=tool_name,
         repo=repo,
+        tag=tag,
         binary_name=binary_name,
-        binary_path=binary_path,
-        extract_binary=extract_binary,
+        path_in_archive=path_in_archive,
+        extract_archive=extract_archive,
         asset_patterns=asset_patterns,
         platform_map=platform_map,
         arch_map=arch_map,
-        shell_code=raw_data.get("shell_code"),
+        shell_code=shell_code,
+        defaults=defaults,
     )
 
 
@@ -474,6 +547,10 @@ def _config_from_dict(data: RawConfigDict) -> Config:
     tools_dir = data.get("tools_dir", DEFAULT_TOOLS_DIR)
     platforms = data.get("platforms", _default_platforms())
     raw_tools = data.get("tools", {})
+    raw_defaults = data.get("defaults", {})
+
+    defaults: DefaultsDict = DEFAULTS.copy()
+    defaults.update(raw_defaults)  # type: ignore[typeddict-item]
 
     tools_dir_path = Path(os.path.expanduser(tools_dir))
 
@@ -481,9 +558,19 @@ def _config_from_dict(data: RawConfigDict) -> Config:
     for tool_name, tool_data in raw_tools.items():
         if isinstance(tool_data, str):
             tool_data = {"repo": tool_data}  # noqa: PLW2901
-        tool_configs[tool_name] = build_tool_config(tool_name, tool_data, platforms)
+        tool_configs[tool_name] = build_tool_config(
+            tool_name,
+            tool_data,
+            platforms,
+            defaults,
+        )
 
-    config = Config(tools_dir=tools_dir_path, platforms=platforms, tools=tool_configs)
+    config = Config(
+        tools_dir=tools_dir_path,
+        platforms=platforms,
+        tools=tool_configs,
+        defaults=defaults,
+    )
     config.validate()
     return config
 
@@ -561,6 +648,42 @@ def _normalize_asset_patterns(  # noqa: PLR0912
     return normalized
 
 
+def _normalize_shell_code(
+    tool_name: str,
+    raw_shell_code: str | dict[str, str] | None,
+) -> dict[str, str]:
+    """Normalize the shell_code into a dict.
+
+    Supports:
+    - A single string applied to all shells.
+    - A dictionary mapping shell names (or comma-separated names) to code.
+    """
+    normalized: dict[str, str] = {}
+    if not raw_shell_code:
+        return normalized
+
+    if isinstance(raw_shell_code, str):
+        for shell in SUPPORTED_SHELLS:
+            normalized[shell] = raw_shell_code
+    elif isinstance(raw_shell_code, dict):
+        for shell_key, code in raw_shell_code.items():
+            shells = [s.strip() for s in shell_key.split(",") if s.strip()]
+            for shell in shells:
+                if shell not in SUPPORTED_SHELLS:
+                    log(
+                        f"Tool [b]{tool_name}[/]: [b]'shell_code'[/] uses unknown shell [b]'{shell}'[/] in key '{shell_key}'",
+                        "warning",
+                    )
+                normalized[shell] = str(code).replace("__DOTBINS_SHELL__", shell)
+    else:  # pragma: no cover
+        log(
+            f"Tool [b]{tool_name}[/]: Invalid type for 'shell_code': {type(raw_shell_code)}. Expected str or dict.",
+            "error",
+        )
+
+    return normalized
+
+
 def _find_config_file(config_path: str | Path | None) -> Path | None:
     """Look for the user-specified path or common defaults."""
     if config_path is not None:
@@ -600,9 +723,12 @@ def _validate_tool_config(tool_name: str, tool_config: ToolConfig) -> None:
         log(f"Tool [b]{tool_name}[/] is missing required field [b]'repo'[/]", "error")
 
     # If binary lists differ in length, log an error
-    if len(tool_config.binary_name) != len(tool_config.binary_path) and tool_config.binary_path:
+    if (
+        len(tool_config.binary_name) != len(tool_config.path_in_archive)
+        and tool_config.path_in_archive
+    ):
         log(
-            f"Tool [b]{tool_name}[/]: [b]'binary_name'[/] and [b]'binary_path'[/] must have the same length if both are specified as lists.",
+            f"Tool [b]{tool_name}[/]: [b]'binary_name'[/] and [b]'path_in_archive'[/] must have the same length if both are specified as lists.",
             "error",
         )
 
@@ -611,12 +737,13 @@ def _maybe_asset_pattern(
     tool_config: ToolConfig,
     platform: str,
     arch: str,
-    version: str,
+    tag: str,
     tool_platform: str,
     tool_arch: str,
 ) -> str | None:
     """Get the formatted asset pattern for the tool."""
-    search_pattern = tool_config.asset_patterns[platform][arch]
+    # asset_pattern might not contain an entry if `--current` is used
+    search_pattern = tool_config.asset_patterns.get(platform, {}).get(arch)
     if search_pattern is None:
         log(
             f"No [b]asset_pattern[/] provided for [b]{platform}/{arch}[/]",
@@ -624,33 +751,135 @@ def _maybe_asset_pattern(
             "ℹ️",  # noqa: RUF001
         )
         return None
+    version = tag_to_version(tag)
     return (
         search_pattern.format(
             version=version,
+            tag=tag,
             platform=tool_platform,
             arch=tool_arch,
         )
         .replace("{version}", ".*")
+        .replace("{tag}", ".*")
         .replace("{arch}", ".*")
         .replace("{platform}", ".*")
     )
+
+
+_OS_ARCH_HINT_TOKENS = {
+    "linux",
+    "darwin",
+    "mac",
+    "macos",
+    "osx",
+    "windows",
+    "win",
+    "android",
+    "freebsd",
+    "openbsd",
+    "netbsd",
+    "illumos",
+    "solaris",
+    "plan9",
+    "amd64",
+    "x86",
+    "x86_64",
+    "x64",
+    "arm",
+    "arm64",
+    "armv6",
+    "armv7",
+    "armv8",
+    "armhf",
+    "aarch64",
+    "riscv64",
+    "i386",
+    "i486",
+    "i586",
+    "i686",
+    "universal",
+    "intel",
+    "apple",
+}
+
+_TOKEN_SPLIT_RE = re.compile(r"[-_.]+")
+
+_VERSION_TOKEN_RE = re.compile(r"v?\d[\dw_.-]*")
+
+
+def _normalize_name_hints(tool_name: str, repo_name: str | None) -> list[str]:
+    hints: list[str] = []
+    for name in (tool_name, repo_name):
+        if not name:
+            continue
+        normalized = name.strip().lower()
+        if normalized and normalized not in hints:
+            hints.append(normalized)
+    return hints
+
+
+def _looks_like_primary_candidate(tokens: list[str], name_hints: list[str]) -> bool:
+    if not tokens or tokens[0] not in name_hints:
+        return False
+    if len(tokens) == 1:
+        return True
+    second = tokens[1]
+    if _VERSION_TOKEN_RE.fullmatch(second):
+        return True
+    return second in _OS_ARCH_HINT_TOKENS
+
+
+def _select_candidate(candidates: list[str], name_hints: list[str]) -> str:
+    if not candidates:
+        msg = "No candidates provided"
+        raise ValueError(msg)
+    for candidate in candidates:
+        basename = os.path.basename(candidate).lower()
+        tokens = [token for token in _TOKEN_SPLIT_RE.split(basename) if token]
+        if _looks_like_primary_candidate(tokens, name_hints):
+            return candidate
+    return candidates[0]
 
 
 def _auto_detect_asset(
     platform: str,
     arch: str,
     assets: list[_AssetDict],
+    defaults: DefaultsDict,
+    tool_name: str,
+    repo_name: str | None = None,
 ) -> _AssetDict | None:
     """Auto-detect an asset for the tool."""
-    log(f"Auto-detecting asset for [b]{platform}/{arch}[/]", "info", "🔍")
-    detect_fn = create_system_detector(platform, arch)
+    log(f"Auto-detecting asset for [b]{platform}/{arch}[/]", "info")
+    name_hints = _normalize_name_hints(tool_name, repo_name)
+    detect_fn = create_system_detector(
+        platform,
+        arch,
+        defaults["libc"],
+        defaults["windows_abi"],
+        defaults["prefer_appimage"],
+    )
     asset_names = [x["name"] for x in assets]
     asset_name, candidates, err = detect_fn(asset_names)
     if err is not None:
         if err.endswith("matches found"):
             assert candidates is not None
-            log(f"Found multiple candidates: {candidates}, selecting first", "info")
-            asset_name = sorted(candidates)[0]
+            asset_name = _select_candidate(candidates, name_hints)
+            if asset_name != candidates[0]:
+                log(
+                    f"Found multiple candidates: {candidates}, selecting `{asset_name}`"
+                    " because it best matches the tool name",
+                    "info",
+                )
+            else:
+                log(f"Found multiple candidates: {candidates}, selecting first", "info")
+        elif candidates and tool_name in candidates:
+            log(
+                f"Found multiple candidates: {candidates}, selecting `{tool_name}`"
+                " because it perfectly matches the tool name",
+                "info",
+            )
+            asset_name = tool_name
         else:
             if candidates:
                 log(f"Found multiple candidates: {candidates}, manually select one", "info", "⁉️")
@@ -666,7 +895,7 @@ def _find_matching_asset(
     assets: list[_AssetDict],
 ) -> _AssetDict | None:
     """Find a matching asset for the tool."""
-    log(f"Looking for asset with pattern: {asset_pattern}", "info", "🔍")
+    log(f"Looking for asset with pattern: {asset_pattern}", "info")
     for asset in assets:
         if re.search(asset_pattern, asset["name"]):
             log(f"Found matching asset: {asset['name']}", "success")
@@ -681,18 +910,18 @@ def _fetch_release(
     verbose: bool,
     github_token: str | None = None,
 ) -> None:
-    if tool_config._latest_release is not None:
+    if tool_config._release_info is not None:
         return
     try:
-        latest_release = latest_release_info(tool_config.repo, github_token)
-        tool_config._latest_release = latest_release
+        release_info = fetch_release_info(tool_config.repo, tool_config.tag, github_token)
+        tool_config._release_info = release_info
     except Exception as e:
         msg = f"Failed to fetch latest release for {tool_config.repo}: {e}"
         update_summary.add_failed_tool(
             tool_config.tool_name,
             "Any",
             "Any",
-            version="Unknown",
+            tag="Unknown",
             reason=msg,
         )
         log(msg, "error", print_exception=verbose)

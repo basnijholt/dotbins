@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import tempfile
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
-from .detect_binary import auto_detect_binary_paths, auto_detect_extract_binary
+from .detect_binary import auto_detect_extract_archive, auto_detect_paths_in_archive
 from .utils import (
     calculate_sha256,
     download_file,
@@ -16,12 +17,13 @@ from .utils import (
     extract_archive,
     log,
     replace_home_in_path,
+    tag_to_version,
 )
 
 if TYPE_CHECKING:
     from .config import BinSpec, Config, ToolConfig
+    from .manifest import Manifest
     from .summary import UpdateSummary
-    from .versions import VersionStore
 
 
 def _extract_binary_from_archive(
@@ -38,8 +40,8 @@ def _extract_binary_from_archive(
         extract_archive(archive_path, temp_dir)
         log(f"Archive extracted to {temp_dir}", "success", "📦")
         _log_extracted_files(temp_dir)
-        binary_paths = _detect_binary_paths(temp_dir, bin_spec.tool_config)
-        _process_binaries(temp_dir, destination_dir, binary_paths, bin_spec)
+        paths_in_archive = _detect_paths_in_archive(temp_dir, bin_spec.tool_config)
+        _process_binaries(temp_dir, destination_dir, paths_in_archive, bin_spec)
 
     except Exception as e:
         log(f"Error extracting archive: {e}", "error", print_exception=verbose)
@@ -52,33 +54,34 @@ class AutoDetectBinaryPathsError(Exception):
     """Error raised when auto-detecting binary paths fails."""
 
 
-def _detect_binary_paths(temp_dir: Path, tool_config: ToolConfig) -> list[str]:
+def _detect_paths_in_archive(temp_dir: Path, tool_config: ToolConfig) -> list[Path]:
     """Auto-detect binary paths if not specified in configuration."""
-    if tool_config.binary_path:
-        return tool_config.binary_path
-    log("Binary path not specified, attempting auto-detection...", "info", "🔍")
+    if tool_config.path_in_archive:
+        return tool_config.path_in_archive
+    log("Binary path not specified, attempting auto-detection...", "info")
     binary_names = tool_config.binary_name
-    binary_paths = auto_detect_binary_paths(temp_dir, binary_names)
-    if not binary_paths:
-        msg = f"Could not auto-detect binary paths for {', '.join(binary_names)}. Please specify binary_path in config."
+    paths_in_archive = auto_detect_paths_in_archive(temp_dir, binary_names)
+    if not paths_in_archive:
+        msg = f"Could not auto-detect binary paths for {', '.join(binary_names)}. Please specify path_in_archive in config."
         log(msg, "error")
         raise AutoDetectBinaryPathsError(msg)
-    log(f"Auto-detected binary paths: {binary_paths}", "success")
-    return binary_paths
+    names = ", ".join(f"[b]{p}[/]" for p in paths_in_archive)
+    log(f"Auto-detected binary paths: {names}", "success")
+    return paths_in_archive
 
 
 def _process_binaries(
     temp_dir: Path,
     destination_dir: Path,
-    binary_paths: list[str],
+    paths_in_archive: list[Path],
     bin_spec: BinSpec,
 ) -> None:
     """Process each binary by finding it and copying to destination."""
-    for binary_path_pattern, binary_name in zip(binary_paths, bin_spec.tool_config.binary_name):
+    for path_in_archive, binary_name in zip(paths_in_archive, bin_spec.tool_config.binary_name):
         source_path = _find_binary_in_extracted_files(
             temp_dir,
-            binary_path_pattern,
-            bin_spec.version,
+            str(path_in_archive),
+            bin_spec.tag,
             bin_spec.tool_arch,
             bin_spec.tool_platform,
         )
@@ -94,24 +97,24 @@ def _log_extracted_files(temp_dir: Path) -> None:
 
 def _find_binary_in_extracted_files(
     temp_dir: Path,
-    binary_path: str,
-    version: str,
+    path_in_archive: str,
+    tag: str,
     tool_arch: str,
     tool_platform: str,
 ) -> Path:
     """Find a specific binary in the extracted files."""
-    binary_path = _replace_variables_in_path(binary_path, version, tool_arch, tool_platform)
+    path_in_archive = _replace_variables_in_path(path_in_archive, tag, tool_arch, tool_platform)
 
-    if "*" in binary_path:
-        matches = list(temp_dir.glob(binary_path))
+    if "*" in path_in_archive:
+        matches = list(temp_dir.glob(path_in_archive))
         if not matches:
-            msg = f"No files matching {binary_path} in archive"
+            msg = f"No files matching {path_in_archive} in archive"
             raise FileNotFoundError(msg)
         return matches[0]
 
-    source_path = temp_dir / binary_path
+    source_path = temp_dir / path_in_archive
     if not source_path.exists():
-        msg = f"Binary ({binary_path}) not found at {source_path}"
+        msg = f"Binary ({path_in_archive}) not found at {source_path}"
         raise FileNotFoundError(msg)
 
     return source_path
@@ -125,15 +128,26 @@ def _copy_binary_to_destination(
     """Copy the binary to its destination and set permissions."""
     destination_dir.mkdir(parents=True, exist_ok=True)
     dest_path = destination_dir / binary_name
+    if os.name == "nt":
+        # Maintain the original extension on Windows
+        dest_path = dest_path.with_suffix(source_path.suffix)
     shutil.copy2(source_path, dest_path)
-    dest_path.chmod(dest_path.stat().st_mode | 0o755)
+    if os.name == "nt":
+        # Windows doesn't use the same executable bit concept, so just ensure write access
+        dest_path.chmod(dest_path.stat().st_mode)
+    else:
+        dest_path.chmod(dest_path.stat().st_mode | 0o755)
     log(f"Copied binary to [b]{replace_home_in_path(dest_path, '~')}[/]", "success")
 
 
-def _replace_variables_in_path(path: str, version: str, arch: str, platform: str) -> str:
+def _replace_variables_in_path(path: str, tag: str, arch: str, platform: str) -> str:
     """Replace variables in a path with their values."""
+    version = tag_to_version(tag)
     if "{version}" in path and version:
         path = path.replace("{version}", version)
+
+    if "{tag}" in path and tag:
+        path = path.replace("{tag}", tag)
 
     if "{arch}" in path and arch:
         path = path.replace("{arch}", arch)
@@ -162,8 +176,8 @@ class _DownloadTask(NamedTuple):
         return self.bin_spec.tool_config
 
     @property
-    def version(self) -> str:
-        return self.bin_spec.version
+    def tag(self) -> str:
+        return self.bin_spec.tag
 
     @property
     def platform(self) -> str:
@@ -185,7 +199,7 @@ def _prepare_download_task(
     """Prepare a download task, checking if update is needed based on version."""
     try:
         tool_config = config.tools[tool_name]
-        if tool_config._latest_release is None:
+        if tool_config._release_info is None:
             # Means we failed to fetch the release info
             return None
         bin_spec = tool_config.bin_spec(arch, platform)
@@ -194,7 +208,7 @@ def _prepare_download_task(
                 tool_name,
                 platform,
                 arch,
-                version=bin_spec.version,
+                tag=bin_spec.tag,
                 reason="Already up-to-date",
             )
             return None
@@ -204,12 +218,13 @@ def _prepare_download_task(
                 tool_name,
                 platform,
                 arch,
-                version=bin_spec.version,
+                tag=bin_spec.tag,
                 reason="No matching asset found",
             )
             return None
         tmp_dir = Path(tempfile.gettempdir())
-        temp_path = tmp_dir / asset["browser_download_url"].split("/")[-1]
+        asset_filename = asset["browser_download_url"].split("/")[-1]
+        temp_path = tmp_dir / f"{platform}-{arch}-{asset_filename}"
         return _DownloadTask(
             bin_spec=bin_spec,
             asset_url=asset["browser_download_url"],
@@ -227,7 +242,7 @@ def _prepare_download_task(
             tool_name,
             platform,
             arch,
-            version="Unknown",
+            tag="Unknown",
             reason=f"Error preparing download: {e!s}",
         )
         return None
@@ -238,6 +253,7 @@ def prepare_download_tasks(
     tools_to_sync: list[str] | None,
     platforms_to_sync: list[str] | None,
     architecture: str | None,
+    current: bool,
     force: bool,
     verbose: bool,
 ) -> list[_DownloadTask]:
@@ -250,24 +266,26 @@ def prepare_download_tasks(
 
     for tool_name in tools_to_sync:
         for platform in platforms_to_sync:
-            if platform not in config.platforms:
+            if current:
+                log(f"Including current platform [b]{platform}[/] even if not configured", "info")
+            elif platform not in config.platforms:
                 config._update_summary.add_skipped_tool(
                     tool_name,
                     platform,
                     architecture if architecture else "Unknown",
-                    version="Unknown",
+                    tag="Unknown",
                     reason="Platform not configured",
                 )
                 log(f"Skipping unknown platform: {platform}", "warning")
                 continue
 
-            archs_to_update = _determine_architectures(platform, architecture, config)
+            archs_to_update = _determine_architectures(platform, architecture, config, current)
             if not archs_to_update:
                 config._update_summary.add_skipped_tool(
                     tool_name,
                     platform,
                     architecture if architecture else "Unknown",
-                    version="Unknown",
+                    tag="Unknown",
                     reason="No architectures configured",
                 )
                 log(f"Skipping unknown architecture: {architecture}", "warning")
@@ -316,7 +334,7 @@ def download_files_in_parallel(
 def _process_downloaded_task(
     task: _DownloadTask,
     success: bool,
-    version_store: VersionStore,
+    manifest: Manifest,
     summary: UpdateSummary,
     verbose: bool,
 ) -> bool:
@@ -326,7 +344,7 @@ def _process_downloaded_task(
             task.tool_name,
             task.platform,
             task.arch,
-            task.version,
+            task.tag,
             reason="Download failed",
         )
         return False
@@ -337,16 +355,16 @@ def _process_downloaded_task(
         log(f"SHA256: {sha256_hash}", "info", "🔐")
 
         task.destination_dir.mkdir(parents=True, exist_ok=True)
-        extract_binary = task.tool_config.extract_binary
-        if extract_binary is None:
-            extract_binary = auto_detect_extract_binary(str(task.temp_path))
+        extract_archive = task.tool_config.extract_archive
+        if extract_archive is None:
+            extract_archive = auto_detect_extract_archive(str(task.temp_path))
             log(
-                f"Auto-detected [b]extract_binary[/] for [b]{task.tool_name}[/]: {extract_binary}",
+                f"Auto-detected [b]extract_archive[/] for [b]{task.tool_name}[/]: {extract_archive}",
                 "info",
                 "🔍",
             )
 
-        if extract_binary:
+        if extract_archive:
             _extract_binary_from_archive(
                 task.temp_path,
                 task.destination_dir,
@@ -364,7 +382,7 @@ def _process_downloaded_task(
                     task.tool_name,
                     task.platform,
                     task.arch,
-                    task.version,
+                    task.tag,
                     reason="Expected exactly one binary name",
                 )
                 return False
@@ -382,7 +400,7 @@ def _process_downloaded_task(
             task.tool_name,
             task.platform,
             task.arch,
-            task.version,
+            task.tag,
             reason=f"{error_prefix}: {e!s}",
         )
         return False
@@ -391,20 +409,20 @@ def _process_downloaded_task(
             task.tool_name,
             task.platform,
             task.arch,
-            task.version,
-            old_version=version_store.get_tool_version(task.tool_name, task.platform, task.arch)
-            or "—",
+            task.tag,
+            old_tag=manifest.get_tool_tag(task.tool_name, task.platform, task.arch) or "—",
         )
-        version_store.update_tool_info(
-            task.tool_name,
-            task.platform,
-            task.arch,
-            task.version,
+        manifest.update_tool_info(
+            tool=task.tool_name,
+            platform=task.platform,
+            arch=task.arch,
+            tag=task.tag,
             sha256=sha256_hash,
+            url=task.asset_url,
         )
 
         log(
-            f"Successfully installed [b]{task.tool_name} v{task.version}[/] for [b]{task.platform}/{task.arch}[/]",
+            f"Successfully installed [b]{task.tool_name} {task.tag}[/] for [b]{task.platform}/{task.arch}[/]",
             "success",
         )
         return True
@@ -416,7 +434,7 @@ def _process_downloaded_task(
 def process_downloaded_files(
     download_tasks: list[_DownloadTask],
     download_successes: list[bool],
-    version_store: VersionStore,
+    manifest: Manifest,
     summary: UpdateSummary,
     verbose: bool,
 ) -> None:
@@ -425,15 +443,20 @@ def process_downloaded_files(
         return
     log(f"Processing {len(download_successes)} downloaded tools...", "info", "🔄")
     for task, download_success in zip(download_tasks, download_successes):
-        _process_downloaded_task(task, download_success, version_store, summary, verbose)
+        _process_downloaded_task(task, download_success, manifest, summary, verbose)
 
 
 def _determine_architectures(
     platform: str,
     architecture: str | None,
     config: Config,
+    current: bool,
 ) -> list[str]:
     """Determine which architectures to update for a platform."""
+    if current:
+        assert architecture is not None
+        log(f"Including current architecture [b]{architecture}[/] even if not configured", "info")
+        return [architecture]
     if architecture is not None:
         # Filter to only include the specified architecture if it's supported
         if architecture in config.platforms[platform]:
