@@ -2,7 +2,6 @@
 
 import pytest
 
-from dotbins.config import _normalize_name_hints, _select_candidate
 from dotbins.detect_asset import (
     ArchAMD64,
     ArchArm,
@@ -238,28 +237,6 @@ def test_system_detector_single_asset_fallback() -> None:
     assert match == "completely-unrelated-name.zip"
     assert candidates is None
     assert error is None
-
-
-def test_select_candidate_raises_for_empty_candidates() -> None:
-    """_select_candidate should raise if no candidates are provided."""
-    with pytest.raises(ValueError, match="No candidates provided"):
-        _select_candidate([], ["codex"])
-
-
-def test_select_candidate_prefers_single_token_name_hint() -> None:
-    """Ensure the heuristic handles binaries that are just the tool name."""
-    candidates = [
-        "codex-helper-linux-amd64.tar.gz",
-        "codex",
-    ]
-    assert _select_candidate(candidates, ["codex"]) == "codex"
-
-
-def test_normalize_name_hints_skips_missing_repo_name() -> None:
-    """_normalize_name_hints should ignore empty repo hints."""
-    assert _normalize_name_hints("codex", None) == ["codex"]
-    assert _normalize_name_hints("codex", "codex") == ["codex"]
-    assert _normalize_name_hints("codex", "codex-bin") == ["codex", "codex-bin"]
 
 
 def test_sort_arch_order() -> None:

@@ -1434,6 +1434,66 @@ def test_auto_detect_asset_prefers_primary_tool_binary(
     assert "Found asset: codex-x86_64-unknown-linux-musl.tar.gz" in out
 
 
+def test_matching_asset_raises_on_empty_candidates() -> None:
+    """Ensure the guard in the auto-detect logic is exercised via the public API."""
+    raw_config: RawConfigDict = {
+        "tools_dir": "~/.dotbins",
+        "platforms": {"linux": ["amd64"]},
+        "tools": {"codex": {"repo": "openai/codex"}},
+    }
+    config = Config.from_dict(raw_config)
+    config.tools["codex"]._release_info = {
+        "tag_name": "v0.57.0",
+        "assets": [
+            {
+                "name": "codex-x86_64-unknown-linux-musl.tar.gz",
+                "browser_download_url": "https://example.com/codex-x86_64-unknown-linux-musl.tar.gz",
+            },
+        ],
+    }
+
+    def fake_detector(_assets: list[str]) -> tuple[str, list[str], str]:
+        return "", [], "2 arch matches found"
+
+    with patch("dotbins.config.create_system_detector", return_value=fake_detector):
+        bin_spec = config.tools["codex"].bin_spec("amd64", "linux")
+        with pytest.raises(ValueError, match="No candidates provided"):
+            bin_spec.matching_asset()
+
+
+def test_matching_asset_prefers_single_token_binary_name() -> None:
+    """Exercise the heuristic that prefers binaries named exactly after the tool."""
+    raw_config: RawConfigDict = {
+        "tools_dir": "~/.dotbins",
+        "platforms": {"linux": ["amd64"]},
+        "tools": {"codex": {"repo": "openai/codex"}},
+    }
+    config = Config.from_dict(raw_config)
+    config.tools["codex"]._release_info = {
+        "tag_name": "v0.57.0",
+        "assets": [
+            {
+                "name": "codex-helper-linux-amd64.tar.gz",
+                "browser_download_url": "https://example.com/codex-helper-linux-amd64.tar.gz",
+            },
+            {
+                "name": "codex",
+                "browser_download_url": "https://example.com/codex",
+            },
+        ],
+    }
+
+    def fake_detector(asset_names: list[str]) -> tuple[str, list[str], str]:
+        # Return the candidates in reverse order to prove the heuristic kicks in.
+        return "", list(reversed(asset_names)), "2 arch matches found"
+
+    with patch("dotbins.config.create_system_detector", return_value=fake_detector):
+        bin_spec = config.tools["codex"].bin_spec("amd64", "linux")
+        asset = bin_spec.matching_asset()
+        assert asset is not None
+        assert asset["name"] == "codex"
+
+
 def test_auto_detect_asset_no_matches(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
