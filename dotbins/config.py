@@ -15,7 +15,6 @@ import requests
 import yaml
 
 from .detect_asset import create_system_detector
-from .detect_binary import auto_detect_paths_in_archive
 from .download import download_files_in_parallel, prepare_download_tasks, process_downloaded_files
 from .manifest import Manifest
 from .readme import write_readme_file
@@ -42,6 +41,8 @@ DEFAULT_TOOLS_DIR = "~/.dotbins"
 DEFAULT_PREFER_APPIMAGE = True
 DEFAULT_LIBC: Literal["musl"] = "musl"
 DEFAULT_WINDOWS_ABI: Literal["msvc", "gnu"] = "msvc"
+
+WINDOWS_BINARY_SUFFIXES = (".exe", ".cmd", ".bat", ".ps1")
 
 DEFAULTS: DefaultsDict = {
     "prefer_appimage": DEFAULT_PREFER_APPIMAGE,
@@ -344,6 +345,17 @@ class ToolConfig:
         return self._release_info["tag_name"]
 
 
+def _installed_binary_exists(destination_dir: Path, platform: str, binary_name: str) -> bool:
+    """Return True if the binary (or Windows variant) already exists."""
+    candidate_paths = [destination_dir / binary_name]
+    platform_is_windows = platform.lower().startswith("win")
+    if platform_is_windows and Path(binary_name).suffix == "":
+        candidate_paths.extend(
+            destination_dir / f"{binary_name}{suffix}" for suffix in WINDOWS_BINARY_SUFFIXES
+        )
+    return any(candidate.exists() for candidate in candidate_paths)
+
+
 @dataclass(frozen=True)
 class BinSpec:
     """Specific arch and platform for a tool."""
@@ -398,9 +410,10 @@ class BinSpec:
             self.arch,
         )
         destination_dir = config.bin_dir(self.platform, self.arch)
-        # Use binary detection so Windows `.exe` (and other variants) are respected
-        detected = auto_detect_paths_in_archive(destination_dir, self.tool_config.binary_name)
-        all_exist = len(detected) == len(self.tool_config.binary_name)
+        all_exist = all(
+            _installed_binary_exists(destination_dir, self.platform, binary_name)
+            for binary_name in self.tool_config.binary_name
+        )
         if tool_info and tool_info["tag"] == self.tag and all_exist and not force:
             dt = humanize_time_ago(tool_info["updated_at"])
             log(
