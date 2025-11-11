@@ -1469,6 +1469,8 @@ def test_matching_asset_prefers_single_token_binary_name() -> None:
         "tools": {"codex": {"repo": "openai/codex"}},
     }
     config = Config.from_dict(raw_config)
+    # Simulate a missing repo basename to ensure the name-hint normalization skips it.
+    config.tools["codex"].repo = ""
     config.tools["codex"]._release_info = {
         "tag_name": "v0.57.0",
         "assets": [
