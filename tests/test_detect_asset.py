@@ -2,7 +2,7 @@
 
 import pytest
 
-from dotbins.config import _select_candidate
+from dotbins.config import _normalize_name_hints, _select_candidate
 from dotbins.detect_asset import (
     ArchAMD64,
     ArchArm,
@@ -253,6 +253,13 @@ def test_select_candidate_prefers_single_token_name_hint() -> None:
         "codex",
     ]
     assert _select_candidate(candidates, ["codex"]) == "codex"
+
+
+def test_normalize_name_hints_skips_missing_repo_name() -> None:
+    """_normalize_name_hints should ignore empty repo hints."""
+    assert _normalize_name_hints("codex", None) == ["codex"]
+    assert _normalize_name_hints("codex", "codex") == ["codex"]
+    assert _normalize_name_hints("codex", "codex-bin") == ["codex", "codex-bin"]
 
 
 def test_sort_arch_order() -> None:
