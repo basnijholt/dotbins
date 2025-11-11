@@ -80,6 +80,22 @@ class Manifest:
         info = self.get_tool_info(tool, platform, arch)
         return info["tag"] if info else None
 
+    def tool_to_tag_mapping(self) -> dict[str, str]:
+        """Get a mapping of tool names to tags."""
+        mapping: dict[str, str] = {}
+        for key, info in self.data.items():
+            if key == "version":
+                continue
+            spec = _Spec.from_key(key)
+            if spec.name in mapping and mapping[spec.name] != info["tag"]:
+                log(
+                    f"Tool [b]{spec.name}[/] has multiple tags:"
+                    f" [b]{mapping[spec.name]}[/] and [b]{info['tag']}[/]",
+                    "warning",
+                )
+            mapping[spec.name] = info["tag"]
+        return mapping
+
     def update_tool_info(
         self,
         tool: str,

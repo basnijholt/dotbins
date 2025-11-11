@@ -32,7 +32,7 @@ tools:
     repo: eza-community/eza
     shell_code:
       bash,zsh: |
-        alias l="eza -lah --git --icons"
+        alias l="eza --long --all --git --icons=auto"
   fzf:
     repo: junegunn/fzf
     shell_code:
@@ -67,8 +67,7 @@ tools:
         eval "$(atuin init __DOTBINS_SHELL__ --disable-up-arrow)"
 
   keychain:
-    repo: funtoo/keychain
-    tag: 2.9.0_alpha1
+    repo: danielrobbins/keychain
     asset_patterns: keychain
 
   uv:

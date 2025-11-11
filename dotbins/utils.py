@@ -113,8 +113,6 @@ def current_platform() -> tuple[str, str]:
     arch = {
         "aarch64": "arm64",
         "x86_64": "amd64",
-        "i686": "386",
-        "i386": "386",
     }.get(machine, machine)
 
     return platform, arch
@@ -183,15 +181,16 @@ def _format_shell_instructions(
         return base_script
 
     if shell == "nushell":
+        tools_dir_str_nu = tools_dir_str.replace("$HOME", "($nu.home-path)")
         script_lines = [
             "# dotbins - Add platform-specific binaries to PATH",
-            "let _os = (sys).host.name | str downcase",
+            "let _os = $nu.os-info | get name",
             'let _os = if $_os == "darwin" { "macos" } else { $_os }',
             "",
-            "let _arch = (sys).host.arch",
+            "let _arch = $nu.os-info | get arch",
             'let _arch = if $_arch == "x86_64" { "amd64" } else if $_arch in ["aarch64", "arm64"] { "arm64" } else { $_arch }',
             "",
-            f'$env.PATH = ($env.PATH | prepend $"{tools_dir_str}/$_os/$_arch/bin")',
+            f'$env.PATH = ($env.PATH | prepend $"{tools_dir_str_nu}/($_os)/($_arch)/bin")',
         ]
         base_script = "\n".join(script_lines)
         if_start = "if (which {name}) != null {{"
@@ -289,11 +288,12 @@ def write_shell_scripts(
     log(f"Generated shell scripts in {tools_dir1}/shell/", "success", "📝")
     if print_shell_setup:
         tools_dir2 = replace_home_in_path(tools_dir, "$HOME")
+        tools_dir2_nu = tools_dir2.replace("$HOME", "~")
         log("Add this to your shell config:", "info")
         log(f"  [b]Bash:[/]       [yellow]source {tools_dir2}/shell/bash.sh[/]", "info", "👉")
         log(f"  [b]Zsh:[/]        [yellow]source {tools_dir2}/shell/zsh.sh[/]", "info", "👉")
         log(f"  [b]Fish:[/]       [yellow]source {tools_dir2}/shell/fish.fish[/]", "info", "👉")
-        log(f"  [b]Nushell:[/]    [yellow]source {tools_dir2}/shell/nushell.nu[/]", "info", "👉")
+        log(f"  [b]Nushell:[/]    [yellow]source {tools_dir2_nu}/shell/nushell.nu[/]", "info", "👉")
         log(f"  [b]PowerShell:[/] [yellow]. {tools_dir2}/shell/powershell.ps1[/]", "info", "👉")
 
 

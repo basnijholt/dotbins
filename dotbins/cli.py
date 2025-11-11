@@ -96,7 +96,7 @@ def _get_tool(
     dest_dir: str | Path,
     name: str | None = None,
     tag: str | None = None,
-) -> None:
+) -> int:
     """Get a specific tool and install it directly to a location.
 
     This command bypasses the standard configuration and tools directory,
@@ -126,11 +126,14 @@ def _get_tool(
         )
     config._bin_dir = dest_dir_path
     config.sync_tools(current=True, force=True, generate_readme=False, copy_config_file=False)
+    exit_code = 1 if config._update_summary.failed else 0
+    return exit_code  # noqa: RET504
 
 
 def create_parser() -> argparse.ArgumentParser:
     """Create command-line argument parser."""
     parser = argparse.ArgumentParser(
+        prog="dotbins",
         description="dotbins - Download, manage, and update CLI tool binaries in your dotfiles repository",
         formatter_class=RichHelpFormatter,
     )
@@ -211,7 +214,15 @@ def create_parser() -> argparse.ArgumentParser:
         "-c",
         "--current",
         action="store_true",
-        help="Only install or update for the current platform and architecture (convenient shorthand)",
+        help="Install/update only for the current platform and architecture."
+        " This allows syncing for the current system even if it's not explicitly"
+        " listed in the `platforms` configuration.",
+    )
+    sync_parser.add_argument(
+        "--pin-to-manifest",
+        action="store_true",
+        help="Use the tags from the `manifest.json` file instead of the latest release"
+        " or the tag specified in the config file",
     )
     sync_parser.add_argument(
         "--no-shell-scripts",
@@ -315,8 +326,8 @@ def main() -> None:  # pragma: no cover
 
     try:
         if args.command == "get":
-            _get_tool(args.source, args.dest, args.name, args.tag)
-            return
+            exit_code = _get_tool(args.source, args.dest, args.name, args.tag)
+            sys.exit(exit_code)
         if args.command is None:
             parser.print_help()
             return
@@ -344,7 +355,10 @@ def main() -> None:  # pragma: no cover
                 github_token=args.github_token,
                 verbose=args.verbose,
                 generate_shell_scripts=not args.no_shell_scripts,
+                pin_to_manifest=args.pin_to_manifest,
             )
+            if config._update_summary.failed:
+                sys.exit(1)
         elif args.command == "readme":
             config.generate_readme(not args.no_file, args.verbose)
         elif args.command == "status":

@@ -253,6 +253,7 @@ def prepare_download_tasks(
     tools_to_sync: list[str] | None,
     platforms_to_sync: list[str] | None,
     architecture: str | None,
+    current: bool,
     force: bool,
     verbose: bool,
 ) -> list[_DownloadTask]:
@@ -265,7 +266,9 @@ def prepare_download_tasks(
 
     for tool_name in tools_to_sync:
         for platform in platforms_to_sync:
-            if platform not in config.platforms:
+            if current:
+                log(f"Including current platform [b]{platform}[/] even if not configured", "info")
+            elif platform not in config.platforms:
                 config._update_summary.add_skipped_tool(
                     tool_name,
                     platform,
@@ -276,7 +279,7 @@ def prepare_download_tasks(
                 log(f"Skipping unknown platform: {platform}", "warning")
                 continue
 
-            archs_to_update = _determine_architectures(platform, architecture, config)
+            archs_to_update = _determine_architectures(platform, architecture, config, current)
             if not archs_to_update:
                 config._update_summary.add_skipped_tool(
                     tool_name,
@@ -450,8 +453,13 @@ def _determine_architectures(
     platform: str,
     architecture: str | None,
     config: Config,
+    current: bool,
 ) -> list[str]:
     """Determine which architectures to update for a platform."""
+    if current:
+        assert architecture is not None
+        log(f"Including current architecture [b]{architecture}[/] even if not configured", "info")
+        return [architecture]
     if architecture is not None:
         # Filter to only include the specified architecture if it's supported
         if architecture in config.platforms[platform]:

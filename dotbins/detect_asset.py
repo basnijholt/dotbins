@@ -74,7 +74,8 @@ os_mapping: dict[str, _OS] = {
 
 # Define Arch constants
 ArchAMD64 = _Arch(name="amd64", regex=re.compile(r"(?i)(x64|amd64|x86(-|_)?64)"))
-ArchI386 = _Arch(name="386", regex=re.compile(r"(?i)(x32|amd32|x86(-|_)?32|i?[3-6]86)"))
+# We match i686 with i[3-6]86 because its backwards compatible
+ArchI686 = _Arch(name="i686", regex=re.compile(r"(?i)(x32|amd32|x86(-|_)?32|i?[3-6]86)"))
 ArchArm = _Arch(name="arm", regex=re.compile(r"(?i)(arm32|armv6|arm\b)"))
 ArchArm64 = _Arch(name="arm64", regex=re.compile(r"(?i)(arm64|armv8|aarch64)"))
 ArchRiscv64 = _Arch(name="riscv64", regex=re.compile(r"(?i)(riscv64)"))
@@ -82,8 +83,7 @@ ArchRiscv64 = _Arch(name="riscv64", regex=re.compile(r"(?i)(riscv64)"))
 # Define Arch mapping
 arch_mapping: dict[str, _Arch] = {
     "amd64": ArchAMD64,  # 64-bit (2000s-now)
-    "386": ArchI386,  # 32-bit (1980s-2000s)
-    "i686": ArchI386,  # alias for 386
+    "i686": ArchI686,  # 32-bit Athlons, Pentium 2-4 (1990s-2010s)
     "arm": ArchArm,  # 32-bit (1990s-2010s)
     "arm64": ArchArm64,  # 64-bit (2010s-now)
     "aarch64": ArchArm64,  # alias for arm64 (2010s-now)
