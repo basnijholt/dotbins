@@ -16,6 +16,7 @@ import yaml
 
 from .detect_asset import create_system_detector
 from .download import download_files_in_parallel, prepare_download_tasks, process_downloaded_files
+from .manifest import Manifest
 from .readme import write_readme_file
 from .summary import UpdateSummary, display_update_summary
 from .utils import (
@@ -27,11 +28,11 @@ from .utils import (
     humanize_time_ago,
     log,
     replace_home_in_path,
+    tag_to_version,
     write_gitattributes_for_lfs,
     write_lfs_skip_smudge_script,
     write_shell_scripts,
 )
-from .versions import VersionStore
 
 if sys.version_info >= (3, 11):
     from typing import Required
@@ -42,6 +43,8 @@ DEFAULT_TOOLS_DIR = "~/.dotbins"
 DEFAULT_PREFER_APPIMAGE = True
 DEFAULT_LIBC: Literal["musl"] = "musl"
 DEFAULT_WINDOWS_ABI: Literal["msvc", "gnu"] = "msvc"
+
+WINDOWS_BINARY_SUFFIXES = (".exe", ".cmd", ".bat", ".ps1")
 
 DEFAULTS: DefaultsDict = {
     "prefer_appimage": DEFAULT_PREFER_APPIMAGE,
@@ -77,7 +80,6 @@ class Config:
     config_path: Path | None = field(default=None, init=False)
     _bin_dir: Path | None = field(default=None, init=False)
     _update_summary: UpdateSummary = field(default_factory=UpdateSummary, init=False)
-    _latest_releases: dict | None = field(default=None, init=False)
 
     def bin_dir(self, platform: str, arch: str, *, create: bool = False) -> Path:
         """Return the bin directory path for a specific platform and architecture.
@@ -120,9 +122,9 @@ class Config:
         execute_in_parallel(tool_configs, fetch, max_workers=16)
 
     @cached_property
-    def version_store(self) -> VersionStore:
-        """Return the VersionStore object."""
-        return VersionStore(self.tools_dir)
+    def manifest(self) -> Manifest:
+        """Return the Manifest object."""
+        return Manifest(self.tools_dir)
 
     def validate(self) -> None:
         """Check for missing repos, unknown platforms, etc."""
@@ -180,6 +182,7 @@ class Config:
         github_token: str | None = None,
         verbose: bool = False,
         generate_shell_scripts: bool = True,
+        pin_to_manifest: bool = False,
     ) -> None:
         """Install and update tools to their latest versions.
 
@@ -206,6 +209,7 @@ class Config:
             github_token: GitHub API token for authentication (helps with rate limits)
             verbose: If True, show detailed logs during the process
             generate_shell_scripts: If True, generate shell scripts for the tools
+            pin_to_manifest: If True, use the tag from the `manifest.json` file
 
         """
         if not self.tools:
@@ -215,6 +219,17 @@ class Config:
         if github_token is None and "GITHUB_TOKEN" in os.environ:  # pragma: no cover
             log("Using GitHub token for authentication", "info", "🔑")
             github_token = os.environ["GITHUB_TOKEN"]
+
+        if pin_to_manifest:
+            tool_to_tag_mapping = self.manifest.tool_to_tag_mapping()
+            for tool, tool_config in self.tools.items():
+                tag = tool_to_tag_mapping.get(tool)
+                log(
+                    f"Using tag [b]{tag}[/] for tool [b]{tool}[/] from [b]manifest.json[/]",
+                    "info",
+                    "🔒",
+                )
+                tool_config.tag = tag
 
         tools_to_sync = _tools_to_sync(self, tools)
         self.set_latest_releases(tools_to_sync, github_token, verbose)
@@ -228,6 +243,7 @@ class Config:
             tools_to_sync,
             platforms_to_sync,
             architecture,
+            current,
             force,
             verbose,
         )
@@ -235,7 +251,7 @@ class Config:
         process_downloaded_files(
             download_tasks,
             download_successes,
-            self.version_store,
+            self.manifest,
             self._update_summary,
             verbose,
         )
@@ -330,13 +346,24 @@ class ToolConfig:
 
     def bin_spec(self, arch: str, platform: str) -> BinSpec:
         """Get a BinSpec object for the tool."""
-        return BinSpec(tool_config=self, version=self.latest_version, arch=arch, platform=platform)
+        return BinSpec(tool_config=self, tag=self.latest_tag, arch=arch, platform=platform)
 
     @property
-    def latest_version(self) -> str:
+    def latest_tag(self) -> str:
         """Get the latest version for the tool."""
         assert self._release_info is not None
-        return self._release_info["tag_name"].lstrip("v")
+        return self._release_info["tag_name"]
+
+
+def _installed_binary_exists(destination_dir: Path, platform: str, binary_name: str) -> bool:
+    """Return True if the binary (or Windows variant) already exists."""
+    candidate_paths = [destination_dir / binary_name]
+    platform_is_windows = platform.lower().startswith("win")
+    if platform_is_windows and Path(binary_name).suffix == "":
+        candidate_paths.extend(
+            destination_dir / f"{binary_name}{suffix}" for suffix in WINDOWS_BINARY_SUFFIXES
+        )
+    return any(candidate.exists() for candidate in candidate_paths)
 
 
 @dataclass(frozen=True)
@@ -344,7 +371,7 @@ class BinSpec:
     """Specific arch and platform for a tool."""
 
     tool_config: ToolConfig
-    version: str
+    tag: str
     arch: str
     platform: str
 
@@ -364,7 +391,7 @@ class BinSpec:
             self.tool_config,
             self.platform,
             self.arch,
-            self.version,
+            self.tag,
             self.tool_platform,
             self.tool_arch,
         )
@@ -375,24 +402,32 @@ class BinSpec:
         assert self.tool_config._release_info is not None
         assets = self.tool_config._release_info["assets"]
         if asset_pattern is None:
-            return _auto_detect_asset(self.platform, self.arch, assets, self.tool_config.defaults)
+            return _auto_detect_asset(
+                self.platform,
+                self.arch,
+                assets,
+                self.tool_config.defaults,
+                self.tool_config.tool_name,
+                self.tool_config.repo.rsplit("/", 1)[-1],
+            )
         return _find_matching_asset(asset_pattern, assets)
 
     def skip_download(self, config: Config, force: bool) -> bool:
         """Check if download should be skipped (binary already exists)."""
-        tool_info = config.version_store.get_tool_info(
+        tool_info = config.manifest.get_tool_info(
             self.tool_config.tool_name,
             self.platform,
             self.arch,
         )
         destination_dir = config.bin_dir(self.platform, self.arch)
         all_exist = all(
-            (destination_dir / binary_name).exists() for binary_name in self.tool_config.binary_name
+            _installed_binary_exists(destination_dir, self.platform, binary_name)
+            for binary_name in self.tool_config.binary_name
         )
-        if tool_info and tool_info["version"] == self.version and all_exist and not force:
+        if tool_info and tool_info["tag"] == self.tag and all_exist and not force:
             dt = humanize_time_ago(tool_info["updated_at"])
             log(
-                f"[b]{self.tool_config.tool_name} v{self.version}[/] for"
+                f"[b]{self.tool_config.tool_name} {self.tag}[/] for"
                 f" [b]{self.platform}/{self.arch}[/] is already up to date"
                 f" (installed [b]{dt}[/] ago) use --force to re-download.",
                 "success",
@@ -428,6 +463,7 @@ class RawToolConfigDict(TypedDict, total=False):
     path_in_archive: str | list[str]  # Path(s) to binary within archive
     asset_patterns: str | dict[str, str] | dict[str, dict[str, str | None]]
     shell_code: str | dict[str, str] | None  # Shell code to configure the tool
+    tag: str | None  # Tag to use for the binary (if None, the latest release will be used)
 
 
 class _AssetDict(TypedDict):
@@ -715,12 +751,13 @@ def _maybe_asset_pattern(
     tool_config: ToolConfig,
     platform: str,
     arch: str,
-    version: str,
+    tag: str,
     tool_platform: str,
     tool_arch: str,
 ) -> str | None:
     """Get the formatted asset pattern for the tool."""
-    search_pattern = tool_config.asset_patterns[platform][arch]
+    # asset_pattern might not contain an entry if `--current` is used
+    search_pattern = tool_config.asset_patterns.get(platform, {}).get(arch)
     if search_pattern is None:
         log(
             f"No [b]asset_pattern[/] provided for [b]{platform}/{arch}[/]",
@@ -728,16 +765,94 @@ def _maybe_asset_pattern(
             "ℹ️",  # noqa: RUF001
         )
         return None
+    version = tag_to_version(tag)
     return (
         search_pattern.format(
             version=version,
+            tag=tag,
             platform=tool_platform,
             arch=tool_arch,
         )
         .replace("{version}", ".*")
+        .replace("{tag}", ".*")
         .replace("{arch}", ".*")
         .replace("{platform}", ".*")
     )
+
+
+_OS_ARCH_HINT_TOKENS = {
+    "linux",
+    "darwin",
+    "mac",
+    "macos",
+    "osx",
+    "windows",
+    "win",
+    "android",
+    "freebsd",
+    "openbsd",
+    "netbsd",
+    "illumos",
+    "solaris",
+    "plan9",
+    "amd64",
+    "x86",
+    "x86_64",
+    "x64",
+    "arm",
+    "arm64",
+    "armv6",
+    "armv7",
+    "armv8",
+    "armhf",
+    "aarch64",
+    "riscv64",
+    "i386",
+    "i486",
+    "i586",
+    "i686",
+    "universal",
+    "intel",
+    "apple",
+}
+
+_TOKEN_SPLIT_RE = re.compile(r"[-_.]+")
+
+_VERSION_TOKEN_RE = re.compile(r"v?\d[\dw_.-]*")
+
+
+def _normalize_name_hints(tool_name: str, repo_name: str | None) -> list[str]:
+    hints: list[str] = []
+    for name in (tool_name, repo_name):
+        if not name:
+            continue
+        normalized = name.strip().lower()
+        if normalized and normalized not in hints:
+            hints.append(normalized)
+    return hints
+
+
+def _looks_like_primary_candidate(tokens: list[str], name_hints: list[str]) -> bool:
+    if not tokens or tokens[0] not in name_hints:
+        return False
+    if len(tokens) == 1:
+        return True
+    second = tokens[1]
+    if _VERSION_TOKEN_RE.fullmatch(second):
+        return True
+    return second in _OS_ARCH_HINT_TOKENS
+
+
+def _select_candidate(candidates: list[str], name_hints: list[str]) -> str:
+    if not candidates:
+        msg = "No candidates provided"
+        raise ValueError(msg)
+    for candidate in candidates:
+        basename = os.path.basename(candidate).lower()
+        tokens = [token for token in _TOKEN_SPLIT_RE.split(basename) if token]
+        if _looks_like_primary_candidate(tokens, name_hints):
+            return candidate
+    return candidates[0]
 
 
 def _auto_detect_asset(
@@ -745,9 +860,12 @@ def _auto_detect_asset(
     arch: str,
     assets: list[_AssetDict],
     defaults: DefaultsDict,
+    tool_name: str,
+    repo_name: str | None = None,
 ) -> _AssetDict | None:
     """Auto-detect an asset for the tool."""
     log(f"Auto-detecting asset for [b]{platform}/{arch}[/]", "info")
+    name_hints = _normalize_name_hints(tool_name, repo_name)
     detect_fn = create_system_detector(
         platform,
         arch,
@@ -760,8 +878,22 @@ def _auto_detect_asset(
     if err is not None:
         if err.endswith("matches found"):
             assert candidates is not None
-            log(f"Found multiple candidates: {candidates}, selecting first", "info")
-            asset_name = candidates[0]
+            asset_name = _select_candidate(candidates, name_hints)
+            if asset_name != candidates[0]:
+                log(
+                    f"Found multiple candidates: {candidates}, selecting `{asset_name}`"
+                    " because it best matches the tool name",
+                    "info",
+                )
+            else:
+                log(f"Found multiple candidates: {candidates}, selecting first", "info")
+        elif candidates and tool_name in candidates:
+            log(
+                f"Found multiple candidates: {candidates}, selecting `{tool_name}`"
+                " because it perfectly matches the tool name",
+                "info",
+            )
+            asset_name = tool_name
         else:
             if candidates:
                 log(f"Found multiple candidates: {candidates}, manually select one", "info", "⁉️")
@@ -803,7 +935,7 @@ def _fetch_release(
             tool_config.tool_name,
             "Any",
             "Any",
-            version="Unknown",
+            tag="Unknown",
             reason=msg,
         )
         log(msg, "error", print_exception=verbose)

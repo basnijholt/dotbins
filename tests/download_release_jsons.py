@@ -24,6 +24,11 @@ import yaml
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from dotbins.utils import _maybe_github_token_header
 
+# Extra repos that power tests but are not part of the public examples file.
+EXTRA_TOOLS = {
+    "codex": {"repo": "openai/codex"},
+}
+
 
 def main() -> None:
     """Download release JSONs for all tools in examples.yaml."""
@@ -41,7 +46,8 @@ def main() -> None:
     headers = _maybe_github_token_header(github_token)
 
     # Process each tool
-    tools = config.get("tools", {})
+    tools = dict(config.get("tools", {}))
+    tools.update(EXTRA_TOOLS)
     total = len(tools)
 
     print(f"Downloading release JSONs for {total} tools...")
@@ -61,7 +67,10 @@ def main() -> None:
 
         # Fetch release info
         print(f"[{i}/{total}] Downloading {tool_name} from {repo}...")
-        url = f"https://api.github.com/repos/{repo}/releases/latest"
+        if "tag" in value:
+            url = f"https://api.github.com/repos/{repo}/releases/tags/{value['tag']}"
+        else:
+            url = f"https://api.github.com/repos/{repo}/releases/latest"
 
         try:
             response = requests.get(url, headers=headers, timeout=30)

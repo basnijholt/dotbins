@@ -61,6 +61,7 @@ tools:
   yq: mikefarah/yq                # YAML/XML/TOML processor similar to jq
   zellij: zellij-org/zellij       # Terminal multiplexer
   zoxide: ajeetdsouza/zoxide      # Smarter cd command with learning
+  keychain: funtoo/keychain       # ssh-agent manager
 
 platforms:
   linux:

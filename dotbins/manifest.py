@@ -10,12 +10,15 @@ from typing import TYPE_CHECKING, Any, NamedTuple
 from rich.console import Console
 from rich.table import Table
 
-from .utils import humanize_time_ago, log
+from .utils import humanize_time_ago, log, tag_to_version
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from .config import Config
+
+
+MANIFEST_VERSION = 2
 
 
 class _Spec(NamedTuple):
@@ -29,7 +32,7 @@ class _Spec(NamedTuple):
         return cls(*key.split("/"))
 
 
-class VersionStore:
+class Manifest:
     """Manages version information for installed tools.
 
     This class tracks which versions of each tool are installed for each platform
@@ -42,44 +45,65 @@ class VersionStore:
     """
 
     def __init__(self, tools_dir: Path) -> None:
-        """Initialize the VersionStore."""
-        self.version_file = tools_dir / "versions.json"
-        self.versions = self._load()
+        """Initialize the Manifest."""
+        self.manifest_file = tools_dir / "manifest.json"
+        self.data = self._load()
 
     def _load(self) -> dict[str, Any]:
         """Load version data from JSON file."""
-        if not self.version_file.exists():
-            return {}
+        self._maybe_convert_legacy_manifest()
+        if not self.manifest_file.exists():
+            return {"version": MANIFEST_VERSION}
         try:
-            with self.version_file.open() as f:
-                return json.load(f)
+            with self.manifest_file.open() as f:
+                data = json.load(f)
         except (OSError, json.JSONDecodeError):
-            return {}
+            return {"version": MANIFEST_VERSION}
+        return data
 
     def save(self) -> None:
-        """Save version data to JSON file."""
-        self.version_file.parent.mkdir(parents=True, exist_ok=True)
-        with self.version_file.open("w", encoding="utf-8") as f:
-            sorted_versions = dict(sorted(self.versions.items()))
-            json.dump(sorted_versions, f, indent=2)
+        """Save manifest to JSON file."""
+        self.manifest_file.parent.mkdir(parents=True, exist_ok=True)
+        with self.manifest_file.open("w", encoding="utf-8") as f:
+            sorted_data = dict(sorted(self.data.items()))
+            sorted_data.pop("version", None)
+            sorted_data = {"version": MANIFEST_VERSION, **sorted_data}
+            json.dump(sorted_data, f, indent=2)
 
     def get_tool_info(self, tool: str, platform: str, arch: str) -> dict[str, Any] | None:
         """Get version info for a specific tool/platform/arch combination."""
         key = f"{tool}/{platform}/{arch}"
-        return self.versions.get(key)
+        return self.data.get(key)
 
-    def get_tool_version(self, tool: str, platform: str, arch: str) -> str | None:
+    def get_tool_tag(self, tool: str, platform: str, arch: str) -> str | None:
         """Get version info for a specific tool/platform/arch combination."""
         info = self.get_tool_info(tool, platform, arch)
-        return info["version"] if info else None
+        return info["tag"] if info else None
+
+    def tool_to_tag_mapping(self) -> dict[str, str]:
+        """Get a mapping of tool names to tags."""
+        mapping: dict[str, str] = {}
+        for key, info in self.data.items():
+            if key == "version":
+                continue
+            spec = _Spec.from_key(key)
+            if spec.name in mapping and mapping[spec.name] != info["tag"]:
+                log(
+                    f"Tool [b]{spec.name}[/] has multiple tags:"
+                    f" [b]{mapping[spec.name]}[/] and [b]{info['tag']}[/]",
+                    "warning",
+                )
+            mapping[spec.name] = info["tag"]
+        return mapping
 
     def update_tool_info(
         self,
         tool: str,
         platform: str,
         arch: str,
-        version: str,
+        tag: str,
         sha256: str,
+        url: str,
     ) -> None:
         """Update version info for a tool.
 
@@ -87,15 +111,17 @@ class VersionStore:
             tool: Tool name
             platform: Platform (e.g., 'linux', 'macos')
             arch: Architecture (e.g., 'amd64', 'arm64')
-            version: Version string
+            tag: Tag name
             sha256: SHA256 hash of the downloaded archive
+            url: URL of the downloaded archive
 
         """
         key = f"{tool}/{platform}/{arch}"
-        self.versions[key] = {
-            "version": version,
+        self.data[key] = {
+            "tag": tag,
             "updated_at": datetime.now().isoformat(),
             "sha256": sha256,
+            "url": url,
         }
         self.save()
 
@@ -107,7 +133,7 @@ class VersionStore:
             architecture: Filter by architecture (e.g., 'amd64', 'arm64')
 
         """
-        if not self.versions:
+        if len(self.data) == 1:  # Only 'version'
             log("No tool versions recorded yet.", "info")
             return
 
@@ -121,7 +147,7 @@ class VersionStore:
         table.add_column("Last Updated", style="magenta")
         table.add_column("SHA256", style="dim")
 
-        installed_tools = _installed_tools(self.versions, platform, architecture)
+        installed_tools = _installed_tools(self.data, platform, architecture)
         if not installed_tools:
             log("No tools found for the specified filters.", "info")
             return
@@ -136,7 +162,7 @@ class VersionStore:
                 spec.name,
                 spec.platform,
                 spec.architecture,
-                info["version"],
+                info["tag"],
                 updated_str,
                 info["sha256"][:8],
             )
@@ -155,12 +181,12 @@ class VersionStore:
             architecture: Filter by architecture (e.g., 'amd64', 'arm64')
 
         """
-        if not self.versions:
+        if len(self.data) == 1:  # Only 'version'
             log("No tool versions recorded yet.", "info")
             return
 
         tools = defaultdict(list)
-        installed_tools = _installed_tools(self.versions, platform, architecture)
+        installed_tools = _installed_tools(self.data, platform, architecture)
 
         for spec in installed_tools:
             info = self.get_tool_info(spec.name, spec.platform, spec.architecture)
@@ -169,7 +195,7 @@ class VersionStore:
                 {
                     "platform": spec.platform,
                     "arch": spec.architecture,
-                    "version": info["version"],
+                    "tag": info["tag"],
                     "updated_at": info["updated_at"],
                 },
             )
@@ -187,7 +213,7 @@ class VersionStore:
         table.add_column("Last Updated", style="magenta")
 
         for tool_name, instances in sorted(tools.items()):
-            version_list = sorted({i["version"] for i in instances})
+            version_list = sorted({tag_to_version(i["tag"]) for i in instances})
             platforms = sorted({f"{i['platform']}/{i['arch']}" for i in instances})
             latest_update = max(instances, key=lambda x: x["updated_at"])
             updated_str = humanize_time_ago(latest_update["updated_at"])
@@ -221,7 +247,7 @@ class VersionStore:
             self._print_full(platform, architecture)
 
         expected_tools = _expected_tools(config, platform, architecture)
-        installed_tools = _installed_tools(self.versions, platform, architecture)
+        installed_tools = _installed_tools(self.data, platform, architecture)
         missing_tools = [tool for tool in expected_tools if tool not in installed_tools]
 
         if missing_tools:
@@ -248,6 +274,29 @@ class VersionStore:
                 tip = "\n[bold]Tip:[/] Run [cyan]dotbins sync[/] to install missing tools"
 
             console.print(tip)
+
+    def _maybe_convert_legacy_manifest(self) -> None:
+        """Convert legacy manifest format from v1 to v2."""
+        legacy_file = self.manifest_file.parent / "versions.json"
+        if legacy_file.exists():
+            log(
+                "Found legacy manifest file `versions.json`: Converting manifest"
+                " format from v1 to v2 `manifest.json`."
+                " This might result in some tools being re-downloaded!",
+                "warning",
+            )
+            data = json.load(legacy_file.open())
+            # "version" field was changed to "tag" (which includes the 'v' prefix)
+            for key, value in data.items():
+                data[key] = {
+                    "tag": value["version"],
+                    "updated_at": value["updated_at"],
+                    "sha256": value["sha256"],
+                }
+            data["version"] = MANIFEST_VERSION
+            self.data = data
+            self.save()
+            legacy_file.unlink()
 
 
 def _filter_tools(
@@ -282,12 +331,12 @@ def _expected_tools(
 
 
 def _installed_tools(
-    versions: dict[str, Any],
+    data: dict[str, Any],
     platform: str | None = None,
     architecture: str | None = None,
 ) -> list[_Spec]:
     """Return a list of tools that are installed."""
-    installed_tools = [_Spec.from_key(key) for key in versions]
+    installed_tools = [_Spec.from_key(key) for key in data if key != "version"]
     if platform or architecture:
         installed_tools = _filter_tools(installed_tools, platform, architecture)
     return installed_tools

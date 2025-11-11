@@ -205,7 +205,7 @@ Here's what happens during `dotbins sync`:
 
 1. **Version Detection**:
 
-   - Checks each tool's current version in `versions.json`
+   - Checks each tool's current version in `manifest.json`
    - Queries GitHub API for the latest release of each tool
 
 2. **Smart Updates**:
@@ -221,9 +221,14 @@ Here's what happens during `dotbins sync`:
    - Can be limited to current system only: `dotbins sync -c`
 
 4. **File Generation**:
-   - Updates `versions.json` with new version information
+   - Updates `manifest.json` with new version information
    - Regenerates shell integration scripts with PATH and tool configurations
    - Creates a README in the tools directory with installation status
+
+5. **Pinning to Manifest**:
+
+   - Use the `dotbins sync --pin-to-manifest` CLI flag to force `sync` to use the tags already recorded in `manifest.json`.
+   - This ignores the latest release information from GitHub and ensures that the installed versions match exactly what's in your manifest, which is useful for reproducibility or if your manifest file is version-controlled.
 
 Example update workflow:
 
@@ -240,7 +245,10 @@ dotbins sync --current
 # Force reinstall everything, even if up to date
 dotbins sync --force
 
-# See what would be updated without making changes
+# Update tools using only the versions recorded in manifest.json
+dotbins sync --pin-to-manifest
+
+# See what is installed
 dotbins status
 ```
 
@@ -433,7 +441,7 @@ Here's what gets created:
 │   ├── nushell.nu
 │   ├── powershell.ps1
 │   └── zsh.sh
-└── versions.json          # Version tracking information
+└── manifest.json          # Version tracking information
 ```
 
 ### Tool Configuration
@@ -772,7 +780,7 @@ tools:
     repo: eza-community/eza
     shell_code:
       bash,zsh: |
-        alias l="eza -lah --git --icons"
+        alias l="eza --long --all --git --icons=auto"
   fzf:
     repo: junegunn/fzf
     shell_code:
@@ -805,6 +813,10 @@ tools:
     shell_code:
       bash,zsh: |
         eval "$(atuin init __DOTBINS_SHELL__ --disable-up-arrow)"
+
+  keychain:
+    repo: danielrobbins/keychain
+    asset_patterns: keychain
 
   uv:
     repo: astral-sh/uv
@@ -959,7 +971,7 @@ source "$HOME/.dotbins/shell/bash.sh"
 source "$HOME/.dotbins/shell/fish.fish"
 
 # For Nushell
-source $env.HOME/.dotbins/shell/nushell.nu
+source ~/.dotbins/shell/nushell.nu
 ```
 
 ---
@@ -1040,6 +1052,7 @@ tools:
   yq: mikefarah/yq                # YAML/XML/TOML processor similar to jq
   zellij: zellij-org/zellij       # Terminal multiplexer
   zoxide: ajeetdsouza/zoxide      # Smarter cd command with learning
+  keychain: funtoo/keychain       # ssh-agent manager
 
 platforms:
   linux:

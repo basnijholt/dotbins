@@ -13,8 +13,8 @@ import pytest
 
 import dotbins
 from dotbins.config import BinSpec, Config, RawToolConfigDict, _find_config_file, build_tool_config
+from dotbins.manifest import Manifest
 from dotbins.utils import replace_home_in_path
-from dotbins.versions import VersionStore
 
 if TYPE_CHECKING:
     from requests_mock import Mocker
@@ -152,7 +152,7 @@ def test_extract_from_archive_tar(tmp_path: Path, create_dummy_archive: Callable
     dotbins.download._extract_binary_from_archive(
         archive_path,
         dest_dir,
-        BinSpec(tool_config=tool_config, version="1.0.0", arch="amd64", platform="linux"),
+        BinSpec(tool_config=tool_config, tag="v1.0.0", arch="amd64", platform="linux"),
         verbose=True,
     )
 
@@ -193,7 +193,7 @@ def test_extract_from_archive_zip(tmp_path: Path, create_dummy_archive: Callable
         dest_dir,
         BinSpec(
             tool_config=tool_config,
-            version="1.0.0",
+            tag="v1.0.0",
             arch="amd64",
             platform="linux",
         ),
@@ -237,7 +237,7 @@ def test_extract_from_archive_nested(tmp_path: Path, create_dummy_archive: Calla
         dest_dir,
         BinSpec(
             tool_config=tool_config,
-            version="1.0.0",
+            tag="v1.0.0",
             arch="amd64",
             platform="linux",
         ),
@@ -287,13 +287,14 @@ def test_download_tool_already_exists(requests_mock: Mocker, tmp_path: Path) -> 
         },
     )
 
-    version_store = VersionStore(tmp_path)
-    version_store.update_tool_info(
-        "test-tool",
-        "linux",
-        "amd64",
-        "1.0.0",
-        "sha256",
+    manifest = Manifest(tmp_path)
+    manifest.update_tool_info(
+        tool="test-tool",
+        platform="linux",
+        arch="amd64",
+        tag="1.0.0",
+        sha256="sha256",
+        url="https://example.com/test-tool-1.0.0-linux_amd64.tar.gz",
     )
 
     config = Config(
@@ -408,7 +409,7 @@ def test_extract_from_archive_unknown_type(tmp_path: Path) -> None:
             dest_dir,
             BinSpec(
                 tool_config=test_tool_config,
-                version="1.0.0",
+                tag="v1.0.0",
                 arch="amd64",
                 platform="linux",
             ),
@@ -450,7 +451,7 @@ def test_extract_from_archive_missing_binary(tmp_path: Path) -> None:
             dest_dir,
             BinSpec(
                 tool_config=test_tool_config,
-                version="1.0.0",
+                tag="v1.0.0",
                 arch="amd64",
                 platform="linux",
             ),
@@ -491,7 +492,7 @@ def test_extract_from_archive_multiple_binaries(
         dest_dir,
         BinSpec(
             tool_config=test_tool_config,
-            version="1.0.0",
+            tag="v1.0.0",
             arch="amd64",
             platform="linux",
         ),
@@ -559,7 +560,7 @@ def test_extract_from_archive_with_arch_platform_version_in_path(
     create_dummy_archive(
         dest_path=archive_path,
         binary_names="test-bin",
-        nested_dir="nested-1.0.0-linux-amd64",
+        nested_dir="nested-v1.0.0-linux-amd64-1.0.0",
     )
 
     # Setup tool config
@@ -568,7 +569,7 @@ def test_extract_from_archive_with_arch_platform_version_in_path(
         raw_data={
             "repo": "test/tool",
             "binary_name": "test-tool",
-            "path_in_archive": "nested-{version}-{platform}-{arch}/test-bin",
+            "path_in_archive": "nested-{tag}-{platform}-{arch}-{version}/test-bin",
         },
     )
 
@@ -582,7 +583,7 @@ def test_extract_from_archive_with_arch_platform_version_in_path(
         dest_dir,
         BinSpec(
             tool_config=tool_config,
-            version="1.0.0",
+            tag="v1.0.0",
             arch="amd64",
             platform="linux",
         ),
