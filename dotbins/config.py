@@ -769,6 +769,7 @@ def _maybe_asset_pattern(
 
 
 _OS_ARCH_HINT_TOKENS = {
+    # Operating systems
     "linux",
     "darwin",
     "mac",
@@ -783,6 +784,7 @@ _OS_ARCH_HINT_TOKENS = {
     "illumos",
     "solaris",
     "plan9",
+    # Architectures
     "amd64",
     "x86",
     "x86_64",
@@ -802,11 +804,41 @@ _OS_ARCH_HINT_TOKENS = {
     "universal",
     "intel",
     "apple",
+    # Libc/ABI variants
+    "musl",
+    "gnu",
+    "glibc",
+    "msvc",
+    "mingw",
+    # Common target triple components
+    "unknown",
+    "pc",
 }
 
 _TOKEN_SPLIT_RE = re.compile(r"[-_.]+")
 
 _VERSION_TOKEN_RE = re.compile(r"v?\d[\dw_.-]*")
+
+# Common archive extensions (not indicative of variant type)
+_ARCHIVE_EXT_TOKENS = {
+    "tar",
+    "gz",
+    "xz",
+    "bz2",
+    "zst",
+    "zip",
+    "7z",
+    "deb",
+    "rpm",
+    "msi",
+    "pkg",
+    "apk",
+    "dmg",
+    "exe",
+    "appimage",
+    "flatpak",
+    "snap",
+}
 
 
 def _normalize_name_hints(tool_name: str, repo_name: str | None) -> list[str]:
@@ -831,15 +863,33 @@ def _looks_like_primary_candidate(tokens: list[str], name_hints: list[str]) -> b
     return second in _OS_ARCH_HINT_TOKENS
 
 
+def _is_known_token(token: str, name_hints: list[str]) -> bool:
+    """Check if a token is a known/expected part of an asset name."""
+    if token in name_hints:
+        return True
+    if token in _OS_ARCH_HINT_TOKENS:
+        return True
+    if token in _ARCHIVE_EXT_TOKENS:
+        return True
+    return bool(_VERSION_TOKEN_RE.fullmatch(token))
+
+
 def _select_candidate(candidates: list[str], name_hints: list[str]) -> str:
     if not candidates:
         msg = "No candidates provided"
         raise ValueError(msg)
-    for candidate in candidates:
+    primary: list[tuple[str, int, int]] = []
+    for idx, candidate in enumerate(candidates):
         basename = os.path.basename(candidate).lower()
         tokens = [token for token in _TOKEN_SPLIT_RE.split(basename) if token]
         if _looks_like_primary_candidate(tokens, name_hints):
-            return candidate
+            # Count unknown tokens (not name, version, OS/arch, or extension)
+            unknown = sum(1 for t in tokens if not _is_known_token(t, name_hints))
+            primary.append((candidate, unknown, idx))
+    if primary:
+        # Prefer candidates with fewer unknown tokens, then original order
+        primary.sort(key=lambda x: (x[1], x[2]))
+        return primary[0][0]
     return candidates[0]
 
 

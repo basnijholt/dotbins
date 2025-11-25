@@ -1434,6 +1434,52 @@ def test_auto_detect_asset_prefers_primary_tool_binary(
     assert "Found asset: codex-x86_64-unknown-linux-musl.tar.gz" in out
 
 
+def test_auto_detect_asset_deprioritizes_unknown_variant_tokens(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Ensure auto-detect prefers assets without unknown tokens like 'profile'."""
+    raw_config: RawConfigDict = {
+        "tools_dir": str(tmp_path),
+        "platforms": {"macos": ["arm64"]},
+        "tools": {"bun": {"repo": "oven-sh/bun"}},
+    }
+    config = Config.from_dict(raw_config)
+
+    # Profile variant comes first alphabetically but should be deprioritized
+    config.tools["bun"]._release_info = {
+        "tag_name": "bun-v1.3.3",
+        "assets": [
+            {
+                "name": "bun-darwin-aarch64-profile.zip",
+                "browser_download_url": "https://example.com/bun-darwin-aarch64-profile.zip",
+            },
+            {
+                "name": "bun-darwin-aarch64.zip",
+                "browser_download_url": "https://example.com/bun-darwin-aarch64.zip",
+            },
+        ],
+    }
+
+    def mock_download_file(
+        url: str,  # noqa: ARG001
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        create_dummy_archive(Path(destination), binary_names="bun")
+        return destination
+
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools()
+
+    out = capsys.readouterr().out
+    assert "Found multiple candidates" in out
+    # Should select the non-profile version
+    assert "Found asset: bun-darwin-aarch64.zip" in out
+
+
 def test_matching_asset_raises_on_empty_candidates() -> None:
     """Ensure the guard in the auto-detect logic is exercised via the public API."""
     raw_config: RawConfigDict = {

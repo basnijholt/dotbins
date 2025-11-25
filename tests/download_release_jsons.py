@@ -26,6 +26,7 @@ from dotbins.utils import _maybe_github_token_header
 
 # Extra repos that power tests but are not part of the public examples file.
 EXTRA_TOOLS = {
+    "bun": {"repo": "oven-sh/bun"},
     "codex": {"repo": "openai/codex"},
 }
 
