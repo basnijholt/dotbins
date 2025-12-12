@@ -17,7 +17,7 @@ jobs:
       - uses: astral-sh/setup-uv@v7
       - name: Cache release downloads
         id: cache-release-downloads
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: tests/release_jsons
           key: release-downloads-v2-${{ hashFiles('examples/examples.yaml', 'tests/download_release_jsons.py') }}
@@ -50,7 +50,7 @@ jobs:
         run: |
           uv sync --all-extras
       - name: Restore release downloads cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: tests/release_jsons
           key: release-downloads-v2-${{ hashFiles('examples/examples.yaml', 'tests/download_release_jsons.py') }}
