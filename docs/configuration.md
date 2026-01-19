@@ -328,87 +328,30 @@ This is the author's configuration file (and resulting [`basnijholt/.dotbins`](h
 
 <details><summary>Click to view author's full dotbins.yaml</summary>
 
-```yaml
-tools_dir: ~/.dotbins
-
-platforms:
-  linux:
-    - amd64
-    - arm64
-  macos:
-    - arm64
-
-tools:
-  delta: dandavison/delta
-  duf: muesli/duf
-  dust: bootandy/dust
-  fd: sharkdp/fd
-  git-lfs: git-lfs/git-lfs
-  hyperfine: sharkdp/hyperfine
-  rg: BurntSushi/ripgrep
-  yazi: sxyazi/yazi
-
-  bat:
-    repo: sharkdp/bat
-    shell_code:
-      bash,zsh: |
-        alias bat="bat --paging=never"
-        alias cat="bat --plain --paging=never"
-  direnv:
-    repo: direnv/direnv
-    shell_code:
-      bash,zsh: |
-        eval "$(direnv hook __DOTBINS_SHELL__)"
-  eza:
-    repo: eza-community/eza
-    shell_code:
-      bash,zsh: |
-        alias l="eza --long --all --git --icons=auto"
-  fzf:
-    repo: junegunn/fzf
-    shell_code:
-      zsh: |
-        source <(fzf --zsh)
-      bash: |
-        eval "$(fzf --bash)"
-  lazygit:
-    repo: jesseduffield/lazygit
-    shell_code:
-      bash,zsh: |
-        alias lg="lazygit"
-  micromamba:
-    repo: mamba-org/micromamba-releases
-    shell_code:
-      bash,zsh: |
-        alias mm="micromamba"
-  starship:
-    repo: starship/starship
-    shell_code:
-      bash,zsh: |
-        eval "$(starship init __DOTBINS_SHELL__)"
-  zoxide:
-    repo: ajeetdsouza/zoxide
-    shell_code:
-      bash,zsh: |
-        eval "$(zoxide init __DOTBINS_SHELL__)"
-  atuin:
-    repo: atuinsh/atuin
-    shell_code:
-      bash,zsh: |
-        eval "$(atuin init __DOTBINS_SHELL__ --disable-up-arrow)"
-
-  keychain:
-    repo: danielrobbins/keychain
-    asset_patterns: keychain
-
-  uv:
-    repo: astral-sh/uv
-    binary_name: [uv, uvx]
-    path_in_archive: [uv-*/uv, uv-*/uvx]
-```
+<!-- CODE:BASH:START -->
+<!-- echo '```yaml' -->
+<!-- cat dotbins.yaml -->
+<!-- echo '```' -->
+<!-- CODE:END -->
+<!-- OUTPUT:START -->
+<!-- PLACEHOLDER --> Output is generated during CI build. We don't commit generated content to keep docs copyable and avoid recursion. See docs/docs_gen.py
+<!-- OUTPUT:END -->
 
 </details>
 
 ## Example: 50+ Tools
 
 See the [examples/examples.yaml](https://github.com/basnijholt/dotbins/blob/main/examples/examples.yaml) file for a list of 50+ tools that require no configuration.
+
+<details><summary>Click to view examples.yaml</summary>
+
+<!-- CODE:BASH:START -->
+<!-- echo '```yaml' -->
+<!-- cat examples/examples.yaml -->
+<!-- echo '```' -->
+<!-- CODE:END -->
+<!-- OUTPUT:START -->
+<!-- PLACEHOLDER --> Output is generated during CI build. We don't commit generated content to keep docs copyable and avoid recursion. See docs/docs_gen.py
+<!-- OUTPUT:END -->
+
+</details>
