@@ -7,6 +7,7 @@
 [![License](https://img.shields.io/github/license/basnijholt/dotbins)](https://github.com/basnijholt/dotbins/blob/main/LICENSE)
 [![Downloads](https://img.shields.io/pypi/dm/dotbins)](https://pypi.python.org/pypi/dotbins)
 ![Open Issues](https://img.shields.io/github/issues-raw/basnijholt/dotbins)
+[![Docs](https://img.shields.io/badge/docs-dotbins.nijho.lt-blue)](https://dotbins.nijho.lt)
 
 <!-- SECTION:intro:START -->
 <img src="https://github.com/user-attachments/assets/cf1b44aa-ca39-4967-a4c9-52258c9d9021" align="right" style="width: 350px;" />
