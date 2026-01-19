@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
-"""Helper functions for documentation generation.
+"""Documentation generation for dotbins.
 
-Provides the readme_section() function used by markdown-code-runner
-to extract sections from README.md into the documentation.
+Run this script to generate all documentation content:
+    uv run python docs/docs_gen.py
 """
 
 from __future__ import annotations
 
+import os
 import re
+import subprocess
+import sys
 from pathlib import Path
 
-# Path to README relative to this module (docs_gen.py is in docs/)
-README_PATH = Path(__file__).parent.parent / "README.md"
+REPO_ROOT = Path(__file__).parent.parent
+README_PATH = REPO_ROOT / "README.md"
 
 
 def readme_section(section_name: str, *, strip_heading: bool = True) -> str:
@@ -21,14 +24,6 @@ def readme_section(section_name: str, *, strip_heading: bool = True) -> str:
     <!-- SECTION:section_name:START -->
     content
     <!-- SECTION:section_name:END -->
-
-    Args:
-        section_name: The name of the section to extract
-        strip_heading: If True, remove the first heading from the section
-
-    Returns:
-        The content between the section markers
-
     """
     content = README_PATH.read_text()
 
@@ -50,11 +45,7 @@ def readme_section(section_name: str, *, strip_heading: bool = True) -> str:
     if strip_heading:
         section = re.sub(r"^#{1,3}\s+[^\n]+\n+", "", section, count=1)
 
-    return _transform_readme_links(section)
-
-
-def _transform_readme_links(content: str) -> str:
-    """Transform README internal links to docs site links."""
+    # Transform README links to docs links
     link_map = {
         "#zap-quick-start": "getting-started.md#quick-start",
         "#hammer_and_wrench-installation": "getting-started.md#installation",
@@ -68,8 +59,37 @@ def _transform_readme_links(content: str) -> str:
         "#star2-features": "index.md#features",
         "#bulb-why-i-created-dotbins": "index.md#why-i-created-dotbins",
     }
-
     for old_link, new_link in link_map.items():
-        content = content.replace(f"]({old_link})", f"]({new_link})")
+        section = section.replace(f"]({old_link})", f"]({new_link})")
 
-    return re.sub(r"\[\[ToC\]\([^)]+\)\]", "", content)
+    return re.sub(r"\[\[ToC\]\([^)]+\)\]", "", section)
+
+
+def main() -> int:
+    """Generate all documentation content."""
+    docs_dir = REPO_ROOT / "docs"
+    files = list(docs_dir.glob("*.md")) + [README_PATH]
+
+    # Set PYTHONPATH so markdown-code-runner can import this module
+    env = os.environ.copy()
+    env["PYTHONPATH"] = f"{docs_dir}:{env.get('PYTHONPATH', '')}"
+
+    print(f"Generating content for {len(files)} files...")
+    for f in files:
+        print(f"  {f.relative_to(REPO_ROOT)}")
+        result = subprocess.run(
+            ["markdown-code-runner", str(f)],
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            print(f"    ERROR: {result.stderr}")
+            return 1
+
+    print("Done.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
