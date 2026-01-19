@@ -23,6 +23,14 @@ icon: lucide/package
   </a>
 </div>
 
+## See it in action
+
+<div style="text-align: center; margin: 2rem 0;">
+  <a href="https://asciinema.org/a/709229" target="_blank">
+    <img src="https://asciinema.org/a/709229.svg" alt="dotbins demo" style="max-width: 100%;" />
+  </a>
+</div>
+
 ## Features
 
 <!-- CODE:START -->
