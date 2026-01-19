@@ -215,17 +215,6 @@ When requesting Windows x86_64 and both of these assets are available:
 With `windows_abi="msvc"`, dotbins selects the MSVC version.
 With `windows_abi="gnu"`, dotbins selects the GNU version.
 
-## Multiple Binaries
-
-For tools that provide multiple binaries:
-
-```yaml
-uv:
-  repo: astral-sh/uv
-  binary_name: [uv, uvx]
-  path_in_archive: [uv-*/uv, uv-*/uvx]
-```
-
 ## Configuration Examples
 
 ### Minimal Tool Configuration
