@@ -8,6 +8,7 @@
 [![Downloads](https://img.shields.io/pypi/dm/dotbins)](https://pypi.python.org/pypi/dotbins)
 ![Open Issues](https://img.shields.io/github/issues-raw/basnijholt/dotbins)
 
+<!-- SECTION:intro:START -->
 <img src="https://github.com/user-attachments/assets/cf1b44aa-ca39-4967-a4c9-52258c9d9021" align="right" style="width: 350px;" />
 
 **dotbins** manages CLI tool binaries in your [dotfiles](https://github.com/basnijholt/dotfiles) repository, offering:
@@ -25,6 +26,7 @@ See this example `.dotbins` repository: [basnijholt/.dotbins](https://github.com
 > [!NOTE]
 > 💡 **What makes dotbins different?** Unlike similar tools, dotbins uniquely integrates tool-specific shell configurations
 > (aliases, completions, etc.) directly in your dotfiles workflow, not just binary downloads, and allows a Git workflow for managing binaries.
+<!-- SECTION:intro:END -->
 
 <details><summary><b><u>[ToC]</u></b> 📚</summary>
 
@@ -81,6 +83,7 @@ See this example `.dotbins` repository: [basnijholt/.dotbins](https://github.com
 
 </details>
 
+<!-- SECTION:quick-start:START -->
 ## :zap: Quick Start
 
 Using the amazing [`uv`](https://docs.astral.sh/uv/) package manager (`uv tool install dotbins`):
@@ -102,7 +105,9 @@ dotbins get https://github.com/basnijholt/.dotbins/blob/main/dotbins.yaml
 **See it in action:**
 
 [![asciicast](https://asciinema.org/a/709229.svg)](https://asciinema.org/a/709229)
+<!-- SECTION:quick-start:END -->
 
+<!-- SECTION:features:START -->
 ## :star2: Features
 
 - 🌐 Supports multiple platforms (macOS, Linux, Windows) and architectures (amd64, arm64, etc.)
@@ -114,7 +119,9 @@ dotbins get https://github.com/basnijholt/.dotbins/blob/main/dotbins.yaml
 - 📂 Organizes tools by platform and architecture for easy access
 - 🐙 Easy integration with your dotfiles repository for version control
 - ⚙️ **Automatic PATH & Shell Code:** Configures `PATH` and applies custom shell snippets (`shell_code`).
+<!-- SECTION:features:END -->
 
+<!-- SECTION:why:START -->
 ## :bulb: Why I Created dotbins
 
 I frequently works across multiple environments where I clone [my dotfiles repository](https://github.com/basnijholt/dotfiles) with all my preferred configurations.
@@ -130,6 +137,7 @@ It allows me to:
 Now when I clone [my dotfiles](https://github.com/basnijholt/dotfiles) on any new system, I get not just my configurations but also all the CLI tools I depend on for productivity, **ready to use with their specific aliases and shell initializations automatically configured**.
 
 **_No package manager, no sudo, no problem!_**
+<!-- SECTION:why:END -->
 
 ---
 
@@ -351,6 +359,7 @@ This provides a good starting point that you can customize with your preferred t
 
 ---
 
+<!-- SECTION:installation:START -->
 ## :hammer_and_wrench: Installation
 
 We highly recommend to use [`uv`](https://docs.astral.sh/uv/) to install/run `dotbins`:
@@ -372,6 +381,7 @@ pip install dotbins
 ```
 
 You'll also need to create or update your `dotbins.yaml` configuration file either in the same directory as the script or at a custom location specified with `--tools-dir`.
+<!-- SECTION:installation:END -->
 
 ---
 
@@ -885,6 +895,7 @@ dotbins status --architecture arm64
 
 ---
 
+<!-- SECTION:shell-integration:START -->
 ## :computer: Shell Integration
 
 dotbins creates shell scripts that add binaries to your `PATH` and apply your custom tool configurations.
@@ -957,6 +968,7 @@ source "$HOME/.dotbins/shell/fish.fish"
 # For Nushell
 source ~/.dotbins/shell/nushell.nu
 ```
+<!-- SECTION:shell-integration:END -->
 
 ---
 
@@ -1050,6 +1062,7 @@ platforms:
 
 ---
 
+<!-- SECTION:troubleshooting:START -->
 ## :wrench: Troubleshooting
 
 ### Common Issues
@@ -1077,9 +1090,11 @@ platforms:
 - Enable verbose logging with `-v` flag: `dotbins sync -v`
 - Check all installed tool versions with: `dotbins status`
 - Join GitHub Discussions for help: https://github.com/basnijholt/dotbins/discussions
+<!-- SECTION:troubleshooting:END -->
 
 ---
 
+<!-- SECTION:comparison:START -->
 ## :thinking: Comparison with Alternatives
 
 `dotbins` fills a specific niche in the binary management ecosystem. Here's how it compares to key alternatives:
@@ -1139,11 +1154,14 @@ platforms:
 4. **Cross-platform portability** - Works the same across Linux, macOS, Windows
 
 This makes it perfect for users who want to manage their complete shell environment in a version-controlled dotfiles repository that can be easily deployed on any system.
+<!-- SECTION:comparison:END -->
 
 ---
 
+<!-- SECTION:license:START -->
 ## :heart: Support and Contributions
 
 We appreciate your feedback and contributions! If you encounter any issues or have suggestions for improvements, please file an issue on the GitHub repository. We also welcome pull requests for bug fixes or new features.
 
 Happy tooling! 🧰🛠️🎉
+<!-- SECTION:license:END -->
