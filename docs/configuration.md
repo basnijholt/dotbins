@@ -123,6 +123,37 @@ mytool:
 
 This would search for an asset named: `mytool-2.4.0-linux_amd64.tar.gz`
 
+With platform and architecture mapping:
+
+```yaml
+mytool:
+  repo: owner/mytool
+  platform_map:
+    macos: darwin # Convert "macos" to "darwin" in patterns
+  arch_map:
+    amd64: x86_64 # Convert "amd64" to "x86_64" in patterns
+  asset_patterns: mytool-{version}-{platform}_{arch}.tar.gz
+```
+
+For macOS/amd64, this would search for: `mytool-2.4.0-darwin_x86_64.tar.gz`
+
+**Real-world example:**
+
+```yaml
+ripgrep:
+  repo: BurntSushi/ripgrep
+  binary_name: rg
+  arch_map:
+    amd64: x86_64
+    arm64: aarch64
+  asset_patterns:
+    linux: ripgrep-{version}-{arch}-unknown-linux-musl.tar.gz
+    macos: ripgrep-{version}-{arch}-apple-darwin.tar.gz
+```
+
+For Linux/amd64, this would search for: `ripgrep-14.1.1-x86_64-unknown-linux-musl.tar.gz`
+For macOS/arm64, this would search for: `ripgrep-14.1.1-aarch64-apple-darwin.tar.gz`
+
 ## Platform and Architecture Mapping
 
 If the tool uses different naming for platforms or architectures:
@@ -147,6 +178,43 @@ defaults:
   windows_abi: msvc       # Prefer MSVC over GNU ABI on Windows
 ```
 
+**Why these defaults?**
+
+- **musl libc**: Statically linked musl binaries offer maximum portability across all Linux distributions regardless of the system's native C library. They eliminate glibc version conflicts (the notorious `GLIBC_X.YZ not found` errors), work on **both** glibc and musl-based distributions (like Alpine Linux), and generally provide a more reliable user experience.
+
+- **AppImage**: AppImage bundles all dependencies in a single, self-contained file that works across different Linux distributions without installation, making it ideal for portable applications (such as neovim, which requires extra runtime files).
+
+- **Windows ABI**: The MSVC ABI is the default on Windows as it's the most widely used and generally more stable. However, if you're using MinGW or prefer GNU tools, you can set this to "gnu".
+
+### Example: libc selection
+
+When requesting Linux amd64 and both of these assets are available:
+
+- `ripgrep-13.0.0-x86_64-unknown-linux-gnu.tar.gz` (uses glibc)
+- `ripgrep-13.0.0-x86_64-unknown-linux-musl.tar.gz` (uses musl)
+
+With `libc="musl"`, dotbins selects the musl version.
+With `libc="glibc"`, dotbins selects the gnu version.
+
+### Example: AppImage preference
+
+When both formats are available:
+
+- `nvim-linux-x86_64.appimage`
+- `nvim-linux-x86_64.tar.gz`
+
+With `prefer_appimage=true`, dotbins selects the AppImage version.
+
+### Example: Windows ABI
+
+When requesting Windows x86_64 and both of these assets are available:
+
+- `bat-v0.25.0-x86_64-pc-windows-gnu.zip` (uses GNU ABI)
+- `bat-v0.25.0-x86_64-pc-windows-msvc.zip` (uses MSVC ABI)
+
+With `windows_abi="msvc"`, dotbins selects the MSVC version.
+With `windows_abi="gnu"`, dotbins selects the GNU version.
+
 ## Multiple Binaries
 
 For tools that provide multiple binaries:
@@ -158,7 +226,67 @@ uv:
   path_in_archive: [uv-*/uv, uv-*/uvx]
 ```
 
-## Shell-Specific Configuration
+## Configuration Examples
+
+### Minimal Tool Configuration
+
+```yaml
+direnv:
+  repo: direnv/direnv
+```
+
+or
+
+```yaml
+ripgrep:
+  repo: BurntSushi/ripgrep
+  binary_name: rg # Only specify if different from tool name
+```
+
+### Standard Tool
+
+```yaml
+atuin:
+  repo: atuinsh/atuin
+  arch_map:
+    amd64: x86_64
+    arm64: aarch64
+  asset_patterns:
+    linux: atuin-{arch}-unknown-linux-gnu.tar.gz
+    macos: atuin-{arch}-apple-darwin.tar.gz
+```
+
+### Tool with Multiple Binaries
+
+```yaml
+uv:
+  repo: astral-sh/uv
+  binary_name: [uv, uvx]
+  path_in_archive: [uv-*/uv, uv-*/uvx]
+```
+
+### Platform-Specific Tool
+
+```yaml
+eza:
+  repo: eza-community/eza
+  arch_map:
+    amd64: x86_64
+    arm64: aarch64
+  asset_patterns:
+    linux: eza_{arch}-unknown-linux-gnu.tar.gz
+    macos: null # No macOS version available
+```
+
+### Version-Pinned Tool
+
+```yaml
+bat:
+  repo: sharkdp/bat
+  tag: v0.23.0  # Pin to specific version instead of latest
+```
+
+### Shell-Specific Configuration
 
 The auto-generated shell scripts will include tool-specific shell code if provided:
 
@@ -182,6 +310,10 @@ tools:
 
 For multi-shell compatibility, use the `__DOTBINS_SHELL__` placeholder:
 
+- **Separate entries per shell:** Define the code for each shell individually.
+- **Comma-separated shells:** Define the same code for multiple shells by listing them separated by commas (e.g., `bash,zsh:`).
+- **Placeholder:** Use the `__DOTBINS_SHELL__` placeholder within the shell code. This placeholder will be replaced by the actual shell name (`bash`, `zsh`, etc.) when the integration scripts are generated.
+
 ```yaml
 starship:
   repo: starship/starship
@@ -190,6 +322,36 @@ starship:
     fish: starship init fish | source
 ```
 
+## Full Configuration Example
+
+This is the author's configuration file (and resulting [`basnijholt/.dotbins`](https://github.com/basnijholt/.dotbins) repo):
+
+<details><summary>Click to view author's full dotbins.yaml</summary>
+
+<!-- CODE:BASH:START -->
+<!-- echo '```yaml' -->
+<!-- cat dotbins.yaml -->
+<!-- echo '```' -->
+<!-- CODE:END -->
+<!-- OUTPUT:START -->
+<!-- PLACEHOLDER --> Output is generated during CI build. We don't commit generated content to keep docs copyable and avoid recursion. See docs/docs_gen.py
+<!-- OUTPUT:END -->
+
+</details>
+
 ## Example: 50+ Tools
 
 See the [examples/examples.yaml](https://github.com/basnijholt/dotbins/blob/main/examples/examples.yaml) file for a list of 50+ tools that require no configuration.
+
+<details><summary>Click to view examples.yaml</summary>
+
+<!-- CODE:BASH:START -->
+<!-- echo '```yaml' -->
+<!-- cat examples/examples.yaml -->
+<!-- echo '```' -->
+<!-- CODE:END -->
+<!-- OUTPUT:START -->
+<!-- PLACEHOLDER --> Output is generated during CI build. We don't commit generated content to keep docs copyable and avoid recursion. See docs/docs_gen.py
+<!-- OUTPUT:END -->
+
+</details>
