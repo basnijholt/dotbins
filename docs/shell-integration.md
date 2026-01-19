@@ -5,7 +5,7 @@ icon: lucide/terminal
 # Shell Integration
 
 <!-- CODE:START -->
-<!-- from docs_gen import readme_section -->
+<!-- from generate import readme_section -->
 <!-- print(readme_section("shell-integration")) -->
 <!-- CODE:END -->
 <!-- OUTPUT:START -->

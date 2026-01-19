@@ -7,7 +7,7 @@ icon: lucide/package
 **Manage CLI tool binaries in your dotfiles repository**
 
 <!-- CODE:START -->
-<!-- from docs_gen import readme_section -->
+<!-- from generate import readme_section -->
 <!-- print(readme_section("intro")) -->
 <!-- CODE:END -->
 <!-- OUTPUT:START -->
@@ -52,7 +52,7 @@ See this example `.dotbins` repository: [basnijholt/.dotbins](https://github.com
 ## Features
 
 <!-- CODE:START -->
-<!-- from docs_gen import readme_section -->
+<!-- from generate import readme_section -->
 <!-- print(readme_section("features")) -->
 <!-- CODE:END -->
 <!-- OUTPUT:START -->
@@ -72,7 +72,7 @@ See this example `.dotbins` repository: [basnijholt/.dotbins](https://github.com
 ## Why I Created dotbins
 
 <!-- CODE:START -->
-<!-- from docs_gen import readme_section -->
+<!-- from generate import readme_section -->
 <!-- print(readme_section("why")) -->
 <!-- CODE:END -->
 <!-- OUTPUT:START -->
@@ -99,7 +99,7 @@ Now when I clone [my dotfiles](https://github.com/basnijholt/dotfiles) on any ne
 ## Comparison with Alternatives
 
 <!-- CODE:START -->
-<!-- from docs_gen import readme_section -->
+<!-- from generate import readme_section -->
 <!-- print(readme_section("comparison")) -->
 <!-- CODE:END -->
 <!-- OUTPUT:START -->
@@ -167,7 +167,7 @@ This makes it perfect for users who want to manage their complete shell environm
 ## Support and Contributions
 
 <!-- CODE:START -->
-<!-- from docs_gen import readme_section -->
+<!-- from generate import readme_section -->
 <!-- print(readme_section("license")) -->
 <!-- CODE:END -->
 <!-- OUTPUT:START -->

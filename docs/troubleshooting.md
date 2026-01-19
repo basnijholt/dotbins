@@ -5,7 +5,7 @@ icon: lucide/wrench
 # Troubleshooting
 
 <!-- CODE:START -->
-<!-- from docs_gen import readme_section -->
+<!-- from generate import readme_section -->
 <!-- print(readme_section("troubleshooting")) -->
 <!-- CODE:END -->
 <!-- OUTPUT:START -->

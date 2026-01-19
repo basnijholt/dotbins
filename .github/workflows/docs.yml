@@ -36,7 +36,7 @@ jobs:
           uv pip install -e .
 
       - name: Generate docs content
-        run: uv run python docs/docs_gen.py
+        run: uv run python docs/generate.py
 
       - name: Build documentation
         run: uv run zensical build

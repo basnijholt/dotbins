@@ -9,7 +9,7 @@ This guide will help you install and start using dotbins in minutes.
 ## Installation
 
 <!-- CODE:START -->
-<!-- from docs_gen import readme_section -->
+<!-- from generate import readme_section -->
 <!-- print(readme_section("installation")) -->
 <!-- CODE:END -->
 <!-- OUTPUT:START -->
@@ -39,7 +39,7 @@ You'll also need to create or update your `dotbins.yaml` configuration file eith
 ## Quick Start
 
 <!-- CODE:START -->
-<!-- from docs_gen import readme_section -->
+<!-- from generate import readme_section -->
 <!-- print(readme_section("quick-start")) -->
 <!-- CODE:END -->
 <!-- OUTPUT:START -->
