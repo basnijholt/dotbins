@@ -39,7 +39,7 @@ jobs:
         run: |
           export PYTHONPATH="$PWD/docs:$PYTHONPATH"
           for f in docs/*.md README.md; do
-            uv run markdown-code-runner --no-backtick-standardize "$f"
+            uv run markdown-code-runner "$f"
           done
 
       - name: Build documentation
