@@ -107,7 +107,8 @@ def _find_markdown_files_with_code_blocks(docs_dir: Path) -> list[Path]:
     files_with_code = []
     for md_file in docs_dir.rglob("*.md"):
         content = md_file.read_text()
-        if "<!-- CODE:START -->" in content:
+        # Check for both Python (CODE:START) and Bash (CODE:BASH:START) markers
+        if "<!-- CODE:START -->" in content or "<!-- CODE:BASH:START -->" in content:
             files_with_code.append(md_file)
     return sorted(files_with_code)
 
