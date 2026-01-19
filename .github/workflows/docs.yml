@@ -36,7 +36,11 @@ jobs:
           uv pip install -e .
 
       - name: Generate docs content
-        run: uv run python docs/docs_gen.py --docs-only
+        run: |
+          export PYTHONPATH="$PWD/docs:$PYTHONPATH"
+          for f in docs/*.md README.md; do
+            uv run markdown-code-runner --no-backtick-standardize "$f"
+          done
 
       - name: Build documentation
         run: uv run zensical build
