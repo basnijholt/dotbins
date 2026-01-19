@@ -165,3 +165,4 @@ settings.json
 
 # Release JSONs for testing
 tests/release_jsons/
+site/

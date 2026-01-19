@@ -35,6 +35,11 @@ dev = [
     "ruff>=0.9.10",
     "pre-commit>=4.2.0",
 ]
+docs = [
+    "zensical",
+    "markdown-gfm-admonition",
+    "markdown-code-runner",
+]
 
 [tool.setuptools.packages.find]
 include = ["dotbins.*", "dotbins"]
