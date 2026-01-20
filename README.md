@@ -751,11 +751,11 @@ platforms:
     - arm64
 
 tools:
+  bun: oven-sh/bun
   delta: dandavison/delta
   duf: muesli/duf
   dust: bootandy/dust
   fd: sharkdp/fd
-  git-lfs: git-lfs/git-lfs
   hyperfine: sharkdp/hyperfine
   rg: BurntSushi/ripgrep
   yazi: sxyazi/yazi
