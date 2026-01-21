@@ -751,7 +751,6 @@ platforms:
     - arm64
 
 tools:
-  bun: oven-sh/bun
   delta: dandavison/delta
   duf: muesli/duf
   dust: bootandy/dust
@@ -766,6 +765,9 @@ tools:
       bash,zsh: |
         alias bat="bat --paging=never"
         alias cat="bat --plain --paging=never"
+  bun:
+    repo: oven-sh/bun
+    binary_name: [bun, bunx]
   direnv:
     repo: direnv/direnv
     shell_code:
