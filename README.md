@@ -767,7 +767,9 @@ tools:
         alias cat="bat --plain --paging=never"
   bun:
     repo: oven-sh/bun
-    binary_name: [bun, bunx]
+    shell_code:
+      bash,zsh: |
+        alias bunx="bun x"
   direnv:
     repo: direnv/direnv
     shell_code:
