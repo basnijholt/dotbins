@@ -129,3 +129,56 @@ def test_cli_argument_parsing() -> None:
     args = parser.parse_args(["sync"])
     assert args.command == "sync"
     assert args.no_readme is False
+
+    # Test get with --asset-pattern
+    args = parser.parse_args(
+        ["get", "oven-sh/bun", "--asset-pattern", "bun-linux-x64-baseline.zip"],
+    )
+    assert args.command == "get"
+    assert args.source == "oven-sh/bun"
+    assert args.asset_pattern == "bun-linux-x64-baseline.zip"
+
+    # Test get without --asset-pattern (default is None)
+    args = parser.parse_args(["get", "oven-sh/bun"])
+    assert args.command == "get"
+    assert args.asset_pattern is None
+
+
+def test_get_tool_with_asset_pattern(tmp_path: Path) -> None:
+    """Test _get_tool properly passes asset_pattern to build_tool_config."""
+    from unittest.mock import MagicMock
+
+    from dotbins.config import Config
+
+    # Mock sync_tools to avoid actual network calls
+    mock_summary = MagicMock()
+    mock_summary.failed = False
+
+    # Create a modified version that captures the config
+    captured_configs: list[Config] = []
+
+    def capturing_sync_tools(
+        self: Config,
+        **_kwargs: Any,
+    ) -> None:
+        captured_configs.append(self)
+        self._update_summary = mock_summary
+
+    with patch.object(Config, "sync_tools", capturing_sync_tools):
+        cli._get_tool(
+            source="oven-sh/bun",
+            dest_dir=tmp_path,
+            name="bun",
+            tag=None,
+            asset_pattern="bun-linux-x64-baseline.zip",
+        )
+
+    # Verify the asset pattern was passed to the tool config
+    assert len(captured_configs) == 1
+    captured_config = captured_configs[0]
+    assert "bun" in captured_config.tools
+    tool_config = captured_config.tools["bun"]
+    # The pattern should be set for all platform/arch combinations
+    for platform_patterns in tool_config.asset_patterns.values():
+        for pattern in platform_patterns.values():
+            assert pattern == "bun-linux-x64-baseline.zip"

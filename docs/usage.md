@@ -102,6 +102,9 @@ dotbins get BurntSushi/ripgrep --name rg
 # Install bat to a specific location
 dotbins get sharkdp/bat --dest ~/bin
 
+# Override auto-detection with a specific asset pattern
+dotbins get oven-sh/bun --asset-pattern "bun-linux-x64-baseline.zip"
+
 # Install from a remote config URL
 dotbins get https://example.com/my-tools.yaml --dest ~/.local/bin
 ```

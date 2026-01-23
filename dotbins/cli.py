@@ -9,7 +9,7 @@ from pathlib import Path
 from rich_argparse import RichHelpFormatter
 
 from . import __version__
-from .config import DEFAULT_TOOLS_DIR, Config, build_tool_config
+from .config import DEFAULT_TOOLS_DIR, Config, RawToolConfigDict, build_tool_config
 from .utils import current_platform, log, replace_home_in_path
 
 
@@ -96,6 +96,7 @@ def _get_tool(
     dest_dir: str | Path,
     name: str | None = None,
     tag: str | None = None,
+    asset_pattern: str | None = None,
 ) -> int:
     """Get a specific tool and install it directly to a location.
 
@@ -108,6 +109,7 @@ def _get_tool(
         dest_dir: Directory to install the binary to (e.g., ~/.local/bin)
         name: Optional name to use for the binary (defaults to repo name)
         tag: Optional tag to use for the binary (if None, the latest release will be used)
+        asset_pattern: Optional pattern to match asset name (overrides auto-detection)
 
     """
     platform, arch = current_platform()
@@ -119,10 +121,13 @@ def _get_tool(
         config = Config.from_file(source)
     else:
         tool_name = name or source.split("/")[-1]
+        raw_data: RawToolConfigDict = {"repo": source, "tag": tag}
+        if asset_pattern:
+            raw_data["asset_patterns"] = asset_pattern
         config = Config(
             tools_dir=dest_dir_path,
             platforms={platform: [arch]},
-            tools={tool_name: build_tool_config(tool_name, {"repo": source, "tag": tag})},
+            tools={tool_name: build_tool_config(tool_name, raw_data)},
         )
     config._bin_dir = dest_dir_path
     config.sync_tools(current=True, force=True, generate_readme=False, copy_config_file=False)
@@ -179,6 +184,11 @@ def create_parser() -> argparse.ArgumentParser:
     get_parser.add_argument(
         "--tag",
         help="Tag to use for the binary (if None, the latest release will be used)",
+    )
+    get_parser.add_argument(
+        "--asset-pattern",
+        help="Pattern to match asset name (overrides auto-detection). "
+        "Example: 'bun-linux-x64-baseline.zip'",
     )
 
     # sync command
@@ -326,7 +336,13 @@ def main() -> None:  # pragma: no cover
 
     try:
         if args.command == "get":
-            exit_code = _get_tool(args.source, args.dest, args.name, args.tag)
+            exit_code = _get_tool(
+                args.source,
+                args.dest,
+                args.name,
+                args.tag,
+                args.asset_pattern,
+            )
             sys.exit(exit_code)
         if args.command is None:
             parser.print_help()
