@@ -767,6 +767,12 @@ tools:
         alias cat="bat --plain --paging=never"
   bun:
     repo: oven-sh/bun
+    arch_map:
+      amd64: x64
+      arm64: aarch64
+    asset_patterns:
+      linux: bun-linux-{arch}.zip
+      macos: bun-darwin-{arch}.zip
     shell_code:
       bash,zsh: |
         alias bunx="bun x"
