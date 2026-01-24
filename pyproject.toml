@@ -38,7 +38,7 @@ dev = [
 docs = [
     "zensical",
     "markdown-gfm-admonition",
-    "markdown-code-runner",
+    "markdown-code-runner>=2.7.0",
 ]
 
 [tool.setuptools.packages.find]
