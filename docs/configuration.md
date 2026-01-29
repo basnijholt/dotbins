@@ -95,7 +95,7 @@ When auto-detection isn't possible or you want more control, you can provide det
 tool-name:
   repo: owner/repo                 # Required: GitHub repository
   tag: v1.2.3                      # Optional: Specific release tag to use (defaults to latest)
-  tag_pattern: "^cli-"             # Optional: Regex to filter releases (for multi-product repos)
+  tag_pattern: "^cli-"             # Optional: Regex to filter releases by tag
   binary_name: executable-name     # Optional: Name of the resulting binary(ies) (defaults to tool-name)
   extract_archive: true            # Optional: Whether to extract from archive (true) or direct download (false) (auto-detected if not specified)
   path_in_archive: path/to/binary  # Optional: Path to the binary within the archive (auto-detected if not specified)
@@ -276,9 +276,9 @@ bat:
   tag: v0.23.0  # Pin to specific version instead of latest
 ```
 
-### Multi-Product Repository (tag_pattern)
+### Filtering Releases by Tag (tag_pattern)
 
-Some repositories release multiple products from the same repo (e.g., Bitwarden releases CLI, Desktop, Browser, and Web clients). Use `tag_pattern` to filter releases:
+Some repositories use separate release tags for different components (e.g., `bitwarden/clients` has `cli-v*`, `desktop-v*`, `web-v*` tags). Use `tag_pattern` to filter which releases to consider:
 
 ```yaml
 bw:
@@ -462,7 +462,7 @@ tools:
   bandwhich: imsnif/bandwhich     # Terminal bandwidth utilization tool
   bat: sharkdp/bat                # Cat clone with syntax highlighting and Git integration
   btm: ClementTsang/bottom        # Graphical system monitor
-  # Bitwarden CLI - demonstrates tag_pattern for repos with multiple products
+  # Bitwarden CLI - demonstrates tag_pattern for filtering releases by tag
   bw:
     repo: bitwarden/clients
     tag_pattern: "^cli-"  # Filter releases to only CLI (not web/desktop/browser)

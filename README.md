@@ -1005,7 +1005,7 @@ tools:
   bandwhich: imsnif/bandwhich     # Terminal bandwidth utilization tool
   bat: sharkdp/bat                # Cat clone with syntax highlighting and Git integration
   btm: ClementTsang/bottom        # Graphical system monitor
-  # Bitwarden CLI - demonstrates tag_pattern for repos with multiple products
+  # Bitwarden CLI - demonstrates tag_pattern for filtering releases by tag
   bw:
     repo: bitwarden/clients
     tag_pattern: "^cli-"  # Filter releases to only CLI (not web/desktop/browser)
