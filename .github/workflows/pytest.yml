@@ -20,9 +20,9 @@ jobs:
         uses: actions/cache@v5
         with:
           path: tests/release_jsons
-          key: release-downloads-v2-${{ hashFiles('examples/examples.yaml', 'tests/download_release_jsons.py') }}
+          key: release-downloads-v3-${{ hashFiles('examples/examples.yaml', 'tests/download_release_jsons.py') }}
           restore-keys: |
-            release-downloads-v2-
+            release-downloads-v3-
       - name: Download release JSONs
         if: steps.cache-release-downloads.outputs.cache-hit != 'true'
         run: uv run ./tests/download_release_jsons.py
@@ -53,9 +53,9 @@ jobs:
         uses: actions/cache@v5
         with:
           path: tests/release_jsons
-          key: release-downloads-v2-${{ hashFiles('examples/examples.yaml', 'tests/download_release_jsons.py') }}
+          key: release-downloads-v3-${{ hashFiles('examples/examples.yaml', 'tests/download_release_jsons.py') }}
           restore-keys: |
-            release-downloads-v2-
+            release-downloads-v3-
       - name: Run pytest
         run: uv run pytest -vvv
       - name: Upload coverage reports to Codecov
