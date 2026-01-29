@@ -35,17 +35,12 @@ CASES = [
     ("btop", "linux", "amd64", "btop-x86_64-unknown-linux-musl.tbz"),
     ("btop", "linux", "arm64", "btop-aarch64-unknown-linux-musl.tbz"),
     ("btop", "linux", "i686", "btop-i686-unknown-linux-musl.tbz"),
-    ("bun", "linux", "amd64", "bun-linux-x64-musl.zip"),
-    ("bun", "linux", "arm64", "bun-linux-aarch64-musl.zip"),
-    ("bun", "macos", "arm64", "bun-darwin-aarch64.zip"),
-    ("bun", "windows", "amd64", "bun-windows-x64.zip"),
     ("caddy", "linux", "amd64", "caddy_{version}_linux_amd64.tar.gz"),
     ("caddy", "linux", "arm64", "caddy_{version}_linux_arm64.tar.gz"),
     ("caddy", "macos", "arm64", "caddy_{version}_mac_arm64.tar.gz"),
     ("choose", "linux", "amd64", "choose-x86_64-unknown-linux-musl"),
     ("choose", "linux", "arm64", "choose-aarch64-unknown-linux-gnu"),
     ("choose", "macos", "arm64", "choose-aarch64-apple-darwin"),
-    ("codex", "linux", "amd64", "codex-x86_64-unknown-linux-musl.tar.gz"),
     ("croc", "linux", "amd64", "croc_v{version}_Linux-64bit.tar.gz"),
     ("croc", "linux", "arm64", "croc_v{version}_Linux-ARM64.tar.gz"),
     ("croc", "macos", "arm64", "croc_v{version}_macOS-ARM64.tar.gz"),
@@ -163,10 +158,6 @@ CASES = [
     ("k9s", "linux", "arm64", "k9s_Linux_arm64.tar.gz"),
     ("k9s", "macos", "arm64", "k9s_Darwin_arm64.tar.gz"),
     ("k9s", "windows", "amd64", "k9s_Windows_amd64.zip"),
-    ("keychain@2.9.2", "linux", "amd64", "keychain"),
-    ("keychain@2.9.2", "linux", "arm64", "keychain"),
-    ("keychain@2.9.2", "macos", "arm64", "keychain"),
-    ("keychain@2.9.2", "windows", "amd64", "keychain"),
     ("lazygit", "linux", "amd64", "lazygit_{version}_linux_x86_64.tar.gz"),
     ("lazygit", "linux", "arm64", "lazygit_{version}_linux_arm64.tar.gz"),
     ("lazygit", "macos", "arm64", "lazygit_{version}_darwin_arm64.tar.gz"),
@@ -298,8 +289,6 @@ def test_autodetect_asset(program: str, platform: str, arch: str, expected_asset
         program, tag = program.split("@")
 
     json_file = Path(__file__).parent / "release_jsons" / f"{program}.json"
-    if not json_file.exists():
-        pytest.skip(f"Release JSON not found: {json_file}")
     with open(json_file) as f:
         release_data = json.load(f)
 
