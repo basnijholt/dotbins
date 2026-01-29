@@ -12,7 +12,13 @@ from unittest.mock import patch
 
 import pytest
 
-from dotbins.utils import extract_archive, github_url_to_raw_url, humanize_time_ago, tag_to_version
+from dotbins.utils import (
+    extract_archive,
+    fetch_release_info,
+    github_url_to_raw_url,
+    humanize_time_ago,
+    tag_to_version,
+)
 
 
 def test_github_url_to_raw_url() -> None:
@@ -254,3 +260,62 @@ def test_tag_to_version() -> None:
     assert tag_to_version("latest") == "latest"
     assert tag_to_version("1.0.0") == "1.0.0"
     assert tag_to_version("v-invalid") == "v-invalid"
+
+
+class TestFetchReleaseInfoTagPattern:
+    """Tests for fetch_release_info with tag_pattern parameter."""
+
+    def test_tag_pattern_finds_matching_release(self) -> None:
+        """Test that tag_pattern correctly filters releases."""
+        # Clear the cache before this test
+        fetch_release_info.cache_clear()
+
+        mock_releases = [
+            {"tag_name": "web-v2026.1.0", "assets": []},
+            {"tag_name": "desktop-v2025.12.1", "assets": []},
+            {"tag_name": "cli-v2025.12.1", "assets": [{"name": "bw-linux.zip"}]},
+            {"tag_name": "browser-v2025.12.1", "assets": []},
+        ]
+
+        with patch("dotbins.utils.requests.get") as mock_get:
+            mock_get.return_value.json.return_value = mock_releases
+            mock_get.return_value.raise_for_status = lambda: None
+
+            result = fetch_release_info("bitwarden/clients", tag_pattern="^cli-")
+
+            assert result is not None
+            assert result["tag_name"] == "cli-v2025.12.1"
+
+    def test_tag_pattern_no_match_raises_error(self) -> None:
+        """Test that tag_pattern raises error when no release matches."""
+        fetch_release_info.cache_clear()
+
+        mock_releases = [
+            {"tag_name": "web-v2026.1.0", "assets": []},
+            {"tag_name": "desktop-v2025.12.1", "assets": []},
+        ]
+
+        with patch("dotbins.utils.requests.get") as mock_get:
+            mock_get.return_value.json.return_value = mock_releases
+            mock_get.return_value.raise_for_status = lambda: None
+
+            with pytest.raises(RuntimeError, match="No release matching pattern"):
+                fetch_release_info("bitwarden/clients", tag_pattern="^cli-")
+
+    def test_tag_pattern_regex_patterns(self) -> None:
+        """Test various regex patterns work correctly."""
+        fetch_release_info.cache_clear()
+
+        mock_releases = [
+            {"tag_name": "v1.0.0-beta", "assets": []},
+            {"tag_name": "v1.0.0", "assets": []},
+            {"tag_name": "v0.9.0", "assets": []},
+        ]
+
+        with patch("dotbins.utils.requests.get") as mock_get:
+            mock_get.return_value.json.return_value = mock_releases
+            mock_get.return_value.raise_for_status = lambda: None
+
+            # Pattern to exclude prereleases
+            result = fetch_release_info("owner/repo", tag_pattern=r"^v\d+\.\d+\.\d+$")
+            assert result["tag_name"] == "v1.0.0"

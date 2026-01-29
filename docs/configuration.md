@@ -95,6 +95,7 @@ When auto-detection isn't possible or you want more control, you can provide det
 tool-name:
   repo: owner/repo                 # Required: GitHub repository
   tag: v1.2.3                      # Optional: Specific release tag to use (defaults to latest)
+  tag_pattern: "^cli-"             # Optional: Regex to filter releases (for multi-product repos)
   binary_name: executable-name     # Optional: Name of the resulting binary(ies) (defaults to tool-name)
   extract_archive: true            # Optional: Whether to extract from archive (true) or direct download (false) (auto-detected if not specified)
   path_in_archive: path/to/binary  # Optional: Path to the binary within the archive (auto-detected if not specified)
@@ -275,6 +276,27 @@ bat:
   tag: v0.23.0  # Pin to specific version instead of latest
 ```
 
+### Multi-Product Repository (tag_pattern)
+
+Some repositories release multiple products from the same repo (e.g., Bitwarden releases CLI, Desktop, Browser, and Web clients). Use `tag_pattern` to filter releases:
+
+```yaml
+bw:
+  repo: bitwarden/clients
+  tag_pattern: "^cli-"  # Only consider releases starting with "cli-"
+  asset_patterns:
+    linux:
+      amd64: bw-linux-.*\.zip
+    macos:
+      arm64: bw-macos-arm64-.*\.zip
+```
+
+The `tag_pattern` is a regex that filters which releases to consider when finding the "latest" version. Without it, dotbins would get the globally latest release (which might be `web-v2026.1.0` instead of the CLI release `cli-v2025.12.1`).
+
+Common patterns:
+- `^cli-` - Releases starting with "cli-"
+- `^v\d+\.\d+\.\d+$` - Standard semver tags (excludes prereleases like `v1.0.0-beta`)
+
 ### Shell-Specific Configuration
 
 The auto-generated shell scripts will include tool-specific shell code if provided:
@@ -339,7 +361,6 @@ tools:
   duf: muesli/duf
   dust: bootandy/dust
   fd: sharkdp/fd
-  git-lfs: git-lfs/git-lfs
   hyperfine: sharkdp/hyperfine
   rg: BurntSushi/ripgrep
   yazi: sxyazi/yazi
@@ -350,6 +371,17 @@ tools:
       bash,zsh: |
         alias bat="bat --paging=never"
         alias cat="bat --plain --paging=never"
+  bun:
+    repo: oven-sh/bun
+    arch_map:
+      amd64: x64
+      arm64: aarch64
+    asset_patterns:
+      linux: bun-linux-{arch}.zip
+      macos: bun-darwin-{arch}.zip
+    shell_code:
+      bash,zsh: |
+        alias bunx="bun x"
   direnv:
     repo: direnv/direnv
     shell_code:
@@ -430,6 +462,18 @@ tools:
   bandwhich: imsnif/bandwhich     # Terminal bandwidth utilization tool
   bat: sharkdp/bat                # Cat clone with syntax highlighting and Git integration
   btm: ClementTsang/bottom        # Graphical system monitor
+  # Bitwarden CLI - demonstrates tag_pattern for repos with multiple products
+  bw:
+    repo: bitwarden/clients
+    tag_pattern: "^cli-"  # Filter releases to only CLI (not web/desktop/browser)
+    asset_patterns:
+      linux:
+        amd64: bw-linux-.*\.zip
+      macos:
+        arm64: bw-macos-arm64-.*\.zip
+        amd64: bw-macos-.*\.zip
+      windows:
+        amd64: bw-windows-.*\.zip
   btop: aristocratos/btop         # Resource monitor and process viewer
   caddy: caddyserver/caddy        # Web server with automatic HTTPS
   choose: theryangeary/choose     # Cut alternative with a simpler syntax

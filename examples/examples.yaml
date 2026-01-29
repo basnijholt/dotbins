@@ -7,6 +7,18 @@ tools:
   bandwhich: imsnif/bandwhich     # Terminal bandwidth utilization tool
   bat: sharkdp/bat                # Cat clone with syntax highlighting and Git integration
   btm: ClementTsang/bottom        # Graphical system monitor
+  # Bitwarden CLI - demonstrates tag_pattern for repos with multiple products
+  bw:
+    repo: bitwarden/clients
+    tag_pattern: "^cli-"  # Filter releases to only CLI (not web/desktop/browser)
+    asset_patterns:
+      linux:
+        amd64: bw-linux-.*\.zip
+      macos:
+        arm64: bw-macos-arm64-.*\.zip
+        amd64: bw-macos-.*\.zip
+      windows:
+        amd64: bw-windows-.*\.zip
   btop: aristocratos/btop         # Resource monitor and process viewer
   caddy: caddyserver/caddy        # Web server with automatic HTTPS
   choose: theryangeary/choose     # Cut alternative with a simpler syntax

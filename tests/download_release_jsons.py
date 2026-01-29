@@ -28,6 +28,13 @@ from dotbins.utils import _maybe_github_token_header
 EXTRA_TOOLS = {
     "bun": {"repo": "oven-sh/bun"},
     "codex": {"repo": "openai/codex"},
+    "bw": {"repo": "bitwarden/clients"},
+}
+
+# Tools that need the full releases list (for testing tag_pattern filtering).
+# These repos release multiple products from the same repository.
+RELEASES_LIST_TOOLS = {
+    "bw": {"repo": "bitwarden/clients", "per_page": 30},
 }
 
 
@@ -87,6 +94,31 @@ def main() -> None:
             print(f"[{i}/{total}] Error downloading {tool_name}: {e}")
 
     print(f"\nDownloaded release JSONs to {release_jsons_dir}")
+
+    # Download releases lists for tools that need tag_pattern testing
+    print(f"\nDownloading releases lists for {len(RELEASES_LIST_TOOLS)} tools...")
+    for tool_name, config in RELEASES_LIST_TOOLS.items():
+        json_file = release_jsons_dir / f"{tool_name}_releases.json"
+        if json_file.exists():
+            print(f"Skipping {tool_name}_releases.json (already downloaded)")
+            continue
+
+        repo = config["repo"]
+        per_page = config.get("per_page", 30)
+        url = f"https://api.github.com/repos/{repo}/releases?per_page={per_page}"
+
+        print(f"Downloading releases list for {tool_name} from {repo}...")
+        try:
+            response = requests.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
+            releases_data = response.json()
+
+            with open(json_file, "w") as f:
+                json.dump(releases_data, f, indent=2)
+
+            print(f"Downloaded {tool_name}_releases.json ({len(releases_data)} releases)")
+        except requests.RequestException as e:
+            print(f"Error downloading releases for {tool_name}: {e}")
 
 
 if __name__ == "__main__":
