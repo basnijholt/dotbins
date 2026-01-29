@@ -324,7 +324,7 @@ class ToolConfig:
     tool_name: str
     repo: str
     tag: str | None = None
-    tag_pattern: str | None = None  # Regex pattern to filter releases when finding "latest"
+    tag_pattern: str | None = None
     binary_name: list[str] = field(default_factory=list)
     path_in_archive: list[Path] = field(default_factory=list)
     extract_archive: bool | None = None
