@@ -11,6 +11,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+import requests
 
 from dotbins.utils import (
     extract_archive,
@@ -319,3 +320,13 @@ class TestFetchReleaseInfoTagPattern:
             # Pattern to exclude prereleases
             result = fetch_release_info("owner/repo", tag_pattern=r"^v\d+\.\d+\.\d+$")
             assert result["tag_name"] == "v1.0.0"
+
+    def test_tag_pattern_network_error(self) -> None:
+        """Test that network errors are wrapped in RuntimeError."""
+        fetch_release_info.cache_clear()
+
+        with patch("dotbins.utils.requests.get") as mock_get:
+            mock_get.side_effect = requests.RequestException("Connection failed")
+
+            with pytest.raises(RuntimeError, match="Failed to fetch releases"):
+                fetch_release_info("owner/repo", tag_pattern="^v")
