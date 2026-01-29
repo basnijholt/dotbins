@@ -56,16 +56,47 @@ def _maybe_github_token_header(github_token: str | None) -> dict[str, str]:  # p
 def fetch_release_info(
     repo: str,
     tag: str | None = None,
+    tag_pattern: str | None = None,
     github_token: str | None = None,
 ) -> dict | None:
-    """Fetch release information from GitHub for a single repository."""
-    if tag is None:
-        url = f"https://api.github.com/repos/{repo}/releases/latest"
-    else:
-        url = f"https://api.github.com/repos/{repo}/releases/tags/{tag}"
+    """Fetch release information from GitHub for a single repository.
 
-    log(f"Fetching release from {url}", "info")
+    Args:
+        repo: Repository in format "owner/repo"
+        tag: Exact tag to fetch (e.g., "v1.2.3")
+        tag_pattern: Regex pattern to filter releases (e.g., "^cli-" for bitwarden/clients)
+        github_token: GitHub API token for authentication
+
+    Returns:
+        Release information dict from GitHub API
+
+    """
     headers = _maybe_github_token_header(github_token)
+
+    if tag is not None:
+        url = f"https://api.github.com/repos/{repo}/releases/tags/{tag}"
+        log(f"Fetching release from {url}", "info")
+    elif tag_pattern is not None:
+        # Fetch releases and find first matching the pattern
+        url = f"https://api.github.com/repos/{repo}/releases?per_page=30"
+        log(f"Fetching releases matching pattern '{tag_pattern}' from {url}", "info")
+        try:
+            response = requests.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
+            releases = response.json()
+            for release in releases:
+                if re.search(tag_pattern, release["tag_name"]):
+                    log(f"Found release matching '{tag_pattern}': {release['tag_name']}", "success")
+                    return release
+            msg = f"No release matching pattern '{tag_pattern}' found in {repo}"
+            raise RuntimeError(msg)
+        except requests.RequestException as e:
+            msg = f"Failed to fetch releases for {repo}: {e}"
+            raise RuntimeError(msg) from e
+    else:
+        url = f"https://api.github.com/repos/{repo}/releases/latest"
+        log(f"Fetching release from {url}", "info")
+
     try:
         response = requests.get(url, headers=headers, timeout=30)
         response.raise_for_status()

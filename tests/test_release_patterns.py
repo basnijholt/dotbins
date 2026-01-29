@@ -26,6 +26,14 @@ CASES = [
     ("bat", "linux:gnu", "i686", "bat-v{version}-i686-unknown-linux-gnu.tar.gz"),
     ("bat", "linux:musl", "i686", "bat-v{version}-i686-unknown-linux-musl.tar.gz"),
     ("bat", "windows:msvc", "i686", "bat-v{version}-i686-pc-windows-msvc.zip"),
+    # bw: "latest" release is web-v2026.1.0, which has no CLI assets.
+    # This demonstrates the problem that tag_pattern solves - see issue #150.
+    # The CLI release (cli-v2025.12.1) has bw-linux-*.zip assets, but the
+    # global "latest" only has web-specific assets.
+    ("bw", "linux", "amd64", None),
+    ("bw", "linux", "arm64", None),
+    ("bw", "macos", "arm64", None),
+    ("bw", "windows", "amd64", None),
     ("btm", "linux", "amd64", "bottom_x86_64-unknown-linux-musl.tar.gz"),
     ("btm", "linux", "arm64", "bottom_aarch64-unknown-linux-musl.tar.gz"),
     ("btm", "macos", "arm64", "bottom_aarch64-apple-darwin.tar.gz"),
@@ -347,14 +355,78 @@ def test_autodetect_asset(program: str, platform: str, arch: str, expected_asset
 
 
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="Skip on Windows due to cache issues")
+def test_tag_pattern_filtering() -> None:
+    """Test that tag_pattern correctly filters releases to find the right one.
+
+    This tests the fix for issue #150 - repos like bitwarden/clients that release
+    multiple products from the same repository.
+    """
+    # Load the releases list JSON (not the single "latest" release)
+    json_file = Path(__file__).parent / "release_jsons" / "bw_releases.json"
+    with open(json_file) as f:
+        releases_data = json.load(f)
+
+    tag_pattern = "^cli-"
+
+    # Find the first release matching the pattern (simulating fetch_release_info behavior)
+    matching_release = None
+    for release in releases_data:
+        if re.search(tag_pattern, release["tag_name"]):
+            matching_release = release
+            break
+
+    # Key assertion: tag_pattern found the CLI release, not the web release
+    assert matching_release is not None, f"No release matching '{tag_pattern}'"
+    assert matching_release["tag_name"].startswith("cli-"), (
+        f"Expected CLI release but got {matching_release['tag_name']}"
+    )
+
+    # Verify the release has CLI assets (not web assets)
+    asset_names = [a["name"] for a in matching_release["assets"]]
+    assert any("bw-linux" in name for name in asset_names), "CLI release should have bw-linux asset"
+    assert not any("selfhosted" in name for name in asset_names), (
+        "CLI release should not have web selfhosted assets"
+    )
+
+    # Now test with explicit asset_patterns to verify full integration
+    # Note: Since tag is "cli-v2025.12.1", {version} becomes the full tag.
+    # Use a regex pattern that matches the actual asset naming convention.
+    defaults = {
+        "windows_abi": "msvc",
+        "libc": "musl",
+        "prefer_appimage": True,
+    }
+
+    tool_config = build_tool_config(
+        tool_name="bw",
+        raw_data={
+            "repo": "bitwarden/clients",
+            "tag_pattern": tag_pattern,
+            # Use regex pattern since Bitwarden's version in assets differs from tag
+            "asset_patterns": {"macos": {"arm64": r"bw-macos-arm64-\d+\.\d+\.\d+\.zip"}},
+        },
+        platforms={"macos": ["arm64"]},
+        defaults=defaults,  # type: ignore[arg-type]
+    )
+
+    tool_config._release_info = matching_release
+
+    bin_spec = tool_config.bin_spec("arm64", "macos")
+    matching_asset = bin_spec.matching_asset()
+
+    assert matching_asset is not None
+    assert "bw-macos-arm64" in matching_asset["name"]
+
+
+@pytest.mark.skipif(sys.platform.startswith("win"), reason="Skip on Windows due to cache issues")
 def test_if_complete_tests() -> None:
     """Checks whether the parametrize test_autodetect_asset are complete (see tests/release_jsons)."""
     # Get all test files in tests/release_jsons
     test_files_dir = Path(__file__).parent / "release_jsons"
     test_files = list(test_files_dir.glob("*.json"))
 
-    # Extract tool names from JSON files
-    json_tool_names = {file.stem for file in test_files}
+    # Extract tool names from JSON files (excluding *_releases.json which are for tag_pattern tests)
+    json_tool_names = {file.stem for file in test_files if not file.stem.endswith("_releases")}
 
     # Extract tool names directly from CASES
     tested_tool_names = {program.split("@")[0] for program, _, _, _ in CASES}

@@ -585,6 +585,7 @@ def test_get_tool_command(tmp_path: Path, create_dummy_archive: Callable) -> Non
     def mock_fetch_release_info(
         repo: str,  # noqa: ARG001
         tag: str | None = None,  # noqa: ARG001
+        tag_pattern: str | None = None,  # noqa: ARG001
         github_token: str | None = None,  # noqa: ARG001
     ) -> dict:
         return {
@@ -701,6 +702,7 @@ def test_get_tool_command_with_remote_config(
     def mock_fetch_release_info(
         repo: str,
         tag: str | None = None,  # noqa: ARG001
+        tag_pattern: str | None = None,  # noqa: ARG001
         github_token: str | None = None,  # noqa: ARG001
     ) -> dict:
         log(f"Getting release info for repo: {repo}", "info")
@@ -770,6 +772,7 @@ def test_get_tool_command_with_local_config(
     def mock_fetch_release_info(
         repo: str,
         tag: str | None = None,  # noqa: ARG001
+        tag_pattern: str | None = None,  # noqa: ARG001
         github_token: str | None = None,  # noqa: ARG001
     ) -> dict:
         log(f"Getting release info for repo: {repo}", "info")

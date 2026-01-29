@@ -324,6 +324,7 @@ class ToolConfig:
     tool_name: str
     repo: str
     tag: str | None = None
+    tag_pattern: str | None = None
     binary_name: list[str] = field(default_factory=list)
     path_in_archive: list[Path] = field(default_factory=list)
     extract_archive: bool | None = None
@@ -454,6 +455,7 @@ class RawToolConfigDict(TypedDict, total=False):
     asset_patterns: str | dict[str, str] | dict[str, dict[str, str | None]]
     shell_code: str | dict[str, str] | None  # Shell code to configure the tool
     tag: str | None  # Tag to use for the binary (if None, the latest release will be used)
+    tag_pattern: str | None  # Regex to filter releases (e.g., "^cli-" for bitwarden/clients)
 
 
 class _AssetDict(TypedDict):
@@ -493,6 +495,8 @@ def build_tool_config(
     if tag == "latest":
         tag = None
 
+    tag_pattern: str | None = raw_data.get("tag_pattern")  # type: ignore[assignment]
+
     # Convert to lists
     binary_name: list[str] = _ensure_list(raw_binary_name)
     path_in_archive: list[Path] = [Path(p) for p in _ensure_list(raw_path_in_archive)]
@@ -510,6 +514,7 @@ def build_tool_config(
         tool_name=tool_name,
         repo=repo,
         tag=tag,
+        tag_pattern=tag_pattern,
         binary_name=binary_name,
         path_in_archive=path_in_archive,
         extract_archive=extract_archive,
@@ -965,7 +970,12 @@ def _fetch_release(
     if tool_config._release_info is not None:
         return
     try:
-        release_info = fetch_release_info(tool_config.repo, tool_config.tag, github_token)
+        release_info = fetch_release_info(
+            tool_config.repo,
+            tool_config.tag,
+            tool_config.tag_pattern,
+            github_token,
+        )
         tool_config._release_info = release_info
     except Exception as e:
         msg = f"Failed to fetch latest release for {tool_config.repo}: {e}"
