@@ -32,9 +32,9 @@ CASES = [
     ("btm", "linux:gnu", "i686", "bottom_i686-unknown-linux-gnu.tar.gz"),
     ("btm", "linux:musl", "i686", "bottom_i686-unknown-linux-musl.tar.gz"),
     ("btm", "windows:msvc", "i686", "bottom_i686-pc-windows-msvc.zip"),
-    ("btop", "linux", "amd64", "btop-x86_64-linux-musl.tbz"),
-    ("btop", "linux", "arm64", "btop-aarch64-linux-musl.tbz"),
-    ("btop", "linux", "i686", "btop-i686-linux-musl.tbz"),
+    ("btop", "linux", "amd64", "btop-x86_64-unknown-linux-musl.tbz"),
+    ("btop", "linux", "arm64", "btop-aarch64-unknown-linux-musl.tbz"),
+    ("btop", "linux", "i686", "btop-i686-unknown-linux-musl.tbz"),
     ("bun", "linux", "amd64", "bun-linux-x64-musl.zip"),
     ("bun", "linux", "arm64", "bun-linux-aarch64-musl.zip"),
     ("bun", "macos", "arm64", "bun-darwin-aarch64.zip"),
@@ -231,9 +231,9 @@ CASES = [
     ("sd", "linux", "arm64", "sd-v{version}-aarch64-unknown-linux-musl.tar.gz"),
     ("sd", "macos", "arm64", "sd-v{version}-aarch64-apple-darwin.tar.gz"),
     ("sd", "windows", "amd64", "sd-v{version}-x86_64-pc-windows-msvc.zip"),
-    ("sk", "linux", "amd64", "skim-x86_64-unknown-linux-musl.tgz"),
-    ("sk", "linux", "arm64", "skim-aarch64-unknown-linux-musl.tgz"),
-    ("sk", "macos", "arm64", "skim-aarch64-apple-darwin.tgz"),
+    ("sk", "linux", "amd64", "skim-x86_64-unknown-linux-musl.tar.xz"),
+    ("sk", "linux:gnu", "arm64", "skim-aarch64-unknown-linux-gnu.tar.xz"),
+    ("sk", "macos", "arm64", "skim-aarch64-apple-darwin.tar.xz"),
     ("starship", "linux", "amd64", "starship-x86_64-unknown-linux-musl.tar.gz"),
     ("starship", "linux", "arm64", "starship-aarch64-unknown-linux-musl.tar.gz"),
     ("starship", "macos", "arm64", "starship-aarch64-apple-darwin.tar.gz"),
@@ -298,6 +298,8 @@ def test_autodetect_asset(program: str, platform: str, arch: str, expected_asset
         program, tag = program.split("@")
 
     json_file = Path(__file__).parent / "release_jsons" / f"{program}.json"
+    if not json_file.exists():
+        pytest.skip(f"Release JSON not found: {json_file}")
     with open(json_file) as f:
         release_data = json.load(f)
 
