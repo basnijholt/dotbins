@@ -14,6 +14,7 @@ import pytest
 import requests
 
 from dotbins.utils import (
+    _github_api_get,
     extract_archive,
     fetch_release_info,
     github_url_to_raw_url,
@@ -330,3 +331,92 @@ class TestFetchReleaseInfoTagPattern:
 
             with pytest.raises(RuntimeError, match="Failed to fetch releases"):
                 fetch_release_info("owner/repo", tag_pattern="^v")
+
+
+class TestGitHubApiRateLimiting:
+    """Tests for GitHub API rate limit handling."""
+
+    def test_rate_limit_waits_and_retries(self) -> None:
+        """Test that rate limiting triggers wait and retry."""
+        import time
+
+        # Create mock responses: first rate limited, then success
+        rate_limited_response = type(
+            "Response",
+            (),
+            {
+                "status_code": 403,
+                "text": "API rate limit exceeded",
+                "headers": {"X-RateLimit-Reset": str(int(time.time()) + 1)},
+            },
+        )()
+
+        success_response = type(
+            "Response",
+            (),
+            {"status_code": 200, "text": "OK", "headers": {}},
+        )()
+
+        with (
+            patch("dotbins.utils.requests.get") as mock_get,
+            patch("dotbins.utils.time.sleep") as mock_sleep,
+        ):
+            mock_get.side_effect = [rate_limited_response, success_response]
+
+            result = _github_api_get("https://api.github.com/test", {})
+
+            assert result.status_code == 200
+            assert mock_sleep.called
+            assert mock_get.call_count == 2
+
+    def test_non_rate_limit_403_not_retried(self) -> None:
+        """Test that non-rate-limit 403 errors are not retried."""
+        response = type(
+            "Response",
+            (),
+            {"status_code": 403, "text": "Forbidden - bad credentials", "headers": {}},
+        )()
+
+        with patch("dotbins.utils.requests.get", return_value=response):
+            result = _github_api_get("https://api.github.com/test", {})
+            assert result.status_code == 403
+
+    def test_success_response_returned_directly(self) -> None:
+        """Test that successful responses are returned without delay."""
+        response = type(
+            "Response",
+            (),
+            {"status_code": 200, "text": "OK", "headers": {}},
+        )()
+
+        with (
+            patch("dotbins.utils.requests.get", return_value=response),
+            patch("dotbins.utils.time.sleep") as mock_sleep,
+        ):
+            result = _github_api_get("https://api.github.com/test", {})
+
+            assert result.status_code == 200
+            assert not mock_sleep.called
+
+    def test_max_retries_exceeded(self) -> None:
+        """Test that retries stop after 3 attempts."""
+        import time
+
+        rate_limited_response = type(
+            "Response",
+            (),
+            {
+                "status_code": 403,
+                "text": "API rate limit exceeded",
+                "headers": {"X-RateLimit-Reset": str(int(time.time()) + 1)},
+            },
+        )()
+
+        with (
+            patch("dotbins.utils.requests.get", return_value=rate_limited_response),
+            patch("dotbins.utils.time.sleep"),
+        ):
+            result = _github_api_get("https://api.github.com/test", {})
+
+            # After 3 retries, returns the 403 response
+            assert result.status_code == 403
