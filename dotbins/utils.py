@@ -69,6 +69,10 @@ def _github_api_get(
         reset_time = int(response.headers.get("X-RateLimit-Reset", 0))
         wait_seconds = max(0, reset_time - time.time()) + 1
         log(f"Rate limited. Waiting {wait_seconds:.0f}s until reset...", "warning")
+        log(
+            "Tip: Use `GITHUB_TOKEN=$(gh auth token) dotbins sync` for higher rate limits",
+            "info",
+        )
         time.sleep(wait_seconds)
         return _github_api_get(url, headers, _retries=_retries + 1)
 
