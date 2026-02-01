@@ -14,6 +14,7 @@ import shutil
 import sys
 import tarfile
 import textwrap
+import time
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -52,6 +53,21 @@ def _maybe_github_token_header(github_token: str | None) -> dict[str, str]:  # p
     return {} if github_token is None else {"Authorization": f"token {github_token}"}
 
 
+def _github_api_get(url: str, headers: dict[str, str]) -> requests.Response:
+    """Make a GitHub API request with automatic rate limit handling."""
+    response = requests.get(url, headers=headers, timeout=30)
+
+    # Handle rate limiting
+    if response.status_code == 403 and "rate limit" in response.text.lower():
+        reset_time = int(response.headers.get("X-RateLimit-Reset", 0))
+        wait_seconds = max(0, reset_time - time.time()) + 1
+        log(f"Rate limited. Waiting {wait_seconds:.0f}s until reset...", "warning")
+        time.sleep(wait_seconds)
+        return _github_api_get(url, headers)  # Retry
+
+    return response
+
+
 @functools.cache
 def fetch_release_info(
     repo: str,
@@ -81,7 +97,7 @@ def fetch_release_info(
         url = f"https://api.github.com/repos/{repo}/releases?per_page=30"
         log(f"Fetching releases matching pattern '{tag_pattern}' from {url}", "info")
         try:
-            response = requests.get(url, headers=headers, timeout=30)
+            response = _github_api_get(url, headers)
             response.raise_for_status()
             releases = response.json()
             for release in releases:
@@ -98,7 +114,7 @@ def fetch_release_info(
         log(f"Fetching release from {url}", "info")
 
     try:
-        response = requests.get(url, headers=headers, timeout=30)
+        response = _github_api_get(url, headers)
         response.raise_for_status()
         return response.json()
     except requests.RequestException as e:
