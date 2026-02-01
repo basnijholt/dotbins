@@ -397,3 +397,26 @@ class TestGitHubApiRateLimiting:
 
             assert result.status_code == 200
             assert not mock_sleep.called
+
+    def test_max_retries_exceeded(self) -> None:
+        """Test that retries stop after 3 attempts."""
+        import time
+
+        rate_limited_response = type(
+            "Response",
+            (),
+            {
+                "status_code": 403,
+                "text": "API rate limit exceeded",
+                "headers": {"X-RateLimit-Reset": str(int(time.time()) + 1)},
+            },
+        )()
+
+        with (
+            patch("dotbins.utils.requests.get", return_value=rate_limited_response),
+            patch("dotbins.utils.time.sleep"),
+        ):
+            result = _github_api_get("https://api.github.com/test", {})
+
+            # After 3 retries, returns the 403 response
+            assert result.status_code == 403

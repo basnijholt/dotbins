@@ -53,17 +53,24 @@ def _maybe_github_token_header(github_token: str | None) -> dict[str, str]:  # p
     return {} if github_token is None else {"Authorization": f"token {github_token}"}
 
 
-def _github_api_get(url: str, headers: dict[str, str]) -> requests.Response:
+def _github_api_get(
+    url: str,
+    headers: dict[str, str],
+    *,
+    _retries: int = 0,
+) -> requests.Response:
     """Make a GitHub API request with automatic rate limit handling."""
     response = requests.get(url, headers=headers, timeout=30)
 
-    # Handle rate limiting
+    # Handle rate limiting (max 3 retries)
     if response.status_code == 403 and "rate limit" in response.text.lower():
+        if _retries >= 3:
+            return response  # Give up after 3 retries
         reset_time = int(response.headers.get("X-RateLimit-Reset", 0))
         wait_seconds = max(0, reset_time - time.time()) + 1
         log(f"Rate limited. Waiting {wait_seconds:.0f}s until reset...", "warning")
         time.sleep(wait_seconds)
-        return _github_api_get(url, headers)  # Retry
+        return _github_api_get(url, headers, _retries=_retries + 1)
 
     return response
 
