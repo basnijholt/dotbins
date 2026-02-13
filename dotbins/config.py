@@ -333,6 +333,7 @@ class ToolConfig:
     arch_map: dict[str, str] = field(default_factory=dict)
     shell_code: dict[str, str] = field(default_factory=dict)
     defaults: DefaultsDict = field(default_factory=lambda: DEFAULTS.copy())
+    api_url: str | None = None
     _release_info: dict | None = field(default=None, init=False)
 
     def bin_spec(self, arch: str, platform: str) -> BinSpec:
@@ -456,6 +457,7 @@ class RawToolConfigDict(TypedDict, total=False):
     shell_code: str | dict[str, str] | None  # Shell code to configure the tool
     tag: str | None  # Tag to use for the binary (if None, the latest release will be used)
     tag_pattern: str | None  # Regex to filter releases (e.g., "^cli-" for bitwarden/clients)
+    api_url: str | None  # Base API URL for non-GitHub forges (e.g., "https://gitea.com/api/v1")
 
 
 class _AssetDict(TypedDict):
@@ -496,6 +498,7 @@ def build_tool_config(
         tag = None
 
     tag_pattern: str | None = raw_data.get("tag_pattern")  # type: ignore[assignment]
+    api_url: str | None = raw_data.get("api_url")  # type: ignore[assignment]
 
     # Convert to lists
     binary_name: list[str] = _ensure_list(raw_binary_name)
@@ -523,6 +526,7 @@ def build_tool_config(
         arch_map=arch_map,
         shell_code=shell_code,
         defaults=defaults,
+        api_url=api_url,
     )
 
 
@@ -975,6 +979,7 @@ def _fetch_release(
             tool_config.tag,
             tool_config.tag_pattern,
             github_token,
+            api_url=tool_config.api_url,
         )
         tool_config._release_info = release_info
     except Exception as e:

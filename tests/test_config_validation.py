@@ -2,7 +2,7 @@
 
 import pytest
 
-from dotbins.config import Config, build_tool_config
+from dotbins.config import Config, _config_from_dict, build_tool_config
 
 
 def test_validate_unknown_architecture(capsys: pytest.CaptureFixture[str]) -> None:
@@ -119,3 +119,38 @@ def test_asset_patterns_uses_unknown_arch() -> None:
         },
     }
     config.validate()
+
+
+def test_api_url_from_config_dict() -> None:
+    """Test that api_url is correctly parsed from config dict."""
+    config = _config_from_dict(
+        {
+            "tools": {
+                "tea": {
+                    "repo": "gitea/tea",
+                    "api_url": "https://gitea.com/api/v1",
+                },
+                "fzf": "junegunn/fzf",
+            },
+        },
+    )
+    assert config.tools["tea"].api_url == "https://gitea.com/api/v1"
+    assert config.tools["fzf"].api_url is None
+
+
+def test_api_url_in_build_tool_config() -> None:
+    """Test that api_url is correctly set via build_tool_config."""
+    tool = build_tool_config(
+        tool_name="tea",
+        raw_data={"repo": "gitea/tea", "api_url": "https://gitea.com/api/v1"},
+    )
+    assert tool.api_url == "https://gitea.com/api/v1"
+
+
+def test_api_url_defaults_to_none() -> None:
+    """Test that api_url defaults to None when not specified."""
+    tool = build_tool_config(
+        tool_name="fzf",
+        raw_data={"repo": "junegunn/fzf"},
+    )
+    assert tool.api_url is None
