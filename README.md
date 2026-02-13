@@ -480,6 +480,7 @@ When auto-detection isn't possible or you want more control, you can provide det
 tool-name:
   repo: owner/repo                 # Required: GitHub repository
   tag: v1.2.3                      # Optional: Specific release tag to use (defaults to latest)
+  api_url: https://gitea.com/api/v1  # Optional: API base URL for non-GitHub forges (Gitea, Forgejo, Gogs)
   binary_name: executable-name     # Optional: Name of the resulting binary(ies) (defaults to tool-name)
   extract_archive: true            # Optional: Whether to extract from archive (true) or direct download (false) (auto-detected if not specified)
   path_in_archive: path/to/binary  # Optional: Path to the binary within the archive (auto-detected if not specified)
@@ -687,6 +688,18 @@ bat:
   repo: sharkdp/bat
   tag: v0.23.0  # Pin to specific version instead of latest
 ```
+
+#### Non-GitHub Forges (Gitea, Forgejo, Gogs)
+
+dotbins can download tools from any forge with a GitHub-compatible releases API. Use `api_url` to point to the forge's API:
+
+```yaml
+tea:
+  repo: gitea/tea
+  api_url: https://gitea.com/api/v1
+```
+
+This works with Gitea, Forgejo, Gogs, Codeberg, and self-hosted GitHub Enterprise instances.
 
 #### Shell-Specific Configuration
 
