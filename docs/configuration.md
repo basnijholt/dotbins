@@ -96,6 +96,7 @@ tool-name:
   repo: owner/repo                 # Required: GitHub repository
   tag: v1.2.3                      # Optional: Specific release tag to use (defaults to latest)
   tag_pattern: "^cli-"             # Optional: Regex to filter releases by tag
+  api_url: https://gitea.com/api/v1  # Optional: API base URL for non-GitHub forges
   binary_name: executable-name     # Optional: Name of the resulting binary(ies) (defaults to tool-name)
   extract_archive: true            # Optional: Whether to extract from archive (true) or direct download (false) (auto-detected if not specified)
   path_in_archive: path/to/binary  # Optional: Path to the binary within the archive (auto-detected if not specified)
@@ -296,6 +297,25 @@ The `tag_pattern` is a regex that filters which releases to consider when findin
 Common patterns:
 - `^cli-` - Releases starting with "cli-"
 - `^v\d+\.\d+\.\d+$` - Standard semver tags (excludes prereleases like `v1.0.0-beta`)
+
+### Non-GitHub Forges (Gitea, Forgejo, Gogs)
+
+dotbins can download tools from any forge with a GitHub-compatible releases API. Use the `api_url` option to point to the forge's API base URL:
+
+```yaml
+tea:
+  repo: gitea/tea
+  api_url: https://gitea.com/api/v1
+```
+
+This works with:
+
+- **Gitea** (e.g., `https://gitea.com/api/v1`)
+- **Forgejo** (e.g., `https://codeberg.org/api/v1`)
+- **Gogs**
+- **Self-hosted GitHub Enterprise** instances
+
+When `api_url` is not specified, dotbins defaults to `https://api.github.com`. All other features (auto-detection, version tracking, asset matching) work the same regardless of the forge.
 
 ### Shell-Specific Configuration
 
