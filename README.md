@@ -60,6 +60,7 @@ See this example `.dotbins` repository: [basnijholt/.dotbins](https://github.com
     - [Tool with Multiple Binaries](#tool-with-multiple-binaries)
     - [Platform-Specific Tool](#platform-specific-tool)
     - [Version-Pinned Tool](#version-pinned-tool)
+    - [Non-GitHub Forges (Gitea, Forgejo, Gogs)](#non-github-forges-gitea-forgejo-gogs)
     - [Shell-Specific Configuration](#shell-specific-configuration)
   - [Full Configuration Example](#full-configuration-example)
 - [:bulb: Examples](#bulb-examples)
