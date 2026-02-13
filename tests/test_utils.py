@@ -333,6 +333,94 @@ class TestFetchReleaseInfoTagPattern:
                 fetch_release_info("owner/repo", tag_pattern="^v")
 
 
+class TestFetchReleaseInfoApiUrl:
+    """Tests for fetch_release_info with custom api_url parameter."""
+
+    def test_custom_api_url_latest(self) -> None:
+        """Test that a custom api_url is used for latest release requests."""
+        fetch_release_info.cache_clear()
+
+        with patch("dotbins.utils._github_api_get") as mock_get:
+            mock_get.return_value.json.return_value = {"tag_name": "v1.0.0", "assets": []}
+            mock_get.return_value.raise_for_status = lambda: None
+
+            fetch_release_info(
+                "gitea/tea",
+                api_url="https://gitea.com/api/v1",
+            )
+
+            called_url = mock_get.call_args[0][0]
+            assert called_url == "https://gitea.com/api/v1/repos/gitea/tea/releases/latest"
+
+    def test_custom_api_url_with_tag(self) -> None:
+        """Test that a custom api_url is used for tagged release requests."""
+        fetch_release_info.cache_clear()
+
+        with patch("dotbins.utils._github_api_get") as mock_get:
+            mock_get.return_value.json.return_value = {"tag_name": "v0.9.0", "assets": []}
+            mock_get.return_value.raise_for_status = lambda: None
+
+            fetch_release_info(
+                "gitea/tea",
+                tag="v0.9.0",
+                api_url="https://gitea.com/api/v1",
+            )
+
+            called_url = mock_get.call_args[0][0]
+            assert called_url == "https://gitea.com/api/v1/repos/gitea/tea/releases/tags/v0.9.0"
+
+    def test_custom_api_url_with_tag_pattern(self) -> None:
+        """Test that a custom api_url is used for tag_pattern release requests."""
+        fetch_release_info.cache_clear()
+
+        mock_releases = [
+            {"tag_name": "v1.0.0", "assets": []},
+            {"tag_name": "v0.9.0", "assets": []},
+        ]
+
+        with patch("dotbins.utils._github_api_get") as mock_get:
+            mock_get.return_value.json.return_value = mock_releases
+            mock_get.return_value.raise_for_status = lambda: None
+
+            fetch_release_info(
+                "gitea/tea",
+                tag_pattern=r"^v1\.",
+                api_url="https://gitea.com/api/v1",
+            )
+
+            called_url = mock_get.call_args[0][0]
+            assert called_url == "https://gitea.com/api/v1/repos/gitea/tea/releases?per_page=30"
+
+    def test_trailing_slash_stripped(self) -> None:
+        """Test that trailing slashes in api_url are handled."""
+        fetch_release_info.cache_clear()
+
+        with patch("dotbins.utils._github_api_get") as mock_get:
+            mock_get.return_value.json.return_value = {"tag_name": "v1.0.0", "assets": []}
+            mock_get.return_value.raise_for_status = lambda: None
+
+            fetch_release_info(
+                "owner/repo",
+                api_url="https://gitea.com/api/v1/",
+            )
+
+            called_url = mock_get.call_args[0][0]
+            assert called_url == "https://gitea.com/api/v1/repos/owner/repo/releases/latest"
+
+    def test_default_api_url_is_github(self) -> None:
+        """Test that the default api_url is api.github.com."""
+        fetch_release_info.cache_clear()
+
+        with patch("dotbins.utils._github_api_get") as mock_get:
+            mock_get.return_value.json.return_value = {"tag_name": "v1.0.0", "assets": []}
+            mock_get.return_value.raise_for_status = lambda: None
+
+            fetch_release_info("owner/repo")
+
+            called_url = mock_get.call_args[0][0]
+            assert called_url == "https://api.github.com/repos/owner/repo/releases/latest"
+
+
 class TestGitHubApiRateLimiting:
     """Tests for GitHub API rate limit handling."""
 
