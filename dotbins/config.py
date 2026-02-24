@@ -708,7 +708,7 @@ def _find_config_file(config_path: str | Path | None) -> Path | None:
     home = Path.home()
     candidates = [
         Path.cwd() / "dotbins.yaml",
-        home / ".config" / "dotbins" / "config.yaml",
+        home / ".config" / "dotbins" / "dotbins.yaml",
         home / ".config" / "dotbins.yaml",
         home / ".dotbins.yaml",
         home / ".dotbins" / "dotbins.yaml",

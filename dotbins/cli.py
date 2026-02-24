@@ -65,7 +65,7 @@ def _initialize(config: Config) -> None:
     """Initialize the tools directory structure and shell integration.
 
     If no config file is provided, a simple config file will be created in the
-    default tools directory (~/.dotbins/config.yaml).
+    default tools directory (~/.dotbins/dotbins.yaml).
 
     Creates the necessary directories for all platforms and architectures,
     generates shell integration scripts, and creates a README.md file.

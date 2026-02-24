@@ -622,7 +622,7 @@ def test_find_config_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]) ->
         # Define all candidate paths to test in order
         candidates = [
             (tmp_path / "cwd" / "dotbins.yaml", "cwd config"),
-            (tmp_path / "home" / ".config" / "dotbins" / "config.yaml", "config dir config"),
+            (tmp_path / "home" / ".config" / "dotbins" / "dotbins.yaml", "config dir config"),
             (tmp_path / "home" / ".config" / "dotbins.yaml", "dot config"),
             (tmp_path / "home" / ".dotbins.yaml", "home dotbins"),
             (tmp_path / "home" / ".dotbins" / "dotbins.yaml", "dotbins dir config"),
