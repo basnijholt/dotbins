@@ -29,7 +29,8 @@ def _is_likely_exec(filename: str) -> bool:
     return bool(match) or "." not in Path(filename).name
 
 
-def _is_exec(filename: str, mode: int) -> bool:
+def is_exec(filename: str, mode: int) -> bool:
+    """Check if a file is executable."""
     if _is_definitely_not_exec(filename):
         return False
 
@@ -47,9 +48,9 @@ def _binary_chooser(name: str, mode: int, target_name: str) -> tuple[bool, bool]
 
     is_direct = (
         basename in (target_name, f"{target_name}.exe", f"{target_name}.appimage")
-    ) and _is_exec(name, mode)
+    ) and is_exec(name, mode)
 
-    is_possible = _is_exec(name, mode)
+    is_possible = is_exec(name, mode)
 
     return is_direct, is_possible
 
@@ -60,7 +61,7 @@ def _substring_chooser(
     substring: str,
 ) -> tuple[bool, bool]:
     basename = Path(name).name
-    return False, substring.lower() in basename.lower() and _is_exec(name, mode)
+    return False, substring.lower() in basename.lower() and is_exec(name, mode)
 
 
 def _find_best_binary_match(
@@ -83,7 +84,7 @@ def _find_best_binary_match(
                 exact_matches.append(rel_path)
 
             # Track bin directory matches
-            if "bin/" in str(rel_path) and _is_exec(str(rel_path), mode):
+            if "bin/" in str(rel_path) and is_exec(str(rel_path), mode):
                 bin_dir_matches.append(rel_path)
 
             # Track substring matches

@@ -7,7 +7,7 @@ import tarfile
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, NoReturn
+from typing import TYPE_CHECKING, Any, Callable, NoReturn, cast
 from unittest.mock import patch
 
 import pytest
@@ -1954,12 +1954,73 @@ def test_tool_shell_code_in_shell_scripts(
             assert "if (which bat) != null {" not in content
 
 
+def test_cleanup_unused_binaries(
+    tmp_path: Path,
+    create_dummy_archive: Callable,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Ensure cleanup removes binaries not defined in the config."""
+    raw_config = cast(
+        "RawConfigDict",
+        {
+            "tools_dir": str(tmp_path),
+            "platforms": {"linux": ["amd64"]},
+            "tools": {
+                "tool1": {
+                    "repo": "fakeuser/tool1",
+                    "extract_binary": True,
+                    "binary_name": "tool1-bin",
+                    "binary_path": "tool1-bin",
+                    "asset_patterns": "tool1-{version}-linux_{arch}.tar.gz",
+                },
+                "tool2": {
+                    "repo": "fakeuser/tool2",
+                    "extract_binary": True,
+                    "binary_name": "tool2-bin",
+                    "binary_path": "tool2-bin",
+                    "asset_patterns": "tool2-{version}-linux_{arch}.tar.gz",
+                },
+            },
+        },
+    )
+
+    config = Config.from_dict(raw_config)
+    _set_mock_release_info(config, tag="v1.0.0")
+
+    bin_dir = config.bin_dir("linux", "amd64", create=True)
+    unused_binary = bin_dir / "unused-bin"
+    unused_binary.touch()
+
+    (bin_dir / "tool1-bin").touch()
+    (bin_dir / "tool2-bin").touch()
+
+    def mock_download_file(
+        url: str,
+        destination: str,
+        github_token: str | None,  # noqa: ARG001
+        verbose: bool,  # noqa: ARG001
+    ) -> str:
+        tool_name = url.split("/")[-1].split("-")[0]
+        create_dummy_archive(Path(destination), binary_names=f"{tool_name}-bin")
+        return destination
+
+    with patch("dotbins.download.download_file", side_effect=mock_download_file):
+        config.sync_tools(cleanup=True, force=True)
+
+    assert not unused_binary.exists()
+    assert (bin_dir / "tool1-bin").exists()
+    assert (bin_dir / "tool2-bin").exists()
+
+    out = capsys.readouterr().out
+    assert "Removed unused binary" in out
+    assert "unused-bin" in out
+
+
 def test_eza_arch_detection(
     tmp_path: Path,
     create_dummy_archive: Callable,
 ) -> None:
     """Test that eza is detected correctly for different architectures."""
-    # Covers the "If p_val is a single string, apply to all arch" case
     config = Config.from_dict(
         {
             "tools_dir": str(tmp_path),
@@ -2166,7 +2227,6 @@ def test_e2e_pin_to_manifest(
 
     config = Config.from_dict(raw_config)
 
-    # 1. Pre-populate manifest with the older pinned tag
     config.manifest.update_tool_info(
         tool=tool_name,
         platform=platform,
@@ -2176,7 +2236,6 @@ def test_e2e_pin_to_manifest(
         url=f"https://example.com/{tool_name}-{pinned_tag}-{platform}_{arch}.tar.gz",
     )
 
-    # 2. Set the "latest" release info to a newer tag
     requests_mock.get(
         f"https://api.github.com/repos/fakeuser/{tool_name}/releases/tags/{pinned_tag}",
         json={
@@ -2190,7 +2249,6 @@ def test_e2e_pin_to_manifest(
         },
     )
 
-    # 3. Mock download to capture the URL
     downloaded_urls = []
 
     def mock_download_file(
@@ -2203,23 +2261,18 @@ def test_e2e_pin_to_manifest(
         create_dummy_archive(Path(destination), binary_names=tool_name)
         return destination
 
-    # 4. Run sync_tools with pin_to_manifest=True
     with patch("dotbins.download.download_file", side_effect=mock_download_file):
         config.sync_tools(pin_to_manifest=True, verbose=True)
 
-    # 5. Assertions
     out = capsys.readouterr().out
     assert f"Using tag {pinned_tag} for tool {tool_name}" in out
 
-    # Check download URL corresponds to the pinned tag
     assert len(downloaded_urls) == 1, "Download should have happened"
     assert pinned_tag in downloaded_urls[0], f"URL should contain pinned tag {pinned_tag}"
     assert latest_tag not in downloaded_urls[0], f"URL should NOT contain latest tag {latest_tag}"
 
-    # Verify binary exists
     verify_binaries_installed(config, expected_tools=[tool_name], platform=platform, arch=arch)
 
-    # Verify manifest still shows the pinned tag
     manifest_info = config.manifest.get_tool_info(tool_name, platform, arch)
     assert manifest_info is not None
     assert manifest_info["tag"] == pinned_tag, "Manifest tag should remain pinned"
