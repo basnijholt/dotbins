@@ -776,7 +776,7 @@ tools:
   bat:
     repo: sharkdp/bat
     shell_code:
-      bash,zsh: |
+      bash,zsh,fish: |
         alias bat="bat --paging=never"
         alias cat="bat --plain --paging=never"
   bun:
@@ -795,10 +795,12 @@ tools:
     shell_code:
       bash,zsh: |
         eval "$(direnv hook __DOTBINS_SHELL__)"
+      fish: |
+        direnv hook fish | source
   eza:
     repo: eza-community/eza
     shell_code:
-      bash,zsh: |
+      bash,zsh,fish: |
         alias l="eza --long --all --git --icons=auto"
   fzf:
     repo: junegunn/fzf
@@ -807,31 +809,39 @@ tools:
         source <(fzf --zsh)
       bash: |
         eval "$(fzf --bash)"
+      fish: |
+        fzf --fish | source
   lazygit:
     repo: jesseduffield/lazygit
     shell_code:
-      bash,zsh: |
+      bash,zsh,fish: |
         alias lg="lazygit"
   micromamba:
     repo: mamba-org/micromamba-releases
     shell_code:
-      bash,zsh: |
+      bash,zsh,fish: |
         alias mm="micromamba"
   starship:
     repo: starship/starship
     shell_code:
       bash,zsh: |
         eval "$(starship init __DOTBINS_SHELL__)"
+      fish: |
+        starship init fish | source
   zoxide:
     repo: ajeetdsouza/zoxide
     shell_code:
       bash,zsh: |
         eval "$(zoxide init __DOTBINS_SHELL__)"
+      fish: |
+        zoxide init fish | source
   atuin:
     repo: atuinsh/atuin
     shell_code:
       bash,zsh: |
         eval "$(atuin init __DOTBINS_SHELL__ --disable-up-arrow)"
+      fish: |
+        atuin init fish --disable-up-arrow | source
 
   keychain:
     repo: danielrobbins/keychain
