@@ -31,7 +31,7 @@ def _extract_binary_from_archive(
     destination_dir: Path,
     bin_spec: BinSpec,
     verbose: bool,
-) -> None:
+) -> list[Path]:
     """Extract binaries from an archive."""
     log(f"Extracting from {archive_path} for {bin_spec.platform}", "info", "📦")
     temp_dir = Path(tempfile.mkdtemp())
@@ -42,7 +42,7 @@ def _extract_binary_from_archive(
         _log_extracted_files(temp_dir)
         paths_in_archive = _detect_paths_in_archive(temp_dir, bin_spec.tool_config)
         _process_binaries(temp_dir, destination_dir, paths_in_archive, bin_spec)
-
+        return paths_in_archive
     except Exception as e:
         log(f"Error extracting archive: {e}", "error", print_exception=verbose)
         raise
@@ -363,9 +363,9 @@ def _process_downloaded_task(
                 "info",
                 "🔍",
             )
-
+        paths_in_archive: list[Path] | None = None
         if extract_archive:
-            _extract_binary_from_archive(
+            paths_in_archive = _extract_binary_from_archive(
                 task.temp_path,
                 task.destination_dir,
                 task.bin_spec,
@@ -419,6 +419,9 @@ def _process_downloaded_task(
             tag=task.tag,
             sha256=sha256_hash,
             url=task.asset_url,
+            binary_name=task.tool_config.binary_name,
+            extract_archive=extract_archive,
+            paths_in_archive=paths_in_archive,
         )
 
         log(
