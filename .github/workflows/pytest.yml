@@ -12,12 +12,12 @@ jobs:
   setup-cache:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@v6.0.2
+      - uses: actions/setup-python@v6.2.0
+      - uses: astral-sh/setup-uv@v7.6.0
       - name: Cache release downloads
         id: cache-release-downloads
-        uses: actions/cache@v5
+        uses: actions/cache@v5.0.5
         with:
           path: tests/release_jsons
           key: release-downloads-v3-${{ hashFiles('examples/examples.yaml', 'tests/download_release_jsons.py') }}
@@ -39,18 +39,18 @@ jobs:
         python-version: ["3.9", "3.13"]
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.2
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v6.2.0
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v7.6.0
       - name: Install dependencies
         run: |
           uv sync --all-extras
       - name: Restore release downloads cache
-        uses: actions/cache@v5
+        uses: actions/cache@v5.0.5
         with:
           path: tests/release_jsons
           key: release-downloads-v3-${{ hashFiles('examples/examples.yaml', 'tests/download_release_jsons.py') }}
@@ -60,6 +60,6 @@ jobs:
         run: uv run pytest -vvv
       - name: Upload coverage reports to Codecov
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v5.5.4
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
