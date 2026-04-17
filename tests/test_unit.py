@@ -548,6 +548,25 @@ def test_build_tool_config_skips_unknown_platforms() -> None:
     }
 
 
+def test_build_tool_config_replaces_placeholder_in_generic_shell_code() -> None:
+    """Test that generic shell_code strings replace __DOTBINS_SHELL__ for each shell."""
+    tool_config = build_tool_config(
+        tool_name="tool",
+        raw_data={
+            "repo": "test/repo",
+            "shell_code": 'echo "__DOTBINS_SHELL__"',
+        },
+    )
+
+    assert tool_config.shell_code == {
+        "bash": 'echo "bash"',
+        "zsh": 'echo "zsh"',
+        "fish": 'echo "fish"',
+        "nushell": 'echo "nushell"',
+        "powershell": 'echo "powershell"',
+    }
+
+
 def test_extract_from_archive_with_arch_platform_version_in_path(
     tmp_path: Path,
     create_dummy_archive: Callable,
