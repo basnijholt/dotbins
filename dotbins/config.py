@@ -675,7 +675,7 @@ def _normalize_shell_code(
 
     if isinstance(raw_shell_code, str):
         for shell in SUPPORTED_SHELLS:
-            normalized[shell] = raw_shell_code
+            normalized[shell] = raw_shell_code.replace("__DOTBINS_SHELL__", shell)
     elif isinstance(raw_shell_code, dict):
         for shell_key, code in raw_shell_code.items():
             shells = [s.strip() for s in shell_key.split(",") if s.strip()]
