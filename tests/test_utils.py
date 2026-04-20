@@ -320,6 +320,7 @@ class TestFetchReleaseInfoTagPattern:
 
             # Pattern to exclude prereleases
             result = fetch_release_info("owner/repo", tag_pattern=r"^v\d+\.\d+\.\d+$")
+            assert result is not None
             assert result["tag_name"] == "v1.0.0"
 
     def test_tag_pattern_network_error(self) -> None:
