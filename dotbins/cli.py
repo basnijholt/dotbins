@@ -250,6 +250,11 @@ def create_parser() -> argparse.ArgumentParser:
         help="Skip copying the config file to the tools directory",
     )
     sync_parser.add_argument(
+        "--cleanup",
+        action="store_true",
+        help="Remove binaries that are not in the configuration",
+    )
+    sync_parser.add_argument(
         "--github-token",
         type=str,
         help="GitHub token to use for API requests (helps with rate limits and private repos)",
@@ -372,6 +377,7 @@ def main() -> None:  # pragma: no cover
                 verbose=args.verbose,
                 generate_shell_scripts=not args.no_shell_scripts,
                 pin_to_manifest=args.pin_to_manifest,
+                cleanup=args.cleanup,
             )
             if config._update_summary.failed:
                 sys.exit(1)
