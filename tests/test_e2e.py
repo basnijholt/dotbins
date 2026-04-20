@@ -97,6 +97,7 @@ def run_e2e_test(
         destination: str,
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
+        **_: Any,
     ) -> str:
         # Extract tool name from URL
         parts = url.split("/")[-1].split("-")
@@ -305,6 +306,7 @@ def test_e2e_sync_tools(
         destination: str,
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
+        **_: Any,
     ) -> str:
         log(f"MOCKED download_file from {url} -> {destination}", "info")
         if "mytool" in url:
@@ -427,6 +429,7 @@ def test_e2e_sync_tools_partial_skip_and_update(
         destination: str,
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
+        **_: Any,
     ) -> str:
         # Only called for 'othertool' if skip for 'mytool' works
         if "mytool" in url:
@@ -489,6 +492,7 @@ def test_e2e_sync_tools_force_re_download(tmp_path: Path, create_dummy_archive: 
         destination: str,
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
+        **_: Any,
     ) -> str:
         downloaded_urls.append(url)
         create_dummy_archive(Path(destination), binary_names="mybinary")
@@ -551,6 +555,7 @@ def test_e2e_sync_tools_specific_platform(tmp_path: Path, create_dummy_archive: 
         destination: str,
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
+        **_: Any,
     ) -> str:
         downloaded_files.append(url)
         # Each call uses the same tar generation but with different binary content
@@ -604,6 +609,7 @@ def test_get_tool_command(tmp_path: Path, create_dummy_archive: Callable) -> Non
         destination: str,
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
+        **_: Any,
     ) -> str:
         create_dummy_archive(Path(destination), binary_names="mytool")
         return destination
@@ -646,6 +652,7 @@ def test_get_tool_command_with_tag(
         destination: str,
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
+        **_: Any,
     ) -> str:
         create_dummy_archive(Path(destination), binary_names="mytool")
         return destination
@@ -724,6 +731,7 @@ def test_get_tool_command_with_remote_config(
         destination: str,
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
+        **_: Any,
     ) -> str:
         log(f"Downloading from {url} to {destination}", "info")
         tool_name = url.split("/")[-1].split("-")[0]
@@ -795,6 +803,7 @@ def test_get_tool_command_with_local_config(
         destination: str,
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
+        **_: Any,
     ) -> str:
         log(f"Downloading from {url} to {destination}", "info")
         tool_name = url.split("/")[-1].split("-")[0]
@@ -858,6 +867,7 @@ def test_copy_config_file(
         destination: str,
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
+        **_: Any,
     ) -> str:
         log(f"Downloading from {url} to {destination}", "info")
         tool_name = url.split("/")[-1].split("-")[0]
@@ -941,6 +951,7 @@ def test_non_extract_with_multiple_binary_names(
         destination: str,
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
+        **_: Any,
     ) -> str:
         # Create a dummy file - this would normally be a binary file
         Path(destination).write_text("dummy binary content")
@@ -1005,6 +1016,7 @@ def test_non_extract_single_binary_copy(
         destination: str,
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
+        **_: Any,
     ) -> str:
         # Create a dummy binary file with executable content
         Path(destination).write_text("#!/bin/sh\necho 'Hello from tool-binary'")
@@ -1135,6 +1147,7 @@ def test_binary_not_found_error_handling(
         destination: str,
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
+        **_: Any,
     ) -> str:
         # Create a dummy archive but WITHOUT the expected binary path
         create_dummy_archive(Path(destination), binary_names="different-binary-name")
@@ -1207,6 +1220,7 @@ def test_auto_detect_paths_in_archive_error(
         destination: str,
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
+        **_: Any,
     ) -> str:
         # Create a dummy archive with a binary that won't match the expected name
         create_dummy_archive(Path(destination), binary_names="different-binary-name")
@@ -1378,6 +1392,7 @@ def test_auto_detect_asset_multiple_perfect_matches(
         destination: str,
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
+        **_: Any,
     ) -> str:
         # Create a dummy archive with a binary that won't match the expected name
         create_dummy_archive(Path(destination), binary_names="mytool")
@@ -1645,6 +1660,7 @@ def test_sync_tools_with_empty_archive(
         destination: str,
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
+        **_: Any,
     ) -> str:
         # Create an empty archive
         Path(destination).touch()
@@ -1791,6 +1807,7 @@ def test_sync_tool_match_path_in_archive_with_glob(
         destination: str,
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
+        **_: Any,
     ) -> str:
         create_dummy_archive(dest_path=Path(destination), binary_names="test-tool")
         return destination
@@ -1874,6 +1891,7 @@ def test_tool_shell_code_in_shell_scripts(
         destination: str,
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
+        **_: Any,
     ) -> str:
         binary_name = url.split("/")[-1].split("-")[0]
         create_dummy_archive(Path(destination), binary_name)
@@ -1996,6 +2014,7 @@ def test_eza_arch_detection(
         destination: str,
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
+        **_: Any,
     ) -> str:
         create_dummy_archive(Path(destination), "eza")
         return destination
@@ -2045,6 +2064,7 @@ def test_tool_with_custom_tag(
         destination: str,
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
+        **_: Any,
     ) -> str:
         # Create a dummy binary file with executable content
         create_dummy_archive(Path(destination), binary_names="tool")
@@ -2113,6 +2133,7 @@ def test_tool_with_custom_shell_code(
         destination: str,
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
+        **_: Any,
     ) -> str:
         # Create a dummy binary file with executable content
         create_dummy_archive(Path(destination), binary_names="tool")
@@ -2198,6 +2219,7 @@ def test_e2e_pin_to_manifest(
         destination: str,
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
+        **_: Any,
     ) -> str:
         downloaded_urls.append(url)
         create_dummy_archive(Path(destination), binary_names=tool_name)
@@ -2268,6 +2290,7 @@ def test_current_but_platform_not_configured(
         destination: str,
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
+        **_: Any,
     ) -> str:
         downloaded_urls.append(url)
         create_dummy_archive(Path(destination), binary_names=tool_name)
@@ -2323,6 +2346,7 @@ def test_i686(
         destination: str,
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
+        **_: Any,
     ) -> str:
         downloaded_urls.append(url)
         create_dummy_archive(Path(destination), binary_names=tool_name)

@@ -9,9 +9,21 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
+from rich.progress import (
+    BarColumn,
+    DownloadColumn,
+    Progress,
+    SpinnerColumn,
+    TaskProgressColumn,
+    TextColumn,
+    TimeRemainingColumn,
+    TransferSpeedColumn,
+)
+
 from .detect_binary import auto_detect_extract_archive, auto_detect_paths_in_archive
 from .utils import (
     calculate_sha256,
+    console,
     download_file,
     execute_in_parallel,
     extract_archive,
@@ -166,6 +178,7 @@ class _DownloadTask(NamedTuple):
     asset_name: str
     destination_dir: Path
     temp_path: Path
+    asset_size: int | None
 
     @property
     def tool_name(self) -> str:
@@ -231,6 +244,7 @@ def _prepare_download_task(
             asset_name=asset["name"],
             destination_dir=config.bin_dir(platform, arch),
             temp_path=temp_path,
+            asset_size=asset.get("size"),
         )
     except Exception as e:
         log(
@@ -303,18 +317,38 @@ def _download_task(
     task: _DownloadTask,
     github_token: str | None,
     verbose: bool,
+    progress: Progress | None = None,
+    progress_map: dict[int, int] | None = None,
 ) -> bool:
     """Download a file for a DownloadTask."""
+    progress_task_id = None
+    if progress is not None and progress_map is not None:
+        progress_task_id = progress_map.get(id(task))
+        if progress_task_id is not None:
+            progress.start_task(progress_task_id)
+
     try:
         log(
             f"Downloading [b]{task.asset_name}[/] for [b]{task.tool_name}[/] ([b]{task.platform}/{task.arch}[/])...",
             "info",
             "📥",
         )
-        download_file(task.asset_url, str(task.temp_path), github_token, verbose)
+        download_file(
+            task.asset_url,
+            str(task.temp_path),
+            github_token,
+            verbose,
+            progress=progress,
+            progress_task_id=progress_task_id,
+        )
+        if progress is not None and progress_task_id is not None:
+            progress.stop_task(progress_task_id)
+            progress.refresh()
         return True
     except Exception as e:
         log(f"Error downloading {task.asset_name}: {e!s}", "error", print_exception=verbose)
+        if progress is not None and progress_task_id is not None:
+            progress.stop_task(progress_task_id)
         return False
 
 
@@ -327,8 +361,35 @@ def download_files_in_parallel(
     if not download_tasks:
         return []
     log(f"Downloading {len(download_tasks)} tools in parallel...", "info", "🔄")
-    func = partial(_download_task, github_token=github_token, verbose=verbose)
-    return execute_in_parallel(download_tasks, func, 16)
+    columns = [
+        SpinnerColumn(),
+        TextColumn("{task.description}"),
+        BarColumn(bar_width=None),
+        TaskProgressColumn(),
+        DownloadColumn(binary_units=True),
+        TransferSpeedColumn(),
+        TimeRemainingColumn(),
+    ]
+    progress = Progress(*columns, console=console, transient=False, refresh_per_second=8)
+    task_progress_map: dict[int, int] = {}
+    with progress:
+        for task in download_tasks:
+            description = f"{task.tool_name} ({task.platform}/{task.arch})"
+            total = task.asset_size if task.asset_size not in (None, 0) else None
+            task_progress_map[id(task)] = progress.add_task(
+                description,
+                total=total,
+                start=False,
+            )
+        func = partial(
+            _download_task,
+            github_token=github_token,
+            verbose=verbose,
+            progress=progress,
+            progress_map=task_progress_map,
+        )
+        results = execute_in_parallel(download_tasks, func, 16)
+    return results
 
 
 def _process_downloaded_task(
