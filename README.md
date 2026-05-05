@@ -54,6 +54,7 @@ See this example `.dotbins` repository: [basnijholt/.dotbins](https://github.com
     - [Example: AppImage preference](#example-appimage-preference)
     - [Example: Windows ABI](#example-windows-abi)
   - [Multiple Binaries](#multiple-binaries)
+  - [Git LFS Integration](#git-lfs-integration)
   - [Configuration Examples](#configuration-examples)
     - [Minimal Tool Configuration](#minimal-tool-configuration)
     - [Standard Tool](#standard-tool)
@@ -630,6 +631,21 @@ tool-name:
   path_in_archive: [path/to/main, path/to/additional]
 ```
 
+### Git LFS Integration
+
+For repositories with binaries for multiple platforms, enable Git LFS helpers to skip downloading non-current platforms:
+
+```yaml
+# Enable LFS helper scripts generation
+generate_lfs_scripts: true
+```
+
+This generates:
+- `.gitattributes` - Configures LFS tracking for binaries
+- `configure-lfs-skip-smudge.sh` - Script to skip other platforms
+
+After cloning, users run `./configure-lfs-skip-smudge.sh` once, then `git lfs pull` only downloads their platform.
+
 ### Configuration Examples
 
 #### Minimal Tool Configuration
@@ -841,6 +857,8 @@ tools:
     repo: astral-sh/uv
     binary_name: [uv, uvx]
     path_in_archive: [uv-*/uv, uv-*/uvx]
+
+generate_lfs_scripts: true
 ```
 
 <!-- OUTPUT:END -->
