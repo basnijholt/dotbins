@@ -314,7 +314,7 @@ def test_e2e_sync_tools(
         return destination
 
     with patch("dotbins.download.download_file", side_effect=mock_download_file):
-        config.sync_tools()
+        config.sync_tools(verbose=True)
 
     verify_binaries_installed(config)
 
@@ -370,7 +370,9 @@ def test_e2e_sync_tools_skip_up_to_date(
 
     # Check that no download was attempted
     out = capsys.readouterr().out
-    assert "--force to re-download" in out
+    assert "--force to re-download" not in out
+    assert "Skipped Tools" in out
+    assert "Already up-to-date" in out
 
 
 def test_e2e_sync_tools_partial_skip_and_update(
@@ -588,6 +590,7 @@ def test_get_tool_command(tmp_path: Path, create_dummy_archive: Callable) -> Non
         tag_pattern: str | None = None,  # noqa: ARG001
         github_token: str | None = None,  # noqa: ARG001
         api_url: str | None = None,  # noqa: ARG001
+        verbose: bool = False,  # noqa: ARG001
     ) -> dict:
         return {
             "tag_name": "v1.0.0",
@@ -706,6 +709,7 @@ def test_get_tool_command_with_remote_config(
         tag_pattern: str | None = None,  # noqa: ARG001
         github_token: str | None = None,  # noqa: ARG001
         api_url: str | None = None,  # noqa: ARG001
+        verbose: bool = False,  # noqa: ARG001
     ) -> dict:
         log(f"Getting release info for repo: {repo}", "info")
         tool_name = repo.split("/")[-1]
@@ -777,6 +781,7 @@ def test_get_tool_command_with_local_config(
         tag_pattern: str | None = None,  # noqa: ARG001
         github_token: str | None = None,  # noqa: ARG001
         api_url: str | None = None,  # noqa: ARG001
+        verbose: bool = False,  # noqa: ARG001
     ) -> dict:
         log(f"Getting release info for repo: {repo}", "info")
         tool_name = repo.split("/")[-1]
@@ -961,7 +966,8 @@ def test_non_extract_with_multiple_binary_names(
     # The summary will be displayed at the end of the update process
     assert "Expected exactly one binary name" in captured.out
     assert "multi-bin-tool" in captured.out
-    assert "linux/amd64" in captured.out
+    assert "linux" in captured.out
+    assert "amd64" in captured.out
 
     # Verify that no binary files were created
     bin_dir = config.bin_dir("linux", "amd64")
@@ -1017,8 +1023,9 @@ def test_non_extract_single_binary_copy(
     # Capture the output
     captured = capsys.readouterr()
 
-    # Verify successful messages in the output
-    assert "Successfully installed single-bin-tool" in captured.out
+    # Default sync output should stay summary-focused.
+    assert "Successfully installed single-bin-tool" not in captured.out
+    assert "Updated Tools" in captured.out
 
     # Verify that the binary file was created with the correct name
     bin_dir = config.bin_dir("linux", "amd64")
@@ -1062,7 +1069,7 @@ def test_error_preparing_download(
     config.tools["error-tool"]._release_info = {"tag_name": "v1.0.0", "assets": []}
 
     # Create a BinSpec.matching_asset method that raises an exception
-    def mock_matching_asset(self) -> NoReturn:  # noqa: ANN001, ARG001
+    def mock_matching_asset(self, verbose: bool = False) -> NoReturn:  # noqa: ANN001, ARG001
         msg = "Simulated error in matching asset"
         raise RuntimeError(msg)
 
@@ -1141,7 +1148,7 @@ def test_binary_not_found_error_handling(
         return destination
 
     with patch("dotbins.download.download_file", side_effect=mock_download_file):
-        config.sync_tools()
+        config.sync_tools(verbose=True)
 
     # Capture the output
     captured = capsys.readouterr()
@@ -1328,7 +1335,7 @@ def test_no_matching_asset(
     )
     config.tools["mytool"]._release_info = {"tag_name": "v1.0.0", "assets": []}
 
-    config.sync_tools()
+    config.sync_tools(verbose=True)
 
     # Capture the output
     captured = capsys.readouterr()
@@ -1340,7 +1347,7 @@ def test_no_matching_asset(
 def test_no_tools(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """Test syncing with no tools."""
     config = Config(tools_dir=tmp_path)
-    config.sync_tools()
+    config.sync_tools(verbose=True)
 
     captured = capsys.readouterr()
     assert "No tools configured" in captured.out
@@ -1384,7 +1391,7 @@ def test_auto_detect_asset_multiple_perfect_matches(
         return destination
 
     with patch("dotbins.download.download_file", side_effect=mock_download_file):
-        config.sync_tools()
+        config.sync_tools(verbose=True)
 
     out = capsys.readouterr().out
     assert "Found multiple candidates" in out
@@ -1433,7 +1440,7 @@ def test_auto_detect_asset_prefers_primary_tool_binary(
         return destination
 
     with patch("dotbins.download.download_file", side_effect=mock_download_file):
-        config.sync_tools()
+        config.sync_tools(verbose=True)
 
     out = capsys.readouterr().out
     assert "Found multiple candidates" in out
@@ -1478,7 +1485,7 @@ def test_auto_detect_asset_deprioritizes_unknown_variant_tokens(
         return destination
 
     with patch("dotbins.download.download_file", side_effect=mock_download_file):
-        config.sync_tools()
+        config.sync_tools(verbose=True)
 
     out = capsys.readouterr().out
     assert "Found multiple candidates" in out
@@ -1566,7 +1573,7 @@ def test_auto_detect_asset_no_matches(
         {"linux": ["amd64", "i386"]},  # Different arch
     )
 
-    config.sync_tools()
+    config.sync_tools(verbose=True)
 
     out = capsys.readouterr().out
     assert "Found multiple candidates" in out, out
@@ -1609,7 +1616,7 @@ def test_e2e_auto_detect_no_candidates(
 
     # Check log output for the specific error
     out = capsys.readouterr().out
-    assert "Auto-detecting asset for linux/amd64" in out, out
+    assert "Auto-detecting asset for linux/amd64" not in out, out
     assert "Error detecting asset: no candidates found" in out
 
     # Check failure summary
@@ -2057,8 +2064,8 @@ def test_tool_with_custom_tag(
     # Capture the output
     out = capsys.readouterr().out
 
-    # Verify successful messages in the output
-    assert "Successfully installed tool" in out
+    assert "Successfully installed tool" not in out
+    assert "Updated Tools" in out
 
     # Verify that the binary file was created with the correct name
     bin_dir = config.bin_dir("linux", "amd64")
@@ -2125,8 +2132,8 @@ def test_tool_with_custom_shell_code(
     # Capture the output
     out = capsys.readouterr().out
 
-    # Verify successful messages in the output
-    assert "Successfully installed tool" in out
+    assert "Successfully installed tool" not in out
+    assert "Updated Tools" in out
     assert "unknown shell" in out
 
     # Verify that the shell scripts were generated correctly
