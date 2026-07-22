@@ -29,6 +29,7 @@ EXTRA_TOOLS = {
     "bun": {"repo": "oven-sh/bun"},
     "codex": {"repo": "openai/codex"},
     "bw": {"repo": "bitwarden/clients"},
+    "keychain": {"repo": "funtoo/keychain", "tag": "2.9.2"},
 }
 
 # Tools that need the full releases list (for testing tag_pattern filtering).
