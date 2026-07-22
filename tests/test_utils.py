@@ -10,6 +10,7 @@ import tarfile
 import zipfile
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 from unittest.mock import patch
 
 import pytest
@@ -27,6 +28,12 @@ from dotbins.utils import (
     write_shell_scripts,
 )
 
+BASH_EXECUTABLE = shutil.which("bash")
+requires_bash_runtime = pytest.mark.skipif(
+    os.name == "nt" or BASH_EXECUTABLE is None,
+    reason="requires a POSIX Bash runtime",
+)
+
 
 def test_github_url_to_raw_url() -> None:
     """Test that github_url_to_raw_url converts a GitHub repository URL to a raw URL."""
@@ -38,24 +45,25 @@ def test_github_url_to_raw_url() -> None:
     assert github_url_to_raw_url(untouched_url) == untouched_url
 
 
-def _shell_code_tool(shell_code: dict[str, str]) -> dict[str, ToolConfig]:
-    """Create a tool whose shell configuration is guarded by `command -v sh`."""
-    return {
-        "sh": ToolConfig(
-            tool_name="sh",
-            repo="example/sh",
-            shell_code=shell_code,
-        ),
-    }
+def _shell_code_tool(tool_name: str, shell_code: dict[str, str]) -> ToolConfig:
+    """Create a tool whose shell configuration is guarded by `command -v`."""
+    return ToolConfig(
+        tool_name=tool_name,
+        repo=f"example/{tool_name}",
+        shell_code=shell_code,
+    )
 
 
+@requires_bash_runtime
 def test_noninteractive_bash_keeps_path_but_skips_tool_configuration(tmp_path: Path) -> None:
     """Generated Bash setup keeps PATH setup but skips tool code in non-interactive shells."""
     tools_dir = tmp_path / "tools"
     marker = tmp_path / "noninteractive-marker"
-    write_shell_scripts(tools_dir, _shell_code_tool({"bash": f'touch "{marker}"'}))
-    bash = shutil.which("bash")
-    assert bash is not None
+    write_shell_scripts(
+        tools_dir,
+        {"sh": _shell_code_tool("sh", {"bash": f'touch "{marker}"'})},
+    )
+    assert BASH_EXECUTABLE is not None
 
     from dotbins.utils import current_platform
 
@@ -63,7 +71,7 @@ def test_noninteractive_bash_keeps_path_but_skips_tool_configuration(tmp_path: P
     expected_bin_dir = tools_dir / operating_system / architecture / "bin"
     result = subprocess.run(
         [
-            bash,
+            BASH_EXECUTABLE,
             "-c",
             'source "$1"; [[ ":$PATH:" == *":$2:"* ]]',
             "bash",
@@ -80,12 +88,17 @@ def test_noninteractive_bash_keeps_path_but_skips_tool_configuration(tmp_path: P
 
 
 @pytest.mark.parametrize("shell", ["bash", "zsh"])
-def test_bash_and_zsh_tool_configuration_is_indented_in_interactive_guard(shell: str) -> None:
+def test_bash_and_zsh_tool_configuration_is_indented_in_interactive_guard(
+    shell: Literal["bash", "zsh"],
+) -> None:
     """Bash and Zsh place all tool configuration below one interactive-shell guard."""
     script = _format_shell_instructions(
         Path.cwd() / "tools",
-        shell,  # type: ignore[arg-type]
-        _shell_code_tool({shell: "export DOTBINS_TEST=1"}),
+        shell,
+        {
+            "sh": _shell_code_tool("sh", {shell: "export DOTBINS_TEST_SH=1"}),
+            "echo": _shell_code_tool("echo", {shell: "export DOTBINS_TEST_ECHO=1"}),
+        },
     )
 
     guard = "if [[ $- == *i* ]]; then"
@@ -97,22 +110,26 @@ def test_bash_and_zsh_tool_configuration_is_indented_in_interactive_guard(shell:
 
     assert script.count(guard) == 1
     assert guard_start < section_start < guard_end
-    assert all(line.startswith("    ") for line in guarded_lines)
+    assert all(not line or line.startswith("    ") for line in guarded_lines)
     assert script[section_start - 4 : section_start] == "    "
     assert "    if command -v sh >/dev/null 2>&1; then" in script
+    assert "    if command -v echo >/dev/null 2>&1; then" in script
 
 
+@requires_bash_runtime
 def test_interactive_bash_runs_tool_configuration(tmp_path: Path) -> None:
     """Generated Bash setup runs tool configuration in an interactive shell."""
     tools_dir = tmp_path / "tools"
     marker = tmp_path / "interactive-marker"
-    write_shell_scripts(tools_dir, _shell_code_tool({"bash": f'touch "{marker}"'}))
-    bash = shutil.which("bash")
-    assert bash is not None
+    write_shell_scripts(
+        tools_dir,
+        {"sh": _shell_code_tool("sh", {"bash": f'touch "{marker}"'})},
+    )
+    assert BASH_EXECUTABLE is not None
 
     result = subprocess.run(
         [
-            bash,
+            BASH_EXECUTABLE,
             "--noprofile",
             "--norc",
             "-i",
