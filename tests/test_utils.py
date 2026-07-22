@@ -4,6 +4,8 @@ import bz2
 import gzip
 import lzma
 import os
+import shutil
+import subprocess
 import tarfile
 import zipfile
 from datetime import datetime
@@ -13,13 +15,16 @@ from unittest.mock import patch
 import pytest
 import requests
 
+from dotbins.config import ToolConfig
 from dotbins.utils import (
+    _format_shell_instructions,
     _github_api_get,
     extract_archive,
     fetch_release_info,
     github_url_to_raw_url,
     humanize_time_ago,
     tag_to_version,
+    write_shell_scripts,
 )
 
 
@@ -31,6 +36,98 @@ def test_github_url_to_raw_url() -> None:
     assert github_url_to_raw_url(raw_url) == raw_url
     untouched_url = "https://github.com/basnijholt/dotbins"
     assert github_url_to_raw_url(untouched_url) == untouched_url
+
+
+def _shell_code_tool(shell_code: dict[str, str]) -> dict[str, ToolConfig]:
+    """Create a tool whose shell configuration is guarded by `command -v sh`."""
+    return {
+        "sh": ToolConfig(
+            tool_name="sh",
+            repo="example/sh",
+            shell_code=shell_code,
+        ),
+    }
+
+
+def test_noninteractive_bash_keeps_path_but_skips_tool_configuration(tmp_path: Path) -> None:
+    """Generated Bash setup keeps PATH setup but skips tool code in non-interactive shells."""
+    tools_dir = tmp_path / "tools"
+    marker = tmp_path / "noninteractive-marker"
+    write_shell_scripts(tools_dir, _shell_code_tool({"bash": f'touch "{marker}"'}))
+    bash = shutil.which("bash")
+    assert bash is not None
+
+    from dotbins.utils import current_platform
+
+    operating_system, architecture = current_platform()
+    expected_bin_dir = tools_dir / operating_system / architecture / "bin"
+    result = subprocess.run(
+        [
+            bash,
+            "-c",
+            'source "$1"; [[ ":$PATH:" == *":$2:"* ]]',
+            "bash",
+            str(tools_dir / "shell" / "bash.sh"),
+            str(expected_bin_dir),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert not marker.exists()
+
+
+@pytest.mark.parametrize("shell", ["bash", "zsh"])
+def test_bash_and_zsh_tool_configuration_is_indented_in_interactive_guard(shell: str) -> None:
+    """Bash and Zsh place all tool configuration below one interactive-shell guard."""
+    script = _format_shell_instructions(
+        Path.cwd() / "tools",
+        shell,  # type: ignore[arg-type]
+        _shell_code_tool({shell: "export DOTBINS_TEST=1"}),
+    )
+
+    guard = "if [[ $- == *i* ]]; then"
+    tool_section = "# Tool-specific configurations"
+    guard_start = script.index(guard)
+    section_start = script.index(tool_section)
+    guard_end = script.rindex("\nfi")
+    guarded_lines = script[guard_start:guard_end].splitlines()[1:]
+
+    assert script.count(guard) == 1
+    assert guard_start < section_start < guard_end
+    assert all(line.startswith("    ") for line in guarded_lines)
+    assert script[section_start - 4 : section_start] == "    "
+    assert "    if command -v sh >/dev/null 2>&1; then" in script
+
+
+def test_interactive_bash_runs_tool_configuration(tmp_path: Path) -> None:
+    """Generated Bash setup runs tool configuration in an interactive shell."""
+    tools_dir = tmp_path / "tools"
+    marker = tmp_path / "interactive-marker"
+    write_shell_scripts(tools_dir, _shell_code_tool({"bash": f'touch "{marker}"'}))
+    bash = shutil.which("bash")
+    assert bash is not None
+
+    result = subprocess.run(
+        [
+            bash,
+            "--noprofile",
+            "--norc",
+            "-i",
+            "-c",
+            'source "$1"',
+            "bash",
+            str(tools_dir / "shell" / "bash.sh"),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert marker.exists()
 
 
 @pytest.fixture
