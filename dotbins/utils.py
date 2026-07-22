@@ -223,7 +223,11 @@ def _format_shell_instructions(
         )
         if_start = "if command -v {name} >/dev/null 2>&1; then"
         if_end = "fi"
-        base_script += _add_shell_code_to_script(tools, shell, if_start, if_end)
+        tool_configurations = _add_shell_code_to_script(tools, shell, if_start, if_end)
+        if tool_configurations:
+            base_script += "\nif [[ $- == *i* ]]; then\n"
+            base_script += textwrap.indent(tool_configurations.lstrip(), "    ")
+            base_script += "fi\n"
 
         return base_script
 
