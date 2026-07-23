@@ -213,18 +213,20 @@ class Config:
             return
 
         if github_token is None and "GITHUB_TOKEN" in os.environ:  # pragma: no cover
-            log("Using GitHub token for authentication", "info", "🔑")
+            if verbose:
+                log("Using GitHub token for authentication", "info", "🔑")
             github_token = os.environ["GITHUB_TOKEN"]
 
         if pin_to_manifest:
             tool_to_tag_mapping = self.manifest.tool_to_tag_mapping()
             for tool, tool_config in self.tools.items():
                 tag = tool_to_tag_mapping.get(tool)
-                log(
-                    f"Using tag [b]{tag}[/] for tool [b]{tool}[/] from [b]manifest.json[/]",
-                    "info",
-                    "🔒",
-                )
+                if verbose:
+                    log(
+                        f"Using tag [b]{tag}[/] for tool [b]{tool}[/] from [b]manifest.json[/]",
+                        "info",
+                        "🔒",
+                    )
                 tool_config.tag = tag
 
         tools_to_sync = _tools_to_sync(self, tools)
@@ -260,7 +262,7 @@ class Config:
             self.generate_readme(verbose=verbose)
         if generate_shell_scripts:
             self.generate_shell_scripts(print_shell_setup=False)
-        _maybe_copy_config_file(copy_config_file, self.config_path, self.tools_dir)
+        _maybe_copy_config_file(copy_config_file, self.config_path, self.tools_dir, verbose)
 
     def generate_shell_scripts(self: Config, print_shell_setup: bool = True) -> None:
         """Generate shell script files for different shells.
@@ -276,6 +278,7 @@ def _maybe_copy_config_file(
     copy_config_file: bool,
     config_path: Path | None,
     tools_dir: Path,
+    verbose: bool = False,
 ) -> None:
     if not copy_config_file or config_path is None:
         return
@@ -290,7 +293,8 @@ def _maybe_copy_config_file(
         is_same = cfg1 == cfg2
         if is_same:
             return
-    log("Copying config to tools directory as `dotbins.yaml`", "info")
+    if verbose:
+        log("Copying config to tools directory as `dotbins.yaml`", "info")
     shutil.copy(config_path, tools_config_path)
 
 
@@ -377,7 +381,7 @@ class BinSpec:
         """Get the platform in the tool's convention."""
         return self.tool_config.platform_map.get(self.platform, self.platform)
 
-    def asset_pattern(self) -> str | None:
+    def asset_pattern(self, verbose: bool = False) -> str | None:
         """Get the formatted asset pattern for the tool."""
         return _maybe_asset_pattern(
             self.tool_config,
@@ -386,11 +390,12 @@ class BinSpec:
             self.tag,
             self.tool_platform,
             self.tool_arch,
+            verbose,
         )
 
-    def matching_asset(self) -> _AssetDict | None:
+    def matching_asset(self, verbose: bool = False) -> _AssetDict | None:
         """Find a matching asset for the tool."""
-        asset_pattern = self.asset_pattern()
+        asset_pattern = self.asset_pattern(verbose)
         assert self.tool_config._release_info is not None
         assets = self.tool_config._release_info["assets"]
         if asset_pattern is None:
@@ -401,10 +406,11 @@ class BinSpec:
                 self.tool_config.defaults,
                 self.tool_config.tool_name,
                 self.tool_config.repo.rsplit("/", 1)[-1],
+                verbose,
             )
-        return _find_matching_asset(asset_pattern, assets)
+        return _find_matching_asset(asset_pattern, assets, verbose)
 
-    def skip_download(self, config: Config, force: bool) -> bool:
+    def skip_download(self, config: Config, force: bool, verbose: bool = False) -> bool:
         """Check if download should be skipped (binary already exists)."""
         tool_info = config.manifest.get_tool_info(
             self.tool_config.tool_name,
@@ -418,12 +424,13 @@ class BinSpec:
         )
         if tool_info and tool_info["tag"] == self.tag and all_exist and not force:
             dt = humanize_time_ago(tool_info["updated_at"])
-            log(
-                f"[b]{self.tool_config.tool_name} {self.tag}[/] for"
-                f" [b]{self.platform}/{self.arch}[/] is already up to date"
-                f" (installed [b]{dt}[/] ago) use --force to re-download.",
-                "success",
-            )
+            if verbose:
+                log(
+                    f"[b]{self.tool_config.tool_name} {self.tag}[/] for"
+                    f" [b]{self.platform}/{self.arch}[/] is already up to date"
+                    f" (installed [b]{dt}[/] ago) use --force to re-download.",
+                    "success",
+                )
             return True
         return False
 
@@ -751,16 +758,18 @@ def _maybe_asset_pattern(
     tag: str,
     tool_platform: str,
     tool_arch: str,
+    verbose: bool = False,
 ) -> str | None:
     """Get the formatted asset pattern for the tool."""
     # asset_pattern might not contain an entry if `--current` is used
     search_pattern = tool_config.asset_patterns.get(platform, {}).get(arch)
     if search_pattern is None:
-        log(
-            f"No [b]asset_pattern[/] provided for [b]{platform}/{arch}[/]",
-            "info",
-            "ℹ️",  # noqa: RUF001
-        )
+        if verbose:
+            log(
+                f"No [b]asset_pattern[/] provided for [b]{platform}/{arch}[/]",
+                "info",
+                "ℹ️",  # noqa: RUF001
+            )
         return None
     version = tag_to_version(tag)
     return (
@@ -909,9 +918,11 @@ def _auto_detect_asset(
     defaults: DefaultsDict,
     tool_name: str,
     repo_name: str | None = None,
+    verbose: bool = False,
 ) -> _AssetDict | None:
     """Auto-detect an asset for the tool."""
-    log(f"Auto-detecting asset for [b]{platform}/{arch}[/]", "info")
+    if verbose:
+        log(f"Auto-detecting asset for [b]{platform}/{arch}[/]", "info")
     name_hints = _normalize_name_hints(tool_name, repo_name)
     detect_fn = create_system_detector(
         platform,
@@ -927,39 +938,49 @@ def _auto_detect_asset(
             assert candidates is not None
             asset_name = _select_candidate(candidates, name_hints)
             if asset_name != candidates[0]:
-                log(
-                    f"Found multiple candidates: {candidates}, selecting `{asset_name}`"
-                    " because it best matches the tool name",
-                    "info",
-                )
-            else:
+                if verbose:
+                    log(
+                        f"Found multiple candidates: {candidates}, selecting `{asset_name}`"
+                        " because it best matches the tool name",
+                        "info",
+                    )
+            elif verbose:
                 log(f"Found multiple candidates: {candidates}, selecting first", "info")
         elif candidates and tool_name in candidates:
-            log(
-                f"Found multiple candidates: {candidates}, selecting `{tool_name}`"
-                " because it perfectly matches the tool name",
-                "info",
-            )
+            if verbose:
+                log(
+                    f"Found multiple candidates: {candidates}, selecting `{tool_name}`"
+                    " because it perfectly matches the tool name",
+                    "info",
+                )
             asset_name = tool_name
         else:
-            if candidates:
-                log(f"Found multiple candidates: {candidates}, manually select one", "info", "⁉️")
+            if candidates and verbose:
+                log(
+                    f"Found multiple candidates: {candidates}, manually select one",
+                    "info",
+                    "⁉️",
+                )
             log(f"Error detecting asset: {err}", "error")
             return None
     asset = assets[asset_names.index(asset_name)]
-    log(f"Found asset: {asset['name']}", "success")
+    if verbose:
+        log(f"Found asset: {asset['name']}", "success")
     return asset
 
 
 def _find_matching_asset(
     asset_pattern: str,
     assets: list[_AssetDict],
+    verbose: bool = False,
 ) -> _AssetDict | None:
     """Find a matching asset for the tool."""
-    log(f"Looking for asset with pattern: {asset_pattern}", "info")
+    if verbose:
+        log(f"Looking for asset with pattern: {asset_pattern}", "info")
     for asset in assets:
         if re.search(asset_pattern, asset["name"]):
-            log(f"Found matching asset: {asset['name']}", "success")
+            if verbose:
+                log(f"Found matching asset: {asset['name']}", "success")
             return asset
     log(f"No asset matching '{asset_pattern}' found in {assets}", "warning")
     return None
@@ -980,6 +1001,7 @@ def _fetch_release(
             tool_config.tag_pattern,
             github_token,
             api_url=tool_config.api_url,
+            verbose=verbose,
         )
         tool_config._release_info = release_info
     except Exception as e:

@@ -33,15 +33,17 @@ def _extract_binary_from_archive(
     verbose: bool,
 ) -> None:
     """Extract binaries from an archive."""
-    log(f"Extracting from {archive_path} for {bin_spec.platform}", "info", "📦")
+    if verbose:
+        log(f"Extracting from {archive_path} for {bin_spec.platform}", "info", "📦")
     temp_dir = Path(tempfile.mkdtemp())
 
     try:
         extract_archive(archive_path, temp_dir)
-        log(f"Archive extracted to {temp_dir}", "success", "📦")
-        _log_extracted_files(temp_dir)
-        paths_in_archive = _detect_paths_in_archive(temp_dir, bin_spec.tool_config)
-        _process_binaries(temp_dir, destination_dir, paths_in_archive, bin_spec)
+        if verbose:
+            log(f"Archive extracted to {temp_dir}", "success", "📦")
+        _log_extracted_files(temp_dir, verbose)
+        paths_in_archive = _detect_paths_in_archive(temp_dir, bin_spec.tool_config, verbose)
+        _process_binaries(temp_dir, destination_dir, paths_in_archive, bin_spec, verbose)
 
     except Exception as e:
         log(f"Error extracting archive: {e}", "error", print_exception=verbose)
@@ -54,11 +56,12 @@ class AutoDetectBinaryPathsError(Exception):
     """Error raised when auto-detecting binary paths fails."""
 
 
-def _detect_paths_in_archive(temp_dir: Path, tool_config: ToolConfig) -> list[Path]:
+def _detect_paths_in_archive(temp_dir: Path, tool_config: ToolConfig, verbose: bool) -> list[Path]:
     """Auto-detect binary paths if not specified in configuration."""
     if tool_config.path_in_archive:
         return tool_config.path_in_archive
-    log("Binary path not specified, attempting auto-detection...", "info")
+    if verbose:
+        log("Binary path not specified, attempting auto-detection...", "info")
     binary_names = tool_config.binary_name
     paths_in_archive = auto_detect_paths_in_archive(temp_dir, binary_names)
     if not paths_in_archive:
@@ -66,7 +69,8 @@ def _detect_paths_in_archive(temp_dir: Path, tool_config: ToolConfig) -> list[Pa
         log(msg, "error")
         raise AutoDetectBinaryPathsError(msg)
     names = ", ".join(f"[b]{p}[/]" for p in paths_in_archive)
-    log(f"Auto-detected binary paths: {names}", "success")
+    if verbose:
+        log(f"Auto-detected binary paths: {names}", "success")
     return paths_in_archive
 
 
@@ -75,6 +79,7 @@ def _process_binaries(
     destination_dir: Path,
     paths_in_archive: list[Path],
     bin_spec: BinSpec,
+    verbose: bool,
 ) -> None:
     """Process each binary by finding it and copying to destination."""
     for path_in_archive, binary_name in zip(paths_in_archive, bin_spec.tool_config.binary_name):
@@ -85,11 +90,13 @@ def _process_binaries(
             bin_spec.tool_arch,
             bin_spec.tool_platform,
         )
-        _copy_binary_to_destination(source_path, destination_dir, binary_name)
+        _copy_binary_to_destination(source_path, destination_dir, binary_name, verbose)
 
 
-def _log_extracted_files(temp_dir: Path) -> None:
+def _log_extracted_files(temp_dir: Path, verbose: bool) -> None:
     """Log the extracted files for debugging."""
+    if not verbose:
+        return
     log("Extracted files:", "info", "ℹ️")  # noqa: RUF001
     for item in temp_dir.glob("**/*"):
         log(f"  - {item.relative_to(temp_dir)}", "info", "")
@@ -124,6 +131,7 @@ def _copy_binary_to_destination(
     source_path: Path,
     destination_dir: Path,
     binary_name: str,
+    verbose: bool = False,
 ) -> None:
     """Copy the binary to its destination and set permissions."""
     destination_dir.mkdir(parents=True, exist_ok=True)
@@ -137,7 +145,8 @@ def _copy_binary_to_destination(
         dest_path.chmod(dest_path.stat().st_mode)
     else:
         dest_path.chmod(dest_path.stat().st_mode | 0o755)
-    log(f"Copied binary to [b]{replace_home_in_path(dest_path, '~')}[/]", "success")
+    if verbose:
+        log(f"Copied binary to [b]{replace_home_in_path(dest_path, '~')}[/]", "success")
 
 
 def _replace_variables_in_path(path: str, tag: str, arch: str, platform: str) -> str:
@@ -203,7 +212,7 @@ def _prepare_download_task(
             # Means we failed to fetch the release info
             return None
         bin_spec = tool_config.bin_spec(arch, platform)
-        if bin_spec.skip_download(config, force):
+        if bin_spec.skip_download(config, force, verbose):
             config._update_summary.add_skipped_tool(
                 tool_name,
                 platform,
@@ -212,7 +221,7 @@ def _prepare_download_task(
                 reason="Already up-to-date",
             )
             return None
-        asset = bin_spec.matching_asset()
+        asset = bin_spec.matching_asset(verbose)
         if asset is None:
             config._update_summary.add_failed_tool(
                 tool_name,
@@ -267,7 +276,11 @@ def prepare_download_tasks(
     for tool_name in tools_to_sync:
         for platform in platforms_to_sync:
             if current:
-                log(f"Including current platform [b]{platform}[/] even if not configured", "info")
+                if verbose:
+                    log(
+                        f"Including current platform [b]{platform}[/] even if not configured",
+                        "info",
+                    )
             elif platform not in config.platforms:
                 config._update_summary.add_skipped_tool(
                     tool_name,
@@ -279,7 +292,13 @@ def prepare_download_tasks(
                 log(f"Skipping unknown platform: {platform}", "warning")
                 continue
 
-            archs_to_update = _determine_architectures(platform, architecture, config, current)
+            archs_to_update = _determine_architectures(
+                platform,
+                architecture,
+                config,
+                current,
+                verbose,
+            )
             if not archs_to_update:
                 config._update_summary.add_skipped_tool(
                     tool_name,
@@ -306,16 +325,55 @@ def _download_task(
 ) -> bool:
     """Download a file for a DownloadTask."""
     try:
-        log(
-            f"Downloading [b]{task.asset_name}[/] for [b]{task.tool_name}[/] ([b]{task.platform}/{task.arch}[/])...",
-            "info",
-            "📥",
-        )
+        if verbose:
+            log(
+                f"Downloading [b]{task.asset_name}[/] for [b]{task.tool_name}[/] ([b]{task.platform}/{task.arch}[/])...",
+                "info",
+                "📥",
+            )
         download_file(task.asset_url, str(task.temp_path), github_token, verbose)
         return True
     except Exception as e:
         log(f"Error downloading {task.asset_name}: {e!s}", "error", print_exception=verbose)
         return False
+
+
+def _log_sha256(sha256_hash: str, verbose: bool) -> None:
+    if verbose:
+        log(f"SHA256: {sha256_hash}", "info", "🔐")
+
+
+def _log_auto_detected_extract_archive(
+    tool_name: str,
+    extract_archive: bool,
+    verbose: bool,
+) -> None:
+    if verbose:
+        log(
+            f"Auto-detected [b]extract_archive[/] for [b]{tool_name}[/]: {extract_archive}",
+            "info",
+            "🔍",
+        )
+
+
+def _copy_non_archive_binary(task: _DownloadTask, summary: UpdateSummary, verbose: bool) -> bool:
+    binary_names = task.tool_config.binary_name
+    if len(binary_names) != 1:
+        log(
+            f"Expected exactly one binary name for {task.tool_name}, got {len(binary_names)}",
+            "error",
+        )
+        summary.add_failed_tool(
+            task.tool_name,
+            task.platform,
+            task.arch,
+            task.tag,
+            reason="Expected exactly one binary name",
+        )
+        return False
+
+    _copy_binary_to_destination(task.temp_path, task.destination_dir, binary_names[0], verbose)
+    return True
 
 
 def download_files_in_parallel(
@@ -326,7 +384,8 @@ def download_files_in_parallel(
     """Download files in parallel."""
     if not download_tasks:
         return []
-    log(f"Downloading {len(download_tasks)} tools in parallel...", "info", "🔄")
+    if verbose:
+        log(f"Downloading {len(download_tasks)} tools in parallel...", "info", "🔄")
     func = partial(_download_task, github_token=github_token, verbose=verbose)
     return execute_in_parallel(download_tasks, func, 16)
 
@@ -352,17 +411,13 @@ def _process_downloaded_task(
     try:
         # Calculate SHA256 hash before extraction
         sha256_hash = calculate_sha256(task.temp_path)
-        log(f"SHA256: {sha256_hash}", "info", "🔐")
+        _log_sha256(sha256_hash, verbose)
 
         task.destination_dir.mkdir(parents=True, exist_ok=True)
         extract_archive = task.tool_config.extract_archive
         if extract_archive is None:
             extract_archive = auto_detect_extract_archive(str(task.temp_path))
-            log(
-                f"Auto-detected [b]extract_archive[/] for [b]{task.tool_name}[/]: {extract_archive}",
-                "info",
-                "🔍",
-            )
+            _log_auto_detected_extract_archive(task.tool_name, extract_archive, verbose)
 
         if extract_archive:
             _extract_binary_from_archive(
@@ -371,30 +426,17 @@ def _process_downloaded_task(
                 task.bin_spec,
                 verbose,
             )
-        else:
-            binary_names = task.tool_config.binary_name
-            if len(binary_names) != 1:
-                log(
-                    f"Expected exactly one binary name for {task.tool_name}, got {len(binary_names)}",
-                    "error",
-                )
-                summary.add_failed_tool(
-                    task.tool_name,
-                    task.platform,
-                    task.arch,
-                    task.tag,
-                    reason="Expected exactly one binary name",
-                )
-                return False
-            binary_name = binary_names[0]
-            _copy_binary_to_destination(task.temp_path, task.destination_dir, binary_name)
+        elif not _copy_non_archive_binary(task, summary, verbose):
+            return False
     except Exception as e:
         # Differentiate error types for better reporting
-        error_prefix = "Error processing"
-        if isinstance(e, AutoDetectBinaryPathsError):
-            error_prefix = "Auto-detect binary paths error"
-        elif isinstance(e, FileNotFoundError):
-            error_prefix = "Binary not found"
+        error_prefix = (
+            "Auto-detect binary paths error"
+            if isinstance(e, AutoDetectBinaryPathsError)
+            else "Binary not found"
+            if isinstance(e, FileNotFoundError)
+            else "Error processing"
+        )
         log(f"Error processing {task.tool_name}: {e!s}", "error", print_exception=verbose)
         summary.add_failed_tool(
             task.tool_name,
@@ -421,10 +463,11 @@ def _process_downloaded_task(
             url=task.asset_url,
         )
 
-        log(
-            f"Successfully installed [b]{task.tool_name} {task.tag}[/] for [b]{task.platform}/{task.arch}[/]",
-            "success",
-        )
+        if verbose:
+            log(
+                f"Successfully installed [b]{task.tool_name} {task.tag}[/] for [b]{task.platform}/{task.arch}[/]",
+                "success",
+            )
         return True
     finally:
         if task.temp_path.exists():
@@ -441,7 +484,8 @@ def process_downloaded_files(
     """Process downloaded files."""
     if not download_successes:
         return
-    log(f"Processing {len(download_successes)} downloaded tools...", "info", "🔄")
+    if verbose:
+        log(f"Processing {len(download_successes)} downloaded tools...", "info", "🔄")
     for task, download_success in zip(download_tasks, download_successes):
         _process_downloaded_task(task, download_success, manifest, summary, verbose)
 
@@ -451,11 +495,16 @@ def _determine_architectures(
     architecture: str | None,
     config: Config,
     current: bool,
+    verbose: bool = False,
 ) -> list[str]:
     """Determine which architectures to update for a platform."""
     if current:
         assert architecture is not None
-        log(f"Including current architecture [b]{architecture}[/] even if not configured", "info")
+        if verbose:
+            log(
+                f"Including current architecture [b]{architecture}[/] even if not configured",
+                "info",
+            )
         return [architecture]
     if architecture is not None:
         # Filter to only include the specified architecture if it's supported

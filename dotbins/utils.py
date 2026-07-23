@@ -89,6 +89,7 @@ def fetch_release_info(
     tag_pattern: str | None = None,
     github_token: str | None = None,
     api_url: str | None = None,
+    verbose: bool = False,
 ) -> dict | None:
     """Fetch release information from a GitHub-compatible API for a single repository.
 
@@ -101,6 +102,7 @@ def fetch_release_info(
         github_token: GitHub API token for authentication
         api_url: Base API URL (default: "https://api.github.com").
             For Gitea/Forgejo, use e.g. "https://gitea.com/api/v1".
+        verbose: Whether to emit request/selection logs.
 
     Returns:
         Release information dict from GitHub-compatible API
@@ -111,18 +113,24 @@ def fetch_release_info(
 
     if tag is not None:
         url = f"{base}/repos/{repo}/releases/tags/{tag}"
-        log(f"Fetching release from {url}", "info")
+        if verbose:
+            log(f"Fetching release from {url}", "info")
     elif tag_pattern is not None:
         # Fetch releases and find first matching the pattern
         url = f"{base}/repos/{repo}/releases?per_page=30"
-        log(f"Fetching releases matching pattern '{tag_pattern}' from {url}", "info")
+        if verbose:
+            log(f"Fetching releases matching pattern '{tag_pattern}' from {url}", "info")
         try:
             response = _github_api_get(url, headers)
             response.raise_for_status()
             releases = response.json()
             for release in releases:
                 if re.search(tag_pattern, release["tag_name"]):
-                    log(f"Found release matching '{tag_pattern}': {release['tag_name']}", "success")
+                    if verbose:
+                        log(
+                            f"Found release matching '{tag_pattern}': {release['tag_name']}",
+                            "success",
+                        )
                     return release
             msg = f"No release matching pattern '{tag_pattern}' found in {repo}"
             raise RuntimeError(msg)
@@ -131,7 +139,8 @@ def fetch_release_info(
             raise RuntimeError(msg) from e
     else:
         url = f"{base}/repos/{repo}/releases/latest"
-        log(f"Fetching release from {url}", "info")
+        if verbose:
+            log(f"Fetching release from {url}", "info")
 
     try:
         response = _github_api_get(url, headers)
@@ -144,7 +153,8 @@ def fetch_release_info(
 
 def download_file(url: str, destination: str, github_token: str | None, verbose: bool) -> str:
     """Download a file from a URL to a destination path."""
-    log(f"Downloading from [b]{url}[/]", "info", "📥")
+    if verbose:
+        log(f"Downloading from [b]{url}[/]", "info", "📥")
     # Already verbose when fetching release info
     headers = _maybe_github_token_header(github_token)
     try:
