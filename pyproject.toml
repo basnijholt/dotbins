@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=42", "wheel", "versioningit"]
+requires = ["setuptools>=77.0.3", "versioningit"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,14 +7,26 @@ name = "dotbins"
 description = "Keep updated binaries in your dotfiles"
 dynamic = ["version"]
 authors = [{ name = "Bas Nijholt", email = "bas@nijho.lt" }]
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Topic :: Utilities",
+]
 dependencies = [
     "requests",
     "pyyaml",
     "rich>=13.9.4",
     "rich-argparse",
-    "typing-extensions>=4.11.0; python_version < '3.11'",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 
 [project.readme]
 file = "README.md"
@@ -22,6 +34,9 @@ content-type = "text/markdown"
 
 [project.urls]
 Homepage = "https://github.com/basnijholt/dotbins"
+Repository = "https://github.com/basnijholt/dotbins"
+Documentation = "https://dotbins.nijho.lt"
+Issues = "https://github.com/basnijholt/dotbins/issues"
 
 [project.scripts]
 dotbins = "dotbins.cli:main"
@@ -71,15 +86,13 @@ omit = [
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
     "T20",     # flake8-print
-    "ANN101",  # Missing type annotation for {name} in method
     "S101",    # Use of assert detected
-    "PD901",   # df is a bad variable name. Be kinder to your future self.
     "ANN401",  # Dynamically typed expressions (typing.Any) are disallowed in {name}
     "D402",    # First line should not be the function's signature
     "PLW0603", # Using the global statement to update `X` is discouraged
@@ -98,17 +111,21 @@ ignore = [
     "PLR2004", # Magic value used in comparison, consider replacing `2` with a constant variable
     "FBT003",  # Boolean positional value in function call
     "E501",    # Line too long
+    "CPY001",  # Missing copyright notice at top of file
+    "PLR0917", # Too many positional arguments
+    "D203",    # Incorrect blank line before class (conflicts with D211)
+    "D213",    # Multi-line docstring summary should start at the second line (conflicts with D212)
+    "COM812",  # Trailing comma missing (conflicts with ruff format)
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["SLF001"]
 ".github/*" = ["INP001"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 18
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.11"
 
 [tool.versioningit]
 

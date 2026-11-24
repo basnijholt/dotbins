@@ -120,7 +120,7 @@ def _get_tool(
     elif Path(source).exists():
         config = Config.from_file(source)
     else:
-        tool_name = name or source.split("/")[-1]
+        tool_name = name or source.rsplit("/", maxsplit=1)[-1]
         raw_data: RawToolConfigDict = {"repo": source, "tag": tag}
         if asset_pattern:
             raw_data["asset_patterns"] = asset_pattern

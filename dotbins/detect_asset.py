@@ -4,24 +4,19 @@ from __future__ import annotations
 
 import os.path
 import re
-import sys
+from collections.abc import Callable
 from functools import partial
 from re import Pattern
-from typing import Callable, Literal, NamedTuple, Optional
+from typing import Literal, NamedTuple, TypeAlias
 
 from .utils import SUPPORTED_ARCHIVE_EXTENSIONS
-
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:  # pragma: no cover
-    from typing_extensions import TypeAlias
 
 Asset: TypeAlias = str
 Assets: TypeAlias = list[str]
 DetectResult: TypeAlias = tuple[
     Asset,
-    Optional[Assets],  # candidates
-    Optional[str],  # error
+    Assets | None,  # candidates
+    str | None,  # error
 ]
 DetectFunc: TypeAlias = Callable[[Assets], DetectResult]
 

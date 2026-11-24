@@ -6,7 +6,7 @@ import os
 import tarfile
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
@@ -17,6 +17,8 @@ from dotbins.manifest import Manifest
 from dotbins.utils import replace_home_in_path
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from requests_mock import Mocker
 
 

@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 from dotbins.config import build_tool_config
 
@@ -26,13 +27,12 @@ CASES = [
     ("bat", "linux:gnu", "i686", "bat-v{version}-i686-unknown-linux-gnu.tar.gz"),
     ("bat", "linux:musl", "i686", "bat-v{version}-i686-unknown-linux-musl.tar.gz"),
     ("bat", "windows:msvc", "i686", "bat-v{version}-i686-pc-windows-msvc.zip"),
-    # bw: "latest" release is web-v2026.1.0, which has no CLI assets.
-    # This demonstrates the problem that tag_pattern solves - see issue #150.
-    # The CLI release (cli-v2025.12.1) has bw-linux-*.zip assets, but the
-    # global "latest" only has web-specific assets.
+    # bw: downloaded with tag_pattern="^cli-" from examples/examples.yaml.
+    # linux/amd64 and windows/amd64 zips omit architecture in filenames, so
+    # auto-detection is ambiguous (None) and explicit asset_patterns are needed.
     ("bw", "linux", "amd64", None),
-    ("bw", "linux", "arm64", None),
-    ("bw", "macos", "arm64", None),
+    ("bw", "linux", "arm64", "bw-bit-linux-arm64-{version}.zip"),
+    ("bw", "macos", "arm64", "bw-bit-macos-arm64-{version}.zip"),
     ("bw", "windows", "amd64", None),
     ("btm", "linux", "amd64", "bottom_x86_64-unknown-linux-musl.tar.gz"),
     ("btm", "linux", "arm64", "bottom_aarch64-unknown-linux-musl.tar.gz"),
@@ -69,11 +69,11 @@ CASES = [
     ("delta", "macos", "arm64", "delta-{version}-aarch64-apple-darwin.tar.gz"),
     ("delta", "windows", "amd64", "delta-{version}-x86_64-pc-windows-msvc.zip"),
     ("delta", "linux:gnu", "i686", "delta-{version}-i686-unknown-linux-gnu.tar.gz"),
-    ("difft", "linux:gnu", "amd64", "difft-x86_64-unknown-linux-gnu.tar.gz"),
-    ("difft", "linux:musl", "amd64", "difft-x86_64-unknown-linux-musl.tar.gz"),
-    ("difft", "linux", "arm64", "difft-aarch64-unknown-linux-gnu.tar.gz"),
-    ("difft", "macos", "arm64", "difft-aarch64-apple-darwin.tar.gz"),
-    ("difft", "windows", "amd64", "difft-x86_64-pc-windows-msvc.zip"),
+    ("difft", "linux:gnu", "amd64", "difft-{version}-x86_64-unknown-linux-gnu.tar.gz"),
+    ("difft", "linux:musl", "amd64", "difft-{version}-x86_64-unknown-linux-musl.tar.gz"),
+    ("difft", "linux", "arm64", "difft-{version}-aarch64-unknown-linux-gnu.tar.gz"),
+    ("difft", "macos", "arm64", "difft-{version}-aarch64-apple-darwin.tar.gz"),
+    ("difft", "windows", "amd64", "difft-{version}-x86_64-pc-windows-msvc.zip"),
     ("direnv", "linux", "amd64", "direnv.linux-amd64"),
     ("direnv", "linux", "arm64", "direnv.linux-arm64"),
     ("direnv", "macos", "arm64", "direnv.darwin-arm64"),
@@ -88,7 +88,9 @@ CASES = [
     ("dust", "linux", "arm64", "dust-v{version}-aarch64-unknown-linux-musl.tar.gz"),
     ("dust", "linux:gnu", "i686", "dust-v{version}-i686-unknown-linux-gnu.tar.gz"),
     ("dust", "linux:musl", "i686", "dust-v{version}-i686-unknown-linux-musl.tar.gz"),
-    ("dust", "windows:gnu", "i686", "dust-v{version}-i686-pc-windows-gnu.zip"),
+    ("dust", "windows:gnu", "amd64", "dust-v{version}-x86_64-pc-windows-gnu.zip"),
+    ("dust", "windows:msvc", "amd64", "dust-v{version}-x86_64-pc-windows-msvc.zip"),
+    ("dust", "windows:gnu", "i686", "dust-v{version}-i686-pc-windows-msvc.zip"),
     ("dust", "windows:msvc", "i686", "dust-v{version}-i686-pc-windows-msvc.zip"),
     ("eget", "linux", "amd64", "eget-{version}-linux_amd64.tar.gz"),
     ("eget", "linux", "arm64", "eget-{version}-linux_arm64.tar.gz"),
@@ -147,7 +149,8 @@ CASES = [
     ("hx", "macos", "arm64", "helix-{version}-aarch64-macos.tar.xz"),
     ("hyperfine", "linux:gnu", "amd64", "hyperfine-v{version}-x86_64-unknown-linux-gnu.tar.gz"),
     ("hyperfine", "linux:musl", "amd64", "hyperfine-v{version}-x86_64-unknown-linux-musl.tar.gz"),
-    ("hyperfine", "linux", "arm64", "hyperfine-v{version}-aarch64-unknown-linux-gnu.tar.gz"),
+    ("hyperfine", "linux:gnu", "arm64", "hyperfine-v{version}-aarch64-unknown-linux-gnu.tar.gz"),
+    ("hyperfine", "linux:musl", "arm64", "hyperfine-v{version}-aarch64-unknown-linux-musl.tar.gz"),
     ("hyperfine", "macos", "arm64", "hyperfine-v{version}-aarch64-apple-darwin.tar.gz"),
     ("hyperfine", "windows", "amd64", "hyperfine-v{version}-x86_64-pc-windows-msvc.zip"),
     ("hyperfine", "linux:gnu", "i686", "hyperfine-v{version}-i686-unknown-linux-gnu.tar.gz"),
@@ -356,66 +359,77 @@ def test_autodetect_asset(program: str, platform: str, arch: str, expected_asset
 
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="Skip on Windows due to cache issues")
 def test_tag_pattern_filtering() -> None:
-    """Test that tag_pattern correctly filters releases to find the right one.
+    """Test that tag_pattern and shipped examples.yaml patterns work for bitwarden/clients.
 
     This tests the fix for issue #150 - repos like bitwarden/clients that release
     multiple products from the same repository.
     """
+    # Load the shipped bw entry from examples/examples.yaml
+    examples_yaml = Path(__file__).parent.parent / "examples" / "examples.yaml"
+    with open(examples_yaml) as f:
+        bw_raw_config = yaml.safe_load(f)["tools"]["bw"]
+
     # Load the releases list JSON (not the single "latest" release)
     json_file = Path(__file__).parent / "release_jsons" / "bw_releases.json"
     with open(json_file) as f:
         releases_data = json.load(f)
 
-    tag_pattern = "^cli-"
+    tag_pattern = bw_raw_config["tag_pattern"]
 
     # Find the first release matching the pattern (simulating fetch_release_info behavior)
-    matching_release = None
-    for release in releases_data:
-        if re.search(tag_pattern, release["tag_name"]):
-            matching_release = release
-            break
+    matching_release = next(
+        (release for release in releases_data if re.search(tag_pattern, release["tag_name"])),
+        None,
+    )
 
-    # Key assertion: tag_pattern found the CLI release, not the web release
+    # Key assertion: tag_pattern found the CLI release, not the web/desktop release
     assert matching_release is not None, f"No release matching '{tag_pattern}'"
     assert matching_release["tag_name"].startswith("cli-"), (
         f"Expected CLI release but got {matching_release['tag_name']}"
     )
 
-    # Verify the release has CLI assets (not web assets)
+    # Verify the release has CLI assets (not web/desktop assets)
     asset_names = [a["name"] for a in matching_release["assets"]]
-    assert any("bw-linux" in name for name in asset_names), "CLI release should have bw-linux asset"
+    assert any("bw-bit-linux" in name for name in asset_names), (
+        "CLI release should have bw-bit-linux asset"
+    )
     assert not any("selfhosted" in name for name in asset_names), (
         "CLI release should not have web selfhosted assets"
     )
 
-    # Now test with explicit asset_patterns to verify full integration
-    # Note: Since tag is "cli-v2025.12.1", {version} becomes the full tag.
-    # Use a regex pattern that matches the actual asset naming convention.
+    # Verify the shipped examples/examples.yaml asset_patterns across all configured
+    # platforms/arches, including reversed asset order so amd64 never matches arm64.
     defaults = {
         "windows_abi": "msvc",
         "libc": "musl",
         "prefer_appimage": True,
     }
+    platforms = {
+        platform: list(arches) for platform, arches in bw_raw_config["asset_patterns"].items()
+    }
+    expected_patterns = {
+        ("linux", "amd64"): r"bw-bit-linux-\d+\.\d+\.\d+\.zip",
+        ("linux", "arm64"): r"bw-bit-linux-arm64-\d+\.\d+\.\d+\.zip",
+        ("macos", "amd64"): r"bw-bit-macos-\d+\.\d+\.\d+\.zip",
+        ("macos", "arm64"): r"bw-bit-macos-arm64-\d+\.\d+\.\d+\.zip",
+        ("windows", "amd64"): r"bw-bit-windows-\d+\.\d+\.\d+\.zip",
+    }
 
     tool_config = build_tool_config(
         tool_name="bw",
-        raw_data={
-            "repo": "bitwarden/clients",
-            "tag_pattern": tag_pattern,
-            # Use regex pattern since Bitwarden's version in assets differs from tag
-            "asset_patterns": {"macos": {"arm64": r"bw-macos-arm64-\d+\.\d+\.\d+\.zip"}},
-        },
-        platforms={"macos": ["arm64"]},
+        raw_data=bw_raw_config,
+        platforms=platforms,
         defaults=defaults,  # type: ignore[arg-type]
     )
 
-    tool_config._release_info = matching_release
-
-    bin_spec = tool_config.bin_spec("arm64", "macos")
-    matching_asset = bin_spec.matching_asset()
-
-    assert matching_asset is not None
-    assert "bw-macos-arm64" in matching_asset["name"]
+    reversed_release = {**matching_release, "assets": list(reversed(matching_release["assets"]))}
+    for release_info in (matching_release, reversed_release):
+        tool_config._release_info = release_info
+        for platform, arches in platforms.items():
+            for arch in arches:
+                matching_asset = tool_config.bin_spec(arch, platform).matching_asset()
+                assert matching_asset is not None
+                assert re.fullmatch(expected_patterns[(platform, arch)], matching_asset["name"])
 
 
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="Skip on Windows due to cache issues")

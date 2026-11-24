@@ -3,8 +3,8 @@
 import os
 import tarfile
 import zipfile
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 from unittest.mock import MagicMock, patch
 
 import pytest

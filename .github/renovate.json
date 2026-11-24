@@ -18,8 +18,7 @@
             ],
             "addLabels": [
                 "github_actions"
-            ],
-            "rangeStrategy": "pin"
+            ]
         },
         {
             "matchManagers": [

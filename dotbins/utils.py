@@ -19,12 +19,14 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
 import requests
 from rich.console import Console
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from .config import ToolConfig
 
 console = Console()
@@ -151,8 +153,7 @@ def download_file(url: str, destination: str, github_token: str | None, verbose:
         response = requests.get(url, stream=True, timeout=30, headers=headers)
         response.raise_for_status()
         with open(destination, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
+            f.writelines(response.iter_content(chunk_size=8192))
         return destination
     except requests.RequestException as e:
         log(f"Download failed: {e}", "error", print_exception=verbose)

@@ -77,7 +77,9 @@ def _process_binaries(
     bin_spec: BinSpec,
 ) -> None:
     """Process each binary by finding it and copying to destination."""
-    for path_in_archive, binary_name in zip(paths_in_archive, bin_spec.tool_config.binary_name):
+    for path_in_archive, binary_name in zip(
+        paths_in_archive, bin_spec.tool_config.binary_name, strict=False
+    ):
         source_path = _find_binary_in_extracted_files(
             temp_dir,
             str(path_in_archive),
@@ -272,7 +274,7 @@ def prepare_download_tasks(
                 config._update_summary.add_skipped_tool(
                     tool_name,
                     platform,
-                    architecture if architecture else "Unknown",
+                    architecture or "Unknown",
                     tag="Unknown",
                     reason="Platform not configured",
                 )
@@ -284,7 +286,7 @@ def prepare_download_tasks(
                 config._update_summary.add_skipped_tool(
                     tool_name,
                     platform,
-                    architecture if architecture else "Unknown",
+                    architecture or "Unknown",
                     tag="Unknown",
                     reason="No architectures configured",
                 )
@@ -442,7 +444,7 @@ def process_downloaded_files(
     if not download_successes:
         return
     log(f"Processing {len(download_successes)} downloaded tools...", "info", "🔄")
-    for task, download_success in zip(download_tasks, download_successes):
+    for task, download_success in zip(download_tasks, download_successes, strict=True):
         _process_downloaded_task(task, download_success, manifest, summary, verbose)
 
 
