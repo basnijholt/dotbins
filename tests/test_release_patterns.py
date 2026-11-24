@@ -4,10 +4,11 @@ import json
 import re
 import sys
 from pathlib import Path
+from typing import cast
 
 import pytest
 
-from dotbins.config import build_tool_config
+from dotbins.config import RawToolConfigDict, build_tool_config
 
 CASES = [
     ("atuin", "linux", "amd64", "atuin-x86_64-unknown-linux-musl.tar.gz"),
@@ -397,14 +398,19 @@ def test_tag_pattern_filtering() -> None:
         "prefer_appimage": True,
     }
 
+    raw_data: RawToolConfigDict = {
+        "repo": "bitwarden/clients",
+        "tag_pattern": tag_pattern,
+        # Use regex pattern since Bitwarden's version in assets differs from tag
+        "asset_patterns": cast(
+            "dict[str, dict[str, str | None]]",
+            {"macos": {"arm64": r"bw-macos-arm64-\d+\.\d+\.\d+\.zip"}},
+        ),
+    }
+
     tool_config = build_tool_config(
         tool_name="bw",
-        raw_data={
-            "repo": "bitwarden/clients",
-            "tag_pattern": tag_pattern,
-            # Use regex pattern since Bitwarden's version in assets differs from tag
-            "asset_patterns": {"macos": {"arm64": r"bw-macos-arm64-\d+\.\d+\.\d+\.zip"}},
-        },
+        raw_data=raw_data,
         platforms={"macos": ["arm64"]},
         defaults=defaults,  # type: ignore[arg-type]
     )
