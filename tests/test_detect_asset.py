@@ -258,3 +258,16 @@ def test_sort_arch_order() -> None:
         "app-linux-i386.tar.gz",
     ]
     assert error == "4 arch matches found"
+
+
+def test_system_detector_skips_update_binaries() -> None:
+    """Test that cargo-dist '-update' helper binaries without extensions are skipped."""
+    detector = _detect_system(OSLinux, ArchAMD64, "musl", "msvc", True)
+    assets = [
+        "atuin-x86_64-unknown-linux-gnu-update",
+        "atuin-x86_64-unknown-linux-gnu.tar.gz",
+    ]
+    match, candidates, error = detector(assets)
+    assert match == "atuin-x86_64-unknown-linux-gnu.tar.gz"
+    assert candidates is None
+    assert error is None

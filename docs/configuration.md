@@ -287,12 +287,16 @@ bw:
   tag_pattern: "^cli-"  # Only consider releases starting with "cli-"
   asset_patterns:
     linux:
-      amd64: bw-oss-linux-.*\.zip
+      arm64: bw-bit-linux-arm64-.*\.zip
+      amd64: bw-bit-linux-\d.*\.zip
     macos:
-      arm64: bw-oss-macos-arm64-.*\.zip
+      arm64: bw-bit-macos-arm64-.*\.zip
+      amd64: bw-bit-macos-\d.*\.zip
+    windows:
+      amd64: bw-bit-windows-\d.*\.zip
 ```
 
-The `tag_pattern` is a regex that filters which releases to consider when finding the "latest" version. Without it, dotbins would get the globally latest release (which might be `web-v2026.1.0` instead of the CLI release `cli-v2025.12.1`).
+The `tag_pattern` is a regex that filters which releases to consider when finding the "latest" version. Without it, dotbins would get the globally latest release (which might be `web-v2026.11.0` or `desktop-v2026.11.0` instead of the CLI release `cli-v2026.11.0`).
 
 Common patterns:
 - `^cli-` - Releases starting with "cli-"
@@ -488,12 +492,13 @@ tools:
     tag_pattern: "^cli-"  # Filter releases to only CLI (not web/desktop/browser)
     asset_patterns:
       linux:
-        amd64: bw-oss-linux-.*\.zip
+        arm64: bw-bit-linux-arm64-.*\.zip
+        amd64: bw-bit-linux-\d.*\.zip
       macos:
-        arm64: bw-oss-macos-arm64-.*\.zip
-        amd64: bw-oss-macos-.*\.zip
+        arm64: bw-bit-macos-arm64-.*\.zip
+        amd64: bw-bit-macos-\d.*\.zip
       windows:
-        amd64: bw-oss-windows-.*\.zip
+        amd64: bw-bit-windows-\d.*\.zip
   btop: aristocratos/btop         # Resource monitor and process viewer
   caddy: caddyserver/caddy        # Web server with automatic HTTPS
   choose: theryangeary/choose     # Cut alternative with a simpler syntax
