@@ -15,6 +15,7 @@ import requests
 import yaml
 
 from .detect_asset import create_system_detector
+from .detect_binary import is_exec
 from .download import download_files_in_parallel, prepare_download_tasks, process_downloaded_files
 from .manifest import Manifest
 from .readme import write_readme_file
@@ -176,23 +177,12 @@ class Config:
         generate_readme: bool = True,
         copy_config_file: bool = False,
         github_token: str | None = None,
-        verbose: bool = False,
         generate_shell_scripts: bool = True,
         pin_to_manifest: bool = False,
+        cleanup: bool = False,
+        verbose: bool = False,
     ) -> None:
         """Install and update tools to their latest versions.
-
-        This is the core functionality of dotbins. It handles:
-        1. First-time installation of tools
-        2. Updating existing tools to their latest versions
-        3. Organizing binaries by platform and architecture
-
-        The process:
-        - Fetches the latest releases from GitHub for each tool
-        - Determines which tools need to be installed or updated
-        - Downloads and extracts binaries for each platform/architecture
-        - Makes binaries executable and tracks their versions
-        - Optionally generates documentation and shell integration
 
         Args:
             tools: Specific tools to process (None = all tools in config)
@@ -203,9 +193,10 @@ class Config:
             generate_readme: If True, create or update README.md with tool info
             copy_config_file: If True, copy config file to tools directory
             github_token: GitHub API token for authentication (helps with rate limits)
-            verbose: If True, show detailed logs during the process
             generate_shell_scripts: If True, generate shell scripts for the tools
             pin_to_manifest: If True, use the tag from the `manifest.json` file
+            cleanup: If True, remove unused binaries and clean version store
+            verbose: If True, show detailed logs during the process
 
         """
         if not self.tools:
@@ -253,6 +244,9 @@ class Config:
         )
         self.make_binaries_executable()
 
+        if cleanup:
+            self._cleanup_unused_binaries(verbose)
+
         # Display the summary
         display_update_summary(self._update_summary)
 
@@ -270,6 +264,10 @@ class Config:
         """
         write_shell_scripts(self.tools_dir, self.tools, print_shell_setup)
         log("To see the shell setup instructions, run `dotbins init`", "info", "ℹ️")  # noqa: RUF001
+
+    def _cleanup_unused_binaries(self, verbose: bool = False) -> None:
+        """Remove binaries that are not associated with any known tool and clean version store."""
+        _remove_unused_binaries(self, verbose)
 
 
 def _maybe_copy_config_file(
@@ -992,3 +990,45 @@ def _fetch_release(
             reason=msg,
         )
         log(msg, "error", print_exception=verbose)
+
+
+def _expected_binary_paths(config: Config) -> list[Path]:
+    """Return a list of binary paths that are expected to be installed."""
+    return [
+        (config.bin_dir(platform, arch) / name).absolute()
+        for tool_config in config.tools.values()
+        for platform, architectures in config.platforms.items()
+        for arch in architectures
+        for name in tool_config.binary_name
+    ]
+
+
+def _actual_binary_paths(config: Config) -> list[Path]:
+    """Return a list of actual binary paths that are installed."""
+    return [
+        path.absolute()
+        for path in config.tools_dir.glob("*/*/bin/*")
+        if path.is_file() and is_exec(path.name, path.stat().st_mode)
+    ]
+
+
+def _unused_binary_paths(config: Config) -> list[Path]:
+    """Return a list of unused binary paths."""
+    expected = _expected_binary_paths(config)
+    actual = _actual_binary_paths(config)
+    return [path for path in actual if path not in expected]
+
+
+def _remove_unused_binaries(config: Config, verbose: bool = False) -> None:
+    """Remove unused binaries."""
+    unused = _unused_binary_paths(config)
+    for path in unused:
+        path_nice = replace_home_in_path(path, "~")
+        log(f"Removing unused binary: {path_nice}", "info", "🧹")
+        try:
+            path.unlink()
+            log(f"Removed unused binary: {path_nice}", "success")
+        except OSError as e:
+            log(f"Failed to remove {path_nice}: {e}", "error")
+            if verbose:
+                log(f"Error details: {e}", "error", print_exception=True)
