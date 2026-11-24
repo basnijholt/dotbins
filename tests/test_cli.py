@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 from typing import TYPE_CHECKING, Any
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from dotbins import cli
 from dotbins.config import Config, build_tool_config
@@ -146,10 +146,6 @@ def test_cli_argument_parsing() -> None:
 
 def test_get_tool_with_asset_pattern(tmp_path: Path) -> None:
     """Test _get_tool properly passes asset_pattern to build_tool_config."""
-    from unittest.mock import MagicMock
-
-    from dotbins.config import Config
-
     # Mock sync_tools to avoid actual network calls
     mock_summary = MagicMock()
     mock_summary.failed = False

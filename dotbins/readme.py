@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import datetime
 import math
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, NamedTuple
 
 from rich.console import Console
@@ -51,7 +51,7 @@ def _format_timestamp(timestamp: str) -> str:
         return timestamp  # pragma: no cover
 
     try:
-        dt = datetime.datetime.fromisoformat(timestamp)
+        dt = datetime.fromisoformat(timestamp)
         return dt.strftime("%b %d, %Y")
     except (ValueError, TypeError):  # pragma: no cover
         return timestamp
@@ -331,7 +331,7 @@ def _generate_additional_info() -> list[str]:
     return [
         "## ℹ️ Additional Information",  # noqa: RUF001
         "",
-        f"* This README was automatically generated on {datetime.datetime.now().strftime('%b %d, %Y')}",
+        f"* This README was automatically generated on {datetime.now().strftime('%b %d, %Y')}",
         f"* Current platform: **{current_platform_name}/{current_arch_name}**",
         "* For more information on dotbins, visit https://github.com/basnijholt/dotbins",
     ]
@@ -363,9 +363,11 @@ def generate_readme_content(config: Config) -> str:
         "",
         "## 📦 What is dotbins?",
         "",
-        "**dotbins** is a utility for managing CLI tool binaries in your dotfiles repository."
-        " It downloads and organizes binaries for popular command-line tools across multiple platforms"
-        " (macOS, Linux) and architectures (amd64, arm64).",
+        (
+            "**dotbins** is a utility for managing CLI tool binaries in your dotfiles repository."
+            " It downloads and organizes binaries for popular command-line tools across multiple platforms"
+            " (macOS, Linux) and architectures (amd64, arm64)."
+        ),
         "",
         "**Key features:**",
         "",

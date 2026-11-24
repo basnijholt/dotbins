@@ -7,6 +7,7 @@ import os
 import shutil
 import subprocess
 import tarfile
+import time
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -20,6 +21,7 @@ from dotbins.config import ToolConfig
 from dotbins.utils import (
     _format_shell_instructions,
     _github_api_get,
+    current_platform,
     extract_archive,
     fetch_release_info,
     github_url_to_raw_url,
@@ -64,8 +66,6 @@ def test_noninteractive_bash_keeps_path_but_skips_tool_configuration(tmp_path: P
         {"sh": _shell_code_tool("sh", {"bash": f'touch "{marker}"'})},
     )
     assert BASH_EXECUTABLE is not None
-
-    from dotbins.utils import current_platform
 
     operating_system, architecture = current_platform()
     expected_bin_dir = tools_dir / operating_system / architecture / "bin"
@@ -327,7 +327,7 @@ def test_extraction_error(archive_dirs: tuple[Path, Path, Path]) -> None:
         f.write(b"corrupted data")
 
     # This should raise because it's not a valid gzip file
-    with pytest.raises((ValueError, tarfile.ReadError), match=".*"):
+    with pytest.raises((ValueError, tarfile.ReadError), match=r".*"):
         extract_archive(archive_path, dest_dir)
 
 
@@ -434,6 +434,7 @@ class TestFetchReleaseInfoTagPattern:
 
             # Pattern to exclude prereleases
             result = fetch_release_info("owner/repo", tag_pattern=r"^v\d+\.\d+\.\d+$")
+            assert result is not None
             assert result["tag_name"] == "v1.0.0"
 
     def test_tag_pattern_network_error(self) -> None:
@@ -540,8 +541,6 @@ class TestGitHubApiRateLimiting:
 
     def test_rate_limit_waits_and_retries(self) -> None:
         """Test that rate limiting triggers wait and retry."""
-        import time
-
         # Create mock responses: first rate limited, then success
         rate_limited_response = type(
             "Response",
@@ -602,8 +601,6 @@ class TestGitHubApiRateLimiting:
 
     def test_max_retries_exceeded(self) -> None:
         """Test that retries stop after 3 attempts."""
-        import time
-
         rate_limited_response = type(
             "Response",
             (),

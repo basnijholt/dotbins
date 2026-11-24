@@ -1025,12 +1025,12 @@ tools:
     tag_pattern: "^cli-"  # Filter releases to only CLI (not web/desktop/browser)
     asset_patterns:
       linux:
-        amd64: bw-linux-.*\.zip
+        amd64: bw-oss-linux-.*\.zip
       macos:
-        arm64: bw-macos-arm64-.*\.zip
-        amd64: bw-macos-.*\.zip
+        arm64: bw-oss-macos-arm64-.*\.zip
+        amd64: bw-oss-macos-.*\.zip
       windows:
-        amd64: bw-windows-.*\.zip
+        amd64: bw-oss-windows-.*\.zip
   btop: aristocratos/btop         # Resource monitor and process viewer
   caddy: caddyserver/caddy        # Web server with automatic HTTPS
   choose: theryangeary/choose     # Cut alternative with a simpler syntax

@@ -7,7 +7,7 @@ import tarfile
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn
 from unittest.mock import patch
 
 import pytest
@@ -18,6 +18,8 @@ from dotbins.config import Config, RawConfigDict, RawToolConfigDict
 from dotbins.utils import current_platform, log
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from requests_mock import Mocker
 
 
@@ -99,7 +101,7 @@ def run_e2e_test(
         verbose: bool,  # noqa: ARG001
     ) -> str:
         # Extract tool name from URL
-        parts = url.split("/")[-1].split("-")
+        parts = url.rsplit("/", maxsplit=1)[-1].split("-")
         tool_name = parts[0]
 
         # Create a dummy archive with the right name
@@ -529,7 +531,7 @@ def test_e2e_sync_tools_specific_platform(tmp_path: Path, create_dummy_archive: 
                 "extract_archive": True,
                 "binary_name": "mybinary",
                 "path_in_archive": "mybinary",
-                "asset_patterns": {  # type: ignore[typeddict-item]
+                "asset_patterns": {
                     "linux": {
                         "amd64": "mytool-{version}-linux_amd64.tar.gz",
                         "arm64": "mytool-{version}-linux_arm64.tar.gz",
@@ -708,7 +710,7 @@ def test_get_tool_command_with_remote_config(
         api_url: str | None = None,  # noqa: ARG001
     ) -> dict:
         log(f"Getting release info for repo: {repo}", "info")
-        tool_name = repo.split("/")[-1]
+        tool_name = repo.rsplit("/", maxsplit=1)[-1]
         return {
             "tag_name": "v1.0.0",
             "assets": [
@@ -726,7 +728,7 @@ def test_get_tool_command_with_remote_config(
         verbose: bool,  # noqa: ARG001
     ) -> str:
         log(f"Downloading from {url} to {destination}", "info")
-        tool_name = url.split("/")[-1].split("-")[0]
+        tool_name = url.rsplit("/", maxsplit=1)[-1].split("-", maxsplit=1)[0]
         log(f"Creating archive for {tool_name}", "info")
         create_dummy_archive(Path(destination), binary_names=tool_name)
         return destination
@@ -779,7 +781,7 @@ def test_get_tool_command_with_local_config(
         api_url: str | None = None,  # noqa: ARG001
     ) -> dict:
         log(f"Getting release info for repo: {repo}", "info")
-        tool_name = repo.split("/")[-1]
+        tool_name = repo.rsplit("/", maxsplit=1)[-1]
         return {
             "tag_name": "v1.0.0",
             "assets": [
@@ -797,7 +799,7 @@ def test_get_tool_command_with_local_config(
         verbose: bool,  # noqa: ARG001
     ) -> str:
         log(f"Downloading from {url} to {destination}", "info")
-        tool_name = url.split("/")[-1].split("-")[0]
+        tool_name = url.rsplit("/", maxsplit=1)[-1].split("-", maxsplit=1)[0]
         log(f"Creating archive for {tool_name}", "info")
         create_dummy_archive(Path(destination), binary_names=tool_name)
         return destination
@@ -860,7 +862,7 @@ def test_copy_config_file(
         verbose: bool,  # noqa: ARG001
     ) -> str:
         log(f"Downloading from {url} to {destination}", "info")
-        tool_name = url.split("/")[-1].split("-")[0]
+        tool_name = url.rsplit("/", maxsplit=1)[-1].split("-", maxsplit=1)[0]
         log(f"Creating archive for {tool_name}", "info")
         create_dummy_archive(Path(destination), binary_names=tool_name)
         return destination
@@ -1875,7 +1877,7 @@ def test_tool_shell_code_in_shell_scripts(
         github_token: str | None,  # noqa: ARG001
         verbose: bool,  # noqa: ARG001
     ) -> str:
-        binary_name = url.split("/")[-1].split("-")[0]
+        binary_name = url.rsplit("/", maxsplit=1)[-1].split("-", maxsplit=1)[0]
         create_dummy_archive(Path(destination), binary_name)
         return destination
 
@@ -1971,7 +1973,7 @@ def test_eza_arch_detection(
                     "asset_patterns": {
                         "linux": "eza_{arch}-unknown-linux-gnu.tar.gz",
                         "macos": None,
-                    },  # type: ignore[typeddict-item]
+                    },
                 },
             },
         },

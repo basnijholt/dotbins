@@ -26,13 +26,12 @@ CASES = [
     ("bat", "linux:gnu", "i686", "bat-v{version}-i686-unknown-linux-gnu.tar.gz"),
     ("bat", "linux:musl", "i686", "bat-v{version}-i686-unknown-linux-musl.tar.gz"),
     ("bat", "windows:msvc", "i686", "bat-v{version}-i686-pc-windows-msvc.zip"),
-    # bw: "latest" release is web-v2026.1.0, which has no CLI assets.
-    # This demonstrates the problem that tag_pattern solves - see issue #150.
-    # The CLI release (cli-v2025.12.1) has bw-linux-*.zip assets, but the
-    # global "latest" only has web-specific assets.
+    # bw: downloaded with tag_pattern="^cli-" from examples/examples.yaml.
+    # linux/amd64 and windows/amd64 zips omit architecture in filenames, so
+    # auto-detection is ambiguous (None) and explicit asset_patterns are needed.
     ("bw", "linux", "amd64", None),
-    ("bw", "linux", "arm64", None),
-    ("bw", "macos", "arm64", None),
+    ("bw", "linux", "arm64", "bw-bit-linux-arm64-{version}.zip"),
+    ("bw", "macos", "arm64", "bw-bit-macos-arm64-{version}.zip"),
     ("bw", "windows", "amd64", None),
     ("btm", "linux", "amd64", "bottom_x86_64-unknown-linux-musl.tar.gz"),
     ("btm", "linux", "arm64", "bottom_aarch64-unknown-linux-musl.tar.gz"),
@@ -69,11 +68,11 @@ CASES = [
     ("delta", "macos", "arm64", "delta-{version}-aarch64-apple-darwin.tar.gz"),
     ("delta", "windows", "amd64", "delta-{version}-x86_64-pc-windows-msvc.zip"),
     ("delta", "linux:gnu", "i686", "delta-{version}-i686-unknown-linux-gnu.tar.gz"),
-    ("difft", "linux:gnu", "amd64", "difft-x86_64-unknown-linux-gnu.tar.gz"),
-    ("difft", "linux:musl", "amd64", "difft-x86_64-unknown-linux-musl.tar.gz"),
-    ("difft", "linux", "arm64", "difft-aarch64-unknown-linux-gnu.tar.gz"),
-    ("difft", "macos", "arm64", "difft-aarch64-apple-darwin.tar.gz"),
-    ("difft", "windows", "amd64", "difft-x86_64-pc-windows-msvc.zip"),
+    ("difft", "linux:gnu", "amd64", "difft-{version}-x86_64-unknown-linux-gnu.tar.gz"),
+    ("difft", "linux:musl", "amd64", "difft-{version}-x86_64-unknown-linux-musl.tar.gz"),
+    ("difft", "linux", "arm64", "difft-{version}-aarch64-unknown-linux-gnu.tar.gz"),
+    ("difft", "macos", "arm64", "difft-{version}-aarch64-apple-darwin.tar.gz"),
+    ("difft", "windows", "amd64", "difft-{version}-x86_64-pc-windows-msvc.zip"),
     ("direnv", "linux", "amd64", "direnv.linux-amd64"),
     ("direnv", "linux", "arm64", "direnv.linux-arm64"),
     ("direnv", "macos", "arm64", "direnv.darwin-arm64"),
@@ -88,7 +87,9 @@ CASES = [
     ("dust", "linux", "arm64", "dust-v{version}-aarch64-unknown-linux-musl.tar.gz"),
     ("dust", "linux:gnu", "i686", "dust-v{version}-i686-unknown-linux-gnu.tar.gz"),
     ("dust", "linux:musl", "i686", "dust-v{version}-i686-unknown-linux-musl.tar.gz"),
-    ("dust", "windows:gnu", "i686", "dust-v{version}-i686-pc-windows-gnu.zip"),
+    ("dust", "windows:gnu", "amd64", "dust-v{version}-x86_64-pc-windows-gnu.zip"),
+    ("dust", "windows:msvc", "amd64", "dust-v{version}-x86_64-pc-windows-msvc.zip"),
+    ("dust", "windows:gnu", "i686", "dust-v{version}-i686-pc-windows-msvc.zip"),
     ("dust", "windows:msvc", "i686", "dust-v{version}-i686-pc-windows-msvc.zip"),
     ("eget", "linux", "amd64", "eget-{version}-linux_amd64.tar.gz"),
     ("eget", "linux", "arm64", "eget-{version}-linux_arm64.tar.gz"),
@@ -147,7 +148,8 @@ CASES = [
     ("hx", "macos", "arm64", "helix-{version}-aarch64-macos.tar.xz"),
     ("hyperfine", "linux:gnu", "amd64", "hyperfine-v{version}-x86_64-unknown-linux-gnu.tar.gz"),
     ("hyperfine", "linux:musl", "amd64", "hyperfine-v{version}-x86_64-unknown-linux-musl.tar.gz"),
-    ("hyperfine", "linux", "arm64", "hyperfine-v{version}-aarch64-unknown-linux-gnu.tar.gz"),
+    ("hyperfine", "linux:gnu", "arm64", "hyperfine-v{version}-aarch64-unknown-linux-gnu.tar.gz"),
+    ("hyperfine", "linux:musl", "arm64", "hyperfine-v{version}-aarch64-unknown-linux-musl.tar.gz"),
     ("hyperfine", "macos", "arm64", "hyperfine-v{version}-aarch64-apple-darwin.tar.gz"),
     ("hyperfine", "windows", "amd64", "hyperfine-v{version}-x86_64-pc-windows-msvc.zip"),
     ("hyperfine", "linux:gnu", "i686", "hyperfine-v{version}-i686-unknown-linux-gnu.tar.gz"),
@@ -381,15 +383,17 @@ def test_tag_pattern_filtering() -> None:
         f"Expected CLI release but got {matching_release['tag_name']}"
     )
 
-    # Verify the release has CLI assets (not web assets)
+    # Verify the release has CLI assets (not web/desktop assets)
     asset_names = [a["name"] for a in matching_release["assets"]]
-    assert any("bw-linux" in name for name in asset_names), "CLI release should have bw-linux asset"
+    assert any("bw-oss-linux" in name for name in asset_names), (
+        "CLI release should have bw-oss-linux asset"
+    )
     assert not any("selfhosted" in name for name in asset_names), (
         "CLI release should not have web selfhosted assets"
     )
 
     # Now test with explicit asset_patterns to verify full integration
-    # Note: Since tag is "cli-v2025.12.1", {version} becomes the full tag.
+    # Note: Since tag is e.g. "cli-v2026.11.0", {version} becomes the full tag.
     # Use a regex pattern that matches the actual asset naming convention.
     defaults = {
         "windows_abi": "msvc",
@@ -403,7 +407,7 @@ def test_tag_pattern_filtering() -> None:
             "repo": "bitwarden/clients",
             "tag_pattern": tag_pattern,
             # Use regex pattern since Bitwarden's version in assets differs from tag
-            "asset_patterns": {"macos": {"arm64": r"bw-macos-arm64-\d+\.\d+\.\d+\.zip"}},
+            "asset_patterns": {"macos": {"arm64": r"bw-oss-macos-arm64-\d+\.\d+\.\d+\.zip"}},
         },
         platforms={"macos": ["arm64"]},
         defaults=defaults,  # type: ignore[arg-type]
@@ -415,7 +419,7 @@ def test_tag_pattern_filtering() -> None:
     matching_asset = bin_spec.matching_asset()
 
     assert matching_asset is not None
-    assert "bw-macos-arm64" in matching_asset["name"]
+    assert "bw-oss-macos-arm64" in matching_asset["name"]
 
 
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="Skip on Windows due to cache issues")

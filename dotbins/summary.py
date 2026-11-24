@@ -5,6 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from rich.console import Console
+from rich.table import Table
+
 from .utils import tag_to_version
 
 
@@ -126,9 +129,6 @@ def display_update_summary(summary: UpdateSummary) -> None:
         summary: An UpdateSummary object with information about updated, failed, and skipped tools
 
     """
-    from rich.console import Console
-    from rich.table import Table
-
     console = Console()
 
     console.print("\n[bold]📊 Update Summary[/bold]\n")

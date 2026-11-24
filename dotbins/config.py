@@ -6,10 +6,11 @@ import os
 import re
 import shutil
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from functools import cached_property, partial
 from pathlib import Path
-from typing import Literal, TypedDict
+from typing import Literal, Required, TypedDict
 
 import requests
 import yaml
@@ -31,11 +32,6 @@ from .utils import (
     tag_to_version,
     write_shell_scripts,
 )
-
-if sys.version_info >= (3, 11):
-    from typing import Required
-else:  # pragma: no cover
-    from typing_extensions import Required
 
 DEFAULT_TOOLS_DIR = "~/.dotbins"
 DEFAULT_PREFER_APPIMAGE = True
@@ -72,7 +68,7 @@ class Config:
     tools_dir: Path = field(default=Path(os.path.expanduser(DEFAULT_TOOLS_DIR)))
     platforms: dict[str, list[str]] = field(default_factory=_default_platforms)
     tools: dict[str, ToolConfig] = field(default_factory=dict)
-    defaults: DefaultsDict = field(default_factory=lambda: DEFAULTS.copy())
+    defaults: DefaultsDict = field(default_factory=DEFAULTS.copy)
     config_path: Path | None = field(default=None, init=False)
     _bin_dir: Path | None = field(default=None, init=False)
     _update_summary: UpdateSummary = field(default_factory=UpdateSummary, init=False)
@@ -332,7 +328,7 @@ class ToolConfig:
     platform_map: dict[str, str] = field(default_factory=dict)
     arch_map: dict[str, str] = field(default_factory=dict)
     shell_code: dict[str, str] = field(default_factory=dict)
-    defaults: DefaultsDict = field(default_factory=lambda: DEFAULTS.copy())
+    defaults: DefaultsDict = field(default_factory=DEFAULTS.copy)
     api_url: str | None = None
     _release_info: dict | None = field(default=None, init=False)
 
@@ -453,7 +449,7 @@ class RawToolConfigDict(TypedDict, total=False):
     arch_map: dict[str, str]  # Map from system architecture to tool's architecture name
     binary_name: str | list[str]  # Name(s) of the binary file(s)
     path_in_archive: str | list[str]  # Path(s) to binary within archive
-    asset_patterns: str | dict[str, str] | dict[str, dict[str, str | None]]
+    asset_patterns: str | Mapping[str, str | Mapping[str, str | None] | None] | None
     shell_code: str | dict[str, str] | None  # Shell code to configure the tool
     tag: str | None  # Tag to use for the binary (if None, the latest release will be used)
     tag_pattern: str | None  # Regex to filter releases (e.g., "^cli-" for bitwarden/clients)
@@ -588,8 +584,6 @@ def _config_from_dict(data: RawConfigDict) -> Config:
 
 def config_from_url(config_url: str) -> Config:
     """Download a configuration file from a URL and return a Config object."""
-    from .config import Config
-
     config_url = github_url_to_raw_url(config_url)
     try:
         response = requests.get(config_url, timeout=30)
@@ -609,7 +603,7 @@ def config_from_url(config_url: str) -> Config:
 
 def _normalize_asset_patterns(  # noqa: PLR0912
     tool_name: str,
-    patterns: str | dict[str, str] | dict[str, dict[str, str | None]] | None,
+    patterns: str | Mapping[str, str | Mapping[str, str | None] | None] | None,
     platforms: dict[str, list[str]],
 ) -> dict[str, dict[str, str | None]]:
     """Normalize the asset_patterns into a dict.
@@ -632,7 +626,7 @@ def _normalize_asset_patterns(  # noqa: PLR0912
         return normalized
 
     # If user gave a dict, it might be "platform: pattern" or "platform: {arch: pattern}"
-    if isinstance(patterns, dict):
+    if isinstance(patterns, Mapping):
         for platform, p_val in patterns.items():
             # Skip unknown platforms
             if platform not in normalized:
@@ -647,7 +641,7 @@ def _normalize_asset_patterns(  # noqa: PLR0912
                 for arch in normalized[platform]:
                     normalized[platform][arch] = p_val
             # Otherwise it might be {arch: pattern}
-            elif isinstance(p_val, dict):
+            elif isinstance(p_val, Mapping):
                 for arch, pattern_str in p_val.items():
                     if arch in normalized[platform]:
                         normalized[platform][arch] = pattern_str
